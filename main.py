@@ -199,5 +199,36 @@ def scrape_tool(url:str)->str:
     content=markdownify(html=html)
     return f'Scraped the contents of the entire webpage:\n{content}'
 
+@mcp.tool(name='Browser-Tool',description='Launch Microsoft Edge browser and navigate to a specified URL. If no URL is provided, opens Edge to the default home page.')
+def browser_tool(url: str = None) -> str:
+    try:
+        # Launch Edge
+        launch_result, status = desktop.launch_app("msedge")
+        if status != 0:
+            return f'Failed to launch Microsoft Edge.'
+        
+        # Wait for Edge to load
+        pg.sleep(2)
+        
+        if url:
+            # Navigate to the specified URL
+            # Focus the address bar (Ctrl+L)
+            pg.hotkey('ctrl', 'l')
+            pg.sleep(0.5)
+            
+            # Type the URL
+            pg.typewrite(url, interval=0.05)
+            pg.sleep(0.5)
+            
+            # Press Enter to navigate
+            pg.press('enter')
+            
+            return f'Launched Microsoft Edge and navigated to {url}'
+        else:
+            return 'Launched Microsoft Edge with default home page'
+            
+    except Exception as e:
+        return f'Error launching Edge browser: {str(e)}'
+
 if __name__ == "__main__":
     mcp.run()

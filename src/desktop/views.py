@@ -96,32 +96,109 @@ class Desktop:
             return str(e), 1
     
     def switch_app(self, name: str) -> Tuple[str, int]:
-        """Switch to an application window"""
+        """Switch to an application window using PowerShell-based approach"""
         try:
-            # First try to find by window title
-            windows = ua.FindWindows(lambda win, _: name.lower() in win.Name.lower() if win.Name else False)
-            if windows:
-                window = windows[0]
-                window.SetForegroundWindow()
-                return f"Switched to {name}", 0
+            name_lower = name.lower().strip()
             
-            # Then try to find by process name
-            for proc in psutil.process_iter(['pid', 'name']):
-                try:
-                    proc_name = proc.info['name'].lower()
-                    if (name.lower() in proc_name or 
-                        proc_name.startswith(name.lower()) or
-                        proc_name.replace('.exe', '') == name.lower()):
-                        windows = ua.FindWindows(processId=proc.info['pid'])
-                        if windows:
-                            for window in windows:
-                                if window.IsTopLevel and window.Visible:
-                                    window.SetForegroundWindow()
-                                    return f"Switched to {name}", 0
-                except (psutil.NoSuchProcess, psutil.AccessDenied, AttributeError):
-                    continue
+            # Create comprehensive PowerShell script for window switching
+            ps_command = f'''
+            # Define app name mappings for common applications
+            $appMappings = @{{
+                'calculator' = @('CalculatorApp', 'Calculator')
+                'calc' = @('CalculatorApp', 'Calculator')
+                'notepad' = @('Notepad')
+                'chrome' = @('chrome', 'Google Chrome')
+                'edge' = @('msedge', 'Microsoft Edge', 'MicrosoftEdge')
+                'firefox' = @('firefox', 'Mozilla Firefox')
+                'code' = @('Code', 'Visual Studio Code')
+                'vscode' = @('Code', 'Visual Studio Code')
+                'explorer' = @('explorer', 'File Explorer')
+                'powershell' = @('powershell', 'Windows PowerShell')
+                'cmd' = @('cmd', 'Command Prompt')
+            }}
+            
+            $targetName = "{name_lower}"
+            $searchTerms = @($targetName)
+            
+            # Add mapped terms if available
+            if ($appMappings.ContainsKey($targetName)) {{
+                $searchTerms += $appMappings[$targetName]
+            }}
+            
+            # Find processes with main windows
+            $candidates = @()
+            foreach ($term in $searchTerms) {{
+                $processes = Get-Process | Where-Object {{
+                    $_.MainWindowTitle -ne "" -and (
+                        $_.ProcessName -like "*$term*" -or 
+                        $_.MainWindowTitle -like "*$term*" -or
+                        $_.ProcessName -eq $term
+                    )
+                }}
+                $candidates += $processes
+            }}
+            
+            # Remove duplicates
+            $candidates = $candidates | Sort-Object Id -Unique
+            
+            if ($candidates.Count -gt 0) {{
+                $process = $candidates[0]
+                
+                # Import Win32 functions
+                Add-Type -TypeDefinition @'
+                using System;
+                using System.Runtime.InteropServices;
+                public class Win32 {{
+                    [DllImport("user32.dll")]
+                    public static extern bool SetForegroundWindow(IntPtr hWnd);
+                    [DllImport("user32.dll")]
+                    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+                    [DllImport("user32.dll")]
+                    public static extern bool IsIconic(IntPtr hWnd);
+                }}
+'@
+                
+                try {{
+                    # Restore window if minimized
+                    if ([Win32]::IsIconic($process.MainWindowHandle)) {{
+                        [Win32]::ShowWindow($process.MainWindowHandle, 9) | Out-Null
+                    }}
+                    
+                    # Bring window to foreground
+                    $result = [Win32]::SetForegroundWindow($process.MainWindowHandle)
+                    
+                    if ($result) {{
+                        Write-Output "SUCCESS:$($process.MainWindowTitle)"
+                    }} else {{
+                        Write-Output "FAILED:Could not set foreground"
+                    }}
+                }} catch {{
+                    Write-Output "ERROR:$($_.Exception.Message)"
+                }}
+            }} else {{
+                Write-Output "NOTFOUND:No matching window found"
+            }}
+            '''
+            
+            result = subprocess.run(['powershell', '-Command', ps_command], 
+                                  capture_output=True, text=True, timeout=15)
+            
+            if result.returncode == 0:
+                output = result.stdout.strip()
+                if output.startswith("SUCCESS:"):
+                    window_title = output.split("SUCCESS:", 1)[1]
+                    return f"Switched to {window_title}", 0
+                elif output.startswith("FAILED:"):
+                    error_msg = output.split("FAILED:", 1)[1]
+                    return f"Failed to switch to {name}: {error_msg}", 1
+                elif output.startswith("NOTFOUND:"):
+                    return f"Could not find window for {name}", 1
+                elif output.startswith("ERROR:"):
+                    error_msg = output.split("ERROR:", 1)[1]
+                    return f"Error switching to {name}: {error_msg}", 1
             
             return f"Could not find window for {name}", 1
+            
         except Exception as e:
             return f"Failed to switch to {name}: {str(e)}", 1
     
