@@ -1,0 +1,14 @@
+{
+  "mcp.servers": {
+    "darbot-windows-mcp": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "${workspaceFolder}",
+        "run",
+        "main.py"
+      ],
+      "env": {}
+    }
+  }
+}
