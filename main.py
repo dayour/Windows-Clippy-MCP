@@ -112,14 +112,14 @@ def click_tool(x: int, y: int, button:Literal['left','right','middle']='left',cl
     return f'{num_clicks.get(clicks)} {button} Clicked on {control.Name} Element with ControlType {control.ControlTypeName} at ({x},{y}).'
 
 @mcp.tool(name='Type-Tool',description='Type text into input fields, text areas, or focused elements. Set clear=True to replace existing text, False to append. Click on target element coordinates first.')
-def type_tool(x: int, y: int, text:str,clear:bool=False):
+def type_tool(x: int, y: int, text:str,clear:bool=False) -> str:
     pg.click(x=x, y=y)
     control=desktop.get_element_under_cursor()
     if clear:  # Fixed: compare boolean directly instead of string
         pg.hotkey('ctrl','a')
         pg.press('backspace')
     pg.typewrite(text,interval=0.1)
-    return f'Typed {text} on {control.Name} Element with ControlType {control.ControlTypeName} at ({x},{y}).'
+    return f'Typed "{text}" on {control.Name} Element with ControlType {control.ControlTypeName} at ({x},{y}).'
 
 @mcp.tool(name='Switch-Tool',description='Switch to a specific application window (e.g., "notepad", "calculator", "chrome", etc.) and bring to foreground.')
 def switch_tool(name: str) -> str:
@@ -130,50 +130,43 @@ def switch_tool(name: str) -> str:
         return f'Switched to {name.title()} window.'
 
 @mcp.tool(name='Scroll-Tool',description='Scroll at specific coordinates or current mouse position. Use wheel_times to control scroll amount (1 wheel = ~3-5 lines). Essential for navigating lists, web pages, and long content.')
-def scroll_tool(x: int = None, y: int = None, type:Literal['horizontal','vertical']='vertical',direction:Literal['up','down','left','right']='down',wheel_times:int=1)->str:
+def scroll_tool(x: int = None, y: int = None, direction:Literal['up','down','left','right']='down',wheel_times:int=3)->str:
     if x is not None and y is not None:
         pg.moveTo(x, y)
-    match type:
-        case 'vertical':
-            match direction:
-                case 'up':
-                    ua.WheelUp(wheel_times)
-                case 'down':
-                    ua.WheelDown(wheel_times)
-                case _:
-                    return 'Invalid direction. Use "up" or "down".'
-        case 'horizontal':
-            match direction:
-                case 'left':
-                    pg.keyDown('Shift')
-                    pg.sleep(0.05)
-                    ua.WheelUp(wheel_times)
-                    pg.sleep(0.05)
-                    pg.keyUp('Shift')
-                case 'right':
-                    pg.keyDown('Shift')
-                    pg.sleep(0.05)
-                    ua.WheelDown(wheel_times)
-                    pg.sleep(0.05)
-                    pg.keyUp('Shift')
-                case _:
-                    return 'Invalid direction. Use "left" or "right".'
+    
+    match direction:
+        case 'up':
+            ua.WheelUp(wheel_times)
+        case 'down':
+            ua.WheelDown(wheel_times)
+        case 'left':
+            pg.keyDown('shift')
+            pg.sleep(0.05)
+            ua.WheelUp(wheel_times)
+            pg.sleep(0.05)
+            pg.keyUp('shift')
+        case 'right':
+            pg.keyDown('shift')
+            pg.sleep(0.05)
+            ua.WheelDown(wheel_times)
+            pg.sleep(0.05)
+            pg.keyUp('shift')
         case _:
-            return 'Invalid type. Use "horizontal" or "vertical".'
-    return f'Scrolled {type} {direction} by {wheel_times} wheel times.'
+            return f'Invalid direction "{direction}". Use: up, down, left, right.'
+    
+    return f'Scrolled {direction} by {wheel_times} wheel times.'
 
-@mcp.tool(name='Drag-Tool',description='Drag and drop operation from source coordinates to destination coordinates. Useful for moving files, resizing windows, or drag-and-drop interactions.')
-def drag_tool(from_x: int, from_y: int, to_x: int, to_y: int)->str:
+@mcp.tool(name='Drag-Tool', description='Drag and drop operation from source coordinates to destination coordinates. Useful for moving files, resizing windows, or drag-and-drop interactions.')
+def drag_tool(from_x: int, from_y: int, to_x: int, to_y: int) -> str:
     # Move to start position, press mouse down, drag to end, release
     pg.moveTo(from_x, from_y)
     pg.mouseDown()
     pg.moveTo(to_x, to_y, duration=0.5)
     pg.mouseUp()
-    control=desktop.get_element_under_cursor()
     return f'Dragged element from ({from_x},{from_y}) to ({to_x},{to_y}).'
 
-@mcp.tool(name='Move-Tool',description='Move mouse cursor to specific coordinates without clicking. Useful for hovering over elements or positioning cursor before other actions.')
-def move_tool(x: int, y: int)->str:
+@mcp.tool(name='Move-Tool', description='Move mouse cursor to specific coordinates without clicking. Useful for hovering over elements or positioning cursor before other actions.')
+def move_tool(x: int, y: int) -> str:
     pg.moveTo(x, y)
     return f'Moved the mouse pointer to ({x},{y}).'
 
