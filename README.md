@@ -22,6 +22,8 @@ Darbot Windows MCP is a lightweight, open-source **Model Context Protocol (MCP)*
 
 It exposes 15 tools that cover everyday desktop automation—launching apps, clicking, typing, scrolling, getting UI state, and more—while hiding all the Windows Accessibility and input-synthesis complexity behind a simple HTTP/stdio interface.
 
+**All 15 tools have been validated and are working in VS Code agent mode!** ✅
+
 ---
 
 ## ✨ Key Features
@@ -65,6 +67,7 @@ It exposes 15 tools that cover everyday desktop automation—launching apps, cli
 
 ## ⚡ Quick Start (VS Code Agent Mode)
 
+### Local Installation (Per Workspace)
 
 1. **Clone the repository:**
 ```shell
@@ -74,11 +77,16 @@ cd Darbot-Windows-MCP
 
 2. **Install dependencies:**
 ```shell
-cd Darbot-Windows-MCP
 uv sync
 ```
 
-3. **Configure MCP in VS Code:**
+3. **Test the server (optional):**
+```shell
+uv run main.py
+# Press Ctrl+C to stop
+```
+
+4. **Configure MCP in VS Code:**
 
 Create or update `.vscode/mcp.json` in the root your workspace:
 ```json
@@ -99,7 +107,7 @@ Create or update `.vscode/mcp.json` in the root your workspace:
 }
 ```
 
-4. **Configure VS Code settings:**
+5. **Configure VS Code settings:**
 
 Create or update `.vscode/settings.json` in the root your workspace:
 ```json
@@ -119,7 +127,77 @@ Create or update `.vscode/settings.json` in the root your workspace:
 }
 ```
 
-5. **Restart VS Code** and start using Darbot Windows MCP tools in agent mode! 🚀
+6. **Restart VS Code** and start using Darbot Windows MCP tools in agent mode! 🚀
+
+### Global Installation (All Workspaces)
+
+For global installation that works across all VS Code workspaces:
+
+1. **Install globally with UV:**
+```shell
+# Clone to a global location
+git clone https://github.com/dayour/Darbot-Windows-MCP.git %USERPROFILE%\darbot-windows-mcp
+cd %USERPROFILE%\darbot-windows-mcp
+uv sync
+```
+
+2. **Create global MCP configuration:**
+
+Add to your global VS Code settings (`%APPDATA%\Code\User\settings.json`):
+```json
+{
+  "mcp.servers": {
+    "darbot-windows-mcp": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "%USERPROFILE%\\darbot-windows-mcp",
+        "run",
+        "main.py"
+      ],
+      "env": {}
+    }
+  }
+}
+```
+
+3. **Alternative: Use UV global install:**
+```shell
+# From the cloned directory
+uv tool install --editable .
+# Then reference the global tool in MCP config
+```
+
+### Troubleshooting
+
+#### MCP Server Not Working
+1. **Restart the MCP server:**
+   ```shell
+   cd Darbot-Windows-MCP
+   uv run main.py
+   # Check for errors, then Ctrl+C to stop
+   ```
+
+2. **Restart VS Code completely:**
+   - Close all VS Code windows
+   - Reopen your workspace
+   - Wait for MCP connection to establish
+
+3. **Check MCP server status:**
+   - Open VS Code Developer Tools (Help → Toggle Developer Tools)
+   - Look for MCP connection errors in console
+
+#### Tools Not Responding
+- Ensure Windows UI Automation is enabled
+- Run VS Code as Administrator if needed
+- Check that no other automation tools are conflicting
+
+#### Dependencies Issues
+```shell
+# Reinstall dependencies
+cd Darbot-Windows-MCP
+uv sync --reinstall
+```
 ```
 
 
