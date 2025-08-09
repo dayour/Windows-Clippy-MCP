@@ -3,25 +3,25 @@ Change the name and description fields.
 
 ```json
 {
-  "name": "Darbot Windows MCP",
-  "description": "Lightweight MCP Server that enables Claude to interact with Windows OS"
+  "name": "Windows Clippy MCP",
+  "description": "Your friendly AI assistant for Windows desktop automation and Microsoft 365 integration"
 }
 ```
 
 ### 2. Update `README.md`
-Change all instances of "Windows-MCP" to "Darbot Windows MCP". Here’s an updated excerpt:
+Change all instances of "Windows-MCP" to "Windows Clippy MCP". Here’s an updated excerpt:
 
 ```markdown
-# 🪟 Darbot Windows MCP
+# 📎 Windows Clippy MCP
 
-**Darbot Windows MCP** is a lightweight, open-source project that enables seamless integration between AI agents and the Windows operating system. Acting as an MCP server bridges the gap between LLMs and the Windows operating system, allowing agents to perform tasks such as **file navigation, application control, UI interaction, QA testing,** and more.
+**Windows Clippy MCP** is your friendly AI assistant that brings the helpful spirit of the classic Microsoft Office assistant to modern desktop automation.
 
 ## Updates
 
-- **🆕 VS Code Agent Mode Support** - Darbot Windows MCP now fully supports VS Code's native MCP integration
+- **🆕 VS Code Agent Mode Support** - Windows Clippy MCP now fully supports VS Code's native MCP integration
 - **🔧 Schema Validation Fixed** - Resolved all MCP JSON schema validation errors for seamless tool integration
-- Try out [Windows-Use](https://github.com/CursorTouch/Windows-Use), the agent build using Darbot Windows MCP.
-- Darbot Windows MCP is now featured in Claude Desktop.
+- **📎 Microsoft 365 Integration** - Added tools for Power Platform, Graph API, and M365 Copilot
+- **🆕 Rebranded** - Evolved from Windows Clippy MCP to Windows Clippy MCP with expanded capabilities
 
 ### Supported Operating Systems
 
@@ -34,17 +34,17 @@ Change all instances of "Windows-MCP" to "Darbot Windows MCP". Here’s an updat
 
 ### VS Code Agent Mode
 
-VS Code now has native MCP support through agent mode. Follow these steps to set up Darbot Windows MCP:
+VS Code now has native MCP support through agent mode. Follow these steps to set up Windows Clippy MCP:
 
 1. **Clone the repository:**
 ```shell
-git clone https://github.com/CursorTouch/Darbot-Windows-MCP.git
-cd Darbot-Windows-MCP
+git clone https://github.com/dayour/Windows-Clippy-MCP.git
+cd Windows-Clippy-MCP
 ```
 
 2. **Install dependencies:**
 ```shell
-cd Darbot-Windows-MCP
+cd Windows-Clippy-MCP
 uv sync
 ```
 
@@ -54,12 +54,12 @@ Create or update `.vscode/mcp.json` in your workspace:
 ```json
 {
   "servers": {
-    "darbot-windows-mcp": {
+    "windows-clippy-mcp": {
       "type": "stdio",
       "command": "uv",
       "args": [
         "--directory",
-        "${workspaceFolder}/Darbot-Windows-MCP",
+        "${workspaceFolder}/Windows-Clippy-MCP",
         "run",
         "main.py"
       ]
@@ -75,11 +75,11 @@ Create or update `.vscode/settings.json`:
 ```json
 {
   "mcp.servers": {
-    "darbot-windows-mcp": {
+    "windows-clippy-mcp": {
       "command": "uv",
       "args": [
         "--directory",
-        "${workspaceFolder}/Darbot-Windows-MCP",
+        "${workspaceFolder}/Windows-Clippy-MCP",
         "run",
         "main.py"
       ],
@@ -89,11 +89,11 @@ Create or update `.vscode/settings.json`:
 }
 ```
 
-5. **Restart VS Code** and start using Darbot Windows MCP tools in agent mode! 🚀
+5. **Restart VS Code** and start using Windows Clippy MCP tools in agent mode! 🚀
 ```
 
 ### 3. Update `CHANGELOG.md`
-Change all instances of "Windows-MCP" to "Darbot Windows MCP". Here’s an updated excerpt:
+Change all instances of "Windows-MCP" to "Windows Clippy MCP". Here’s an updated excerpt:
 
 ```markdown
 ## [v0.2.0] - 2025-07-22
@@ -105,33 +105,33 @@ Change all instances of "Windows-MCP" to "Darbot Windows MCP". Here’s an updat
 - **Updated Parameter Types**: Replaced `tuple[int,int]` parameters with separate `x: int, y: int` parameters for better MCP compatibility
 - **Fixed List Type Annotations**: Changed `list[str]` to `List[str]` with proper import
 
-#### 🆕 **Darbot Windows MCP Integration**
+#### 🆕 **Windows Clippy MCP Integration**
 - **Added MCP Configuration**: Created `.vscode/mcp.json` with proper server configuration
-- **Updated VS Code Settings**: Fixed `.vscode/settings.json` to properly configure darbot-windows-mcp server
+- **Updated VS Code Settings**: Fixed `.vscode/settings.json` to properly configure windows-clippy-mcp server
 - **Full VS Code Agent Mode Support**: All tools now work seamlessly with VS Code's MCP integration
 ```
 
 ### 4. Update `CONTRIBUTING.md`
-Change all instances of "Windows-MCP" to "Darbot Windows MCP". Here’s an updated excerpt:
+Change all instances of "Windows-MCP" to "Windows Clippy MCP". Here’s an updated excerpt:
 
 ```markdown
-# Contributing to Darbot Windows MCP
+# Contributing to Windows Clippy MCP
 
-Thank you for your interest in contributing to Darbot Windows MCP! This document provides guidelines and instructions for contributing to this project.
+Thank you for your interest in contributing to Windows Clippy MCP! This document provides guidelines and instructions for contributing to this project.
 ```
 
 ### 5. Update `mcp.json`
-Change the server name from "windows-mcp" to "darbot-windows-mcp".
+Change the server name from "windows-mcp" to "windows-clippy-mcp".
 
 ```json
 {
 	"servers": {
-		"darbot-windows-mcp": {
+		"windows-clippy-mcp": {
 			"type": "stdio",
 			"command": "uv",
 			"args": [
 				"--directory",
-				"${workspaceFolder}/Darbot-Windows-MCP",
+				"${workspaceFolder}/Windows-Clippy-MCP",
 				"run",
 				"main.py"
 			]
@@ -142,16 +142,16 @@ Change the server name from "windows-mcp" to "darbot-windows-mcp".
 ```
 
 ### 6. Update `settings.json`
-Change the server name from "windows-mcp" to "darbot-windows-mcp".
+Change the server name from "windows-mcp" to "windows-clippy-mcp".
 
 ```json
 {
   "mcp.servers": {
-    "darbot-windows-mcp": {
+    "windows-clippy-mcp": {
       "command": "uv",
       "args": [
         "--directory",
-        "${workspaceFolder}/Darbot-Windows-MCP",
+        "${workspaceFolder}/Windows-Clippy-MCP",
         "run",
         "main.py"
       ],
@@ -162,7 +162,7 @@ Change the server name from "windows-mcp" to "darbot-windows-mcp".
 ```
 
 ### Summary of Changes
-- **Renamed**: All instances of "Windows-MCP" to "Darbot Windows MCP".
+- **Renamed**: All instances of "Windows-MCP" to "Windows Clippy MCP".
 - **Updated**: Configuration files and documentation to reflect the new name.
 - **Ensured**: Consistency across all files.
 

@@ -1,4 +1,4 @@
-## Process for Adding New Tools to Darbot Windows MCP
+## Process for Adding New Tools to Windows Clippy MCP
 
 ### 1. **Tool Planning & Design**
 - **Identify the purpose**: Define what the tool should accomplish
@@ -110,7 +110,7 @@ def tool_function(param1: type, param2: type = default) -> str:
 #### **Pre-requisites for Automated Tool Addition**
 - Ensure MCP server is not running before making changes
 - Have VS Code with GitHub Copilot agent mode enabled
-- Working directory must be the Darbot-Windows-MCP folder
+- Working directory must be the Windows-Clippy-MCP folder
 
 #### **Step-by-Step Commands for Copilot**
 ```bash
@@ -193,7 +193,7 @@ def action_tool(x: int, y: int, parameter: str) -> str:
 
 #### **File Organization**
 ```
-Darbot-Windows-MCP/
+Windows-Clippy-MCP/
 ├── main.py          # All MCP tools defined here
 ├── src/desktop/views.py  # Desktop class implementation
 ├── README.md        # Documentation with tools table
@@ -256,4 +256,4 @@ Ensure descriptions are:
 - Include key parameters mentioned
 - Consistent with existing style
 
-This comprehensive approach ensures new tools integrate seamlessly with the existing Darbot Windows MCP framework while maintaining code quality, documentation accuracy, and consistent user experience. The additional sections provide specific guidance for GitHub Copilot agent mode automation and common development patterns.
+This comprehensive approach ensures new tools integrate seamlessly with the existing Windows Clippy MCP framework while maintaining code quality, documentation accuracy, and consistent user experience. The additional sections provide specific guidance for GitHub Copilot agent mode automation and common development patterns.
