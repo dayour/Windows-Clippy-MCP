@@ -222,16 +222,35 @@ uv sync --reinstall
 
 ## 📦 Prerequisites
 
+### Core Requirements
 • Python 3.13+  
 • [UV](https://github.com/astral-sh/uv) `pip install uv`  
 • English Windows locale (for consistent UI Automation tree)
+
+### Microsoft 365 & Power Platform Tools (Optional)
+For full Microsoft 365 integration functionality, install these PowerShell modules:
+
+```powershell
+# Microsoft Graph PowerShell SDK
+Install-Module Microsoft.Graph -Scope CurrentUser
+
+# Power Platform CLI
+# Download from: https://docs.microsoft.com/en-us/power-platform/developer/cli/introduction
+
+# Microsoft Teams PowerShell
+Install-Module MicrosoftTeams -Scope CurrentUser
+```
+
+Note: Microsoft 365 tools require appropriate licenses and permissions for your organization.
 
 ---
 
 ## 🚧 Limitations
 
 • Fine-grained text selection is pending.  
-• `Type-Tool` types whole blocks; not optimised for coding heavy files.
+• `Type-Tool` types whole blocks; not optimised for coding heavy files.  
+• Microsoft 365 tools require proper licenses, PowerShell modules, and API permissions.  
+• Some M365 Copilot features may require enterprise licenses and admin configuration.
 
 ---
 
