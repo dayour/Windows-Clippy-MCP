@@ -1,14 +1,14 @@
 [project]
-name = "darbot-windows-mcp"
+name = "windows-clippy-mcp"
 version = "0.1.69"
-description = "Lightweight MCP Server for interacting with Windows Operating System."
+description = "Windows Clippy MCP - Your friendly AI assistant for Windows desktop automation and Microsoft 365 integration."
 authors = [
-    { name = "DarbotLabs", email = "darbot@timelarp.com" }
+    { name = "Windows Clippy MCP Contributors", email = "support@windows-clippy-mcp.com" }
 ]
 readme = "README.md"
 license = { file = "LICENSE" }
-urls = { homepage = "https://github.com/dayour" }
-keywords = ["windows", "mcp", "ai", "desktop","ai agent"]
+urls = { homepage = "https://github.com/dayour/Windows-Clippy-MCP" }
+keywords = ["windows", "mcp", "ai", "desktop", "ai agent", "clippy", "microsoft", "m365", "copilot"]
 requires-python = ">=3.13"
 dependencies = [
     "fastmcp>=2.8.1",
