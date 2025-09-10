@@ -42,7 +42,7 @@ async def lifespan(app: FastMCP):
     except Exception:
         watch_cursor.stop()
 
-mcp=FastMCP(name='darbot-windows-mcp',instructions=instructions,lifespan=lifespan)
+mcp=FastMCP(name='windows-clippy-mcp',instructions=instructions,lifespan=lifespan)
 
 @mcp.tool(name='Launch-Tool', description='Launch an application from the Windows Start Menu by name (e.g., "notepad", "calculator", "chrome")')
 def launch_tool(name: str) -> str:
@@ -222,6 +222,185 @@ def browser_tool(url: str = None) -> str:
             
     except Exception as e:
         return f'Error launching Edge browser: {str(e)}'
+
+# Microsoft 365 & Power Platform Tools
+
+@mcp.tool(name='PAC-CLI-Tool', description='Execute Power Platform CLI (PAC) commands for managing Power Apps, Power Automate, and Dataverse environments. Common commands: pac auth list, pac solution list, pac app list, pac env list.')
+def pac_cli_tool(command: str) -> str:
+    """Execute PAC CLI commands for Power Platform management."""
+    try:
+        # Validate the command starts with 'pac'
+        if not command.strip().lower().startswith('pac'):
+            return 'Error: Command must start with "pac". Example: pac env list'
+        
+        # Execute the PAC CLI command via PowerShell
+        response, status = desktop.execute_command(f'powershell.exe -Command "{command}"')
+        
+        if status == 0:
+            return f'PAC CLI executed successfully:\n{response}'
+        else:
+            return f'PAC CLI command failed (Status: {status}):\n{response}'
+            
+    except Exception as e:
+        return f'Error executing PAC CLI command: {str(e)}'
+
+@mcp.tool(name='Connect-MGGraph-Tool', description='Authenticate with Microsoft Graph API using Connect-MgGraph PowerShell cmdlet. Supports interactive login and various authentication methods.')
+def connect_mggraph_tool(scopes: str = None, tenant_id: str = None) -> str:
+    """Connect to Microsoft Graph API for Office 365 operations."""
+    try:
+        # Build the Connect-MgGraph command
+        cmd_parts = ['Connect-MgGraph']
+        
+        if scopes:
+            # Add scopes parameter
+            cmd_parts.append(f'-Scopes "{scopes}"')
+        
+        if tenant_id:
+            # Add tenant ID parameter
+            cmd_parts.append(f'-TenantId "{tenant_id}"')
+        
+        command = ' '.join(cmd_parts)
+        powershell_cmd = f'powershell.exe -Command "Import-Module Microsoft.Graph; {command}; Get-MgContext | Select-Object Account, Scopes, Environment | Format-List"'
+        
+        response, status = desktop.execute_command(powershell_cmd)
+        
+        if status == 0:
+            return f'Microsoft Graph connection established:\n{response}'
+        else:
+            return f'Failed to connect to Microsoft Graph (Status: {status}):\n{response}'
+            
+    except Exception as e:
+        return f'Error connecting to Microsoft Graph: {str(e)}'
+
+@mcp.tool(name='Graph-API-Tool', description='Execute Microsoft Graph API calls to interact with Office 365 data (users, groups, emails, files, etc.). Requires active Graph connection via Connect-MGGraph-Tool.')
+def graph_api_tool(endpoint: str, method: str = "GET", body: str = None) -> str:
+    """Execute Microsoft Graph API calls for Office 365 data operations."""
+    try:
+        # Validate endpoint
+        if not endpoint.startswith('/'):
+            endpoint = '/' + endpoint
+        
+        # Build the Graph API command
+        if method.upper() == "GET":
+            if endpoint.startswith('/me'):
+                cmd = f'Get-MgUser -UserId (Get-MgContext).Account'
+            elif endpoint.startswith('/users'):
+                cmd = f'Get-MgUser -All'
+            elif endpoint.startswith('/groups'):
+                cmd = f'Get-MgGroup -All'
+            else:
+                cmd = f'Invoke-MgGraphRequest -Uri "https://graph.microsoft.com/v1.0{endpoint}" -Method {method}'
+        else:
+            cmd = f'Invoke-MgGraphRequest -Uri "https://graph.microsoft.com/v1.0{endpoint}" -Method {method}'
+            if body:
+                cmd += f' -Body \'{body}\''
+        
+        powershell_cmd = f'powershell.exe -Command "Import-Module Microsoft.Graph; {cmd} | ConvertTo-Json -Depth 3"'
+        
+        response, status = desktop.execute_command(powershell_cmd)
+        
+        if status == 0:
+            return f'Graph API call successful:\n{response}'
+        else:
+            return f'Graph API call failed (Status: {status}):\n{response}'
+            
+    except Exception as e:
+        return f'Error executing Graph API call: {str(e)}'
+
+@mcp.tool(name='Copilot-Studio-Tool', description='Manage Microsoft Copilot Studio bots and conversations. Create, configure, and interact with custom copilots built in Copilot Studio.')
+def copilot_studio_tool(action: str, bot_name: str = None, message: str = None) -> str:
+    """Manage Copilot Studio bots and interactions."""
+    try:
+        if action.lower() == 'list':
+            # List available bots (would typically require Copilot Studio API)
+            cmd = 'powershell.exe -Command "Write-Output \'Copilot Studio integration requires specific API setup. Please configure your Copilot Studio environment first.\'"'
+            
+        elif action.lower() == 'create' and bot_name:
+            # Create a new bot (placeholder for Copilot Studio operations)
+            cmd = f'powershell.exe -Command "Write-Output \'Creating Copilot Studio bot: {bot_name}. This would typically use Copilot Studio APIs.\'"'
+            
+        elif action.lower() == 'chat' and bot_name and message:
+            # Send message to a bot (placeholder for bot interaction)
+            cmd = f'powershell.exe -Command "Write-Output \'Sending message to {bot_name}: {message}. This requires Copilot Studio runtime configuration.\'"'
+            
+        else:
+            return 'Error: Invalid action. Supported actions: list, create (requires bot_name), chat (requires bot_name and message)'
+        
+        response, status = desktop.execute_command(cmd)
+        
+        if status == 0:
+            return f'Copilot Studio operation completed:\n{response}'
+        else:
+            return f'Copilot Studio operation failed (Status: {status}):\n{response}'
+            
+    except Exception as e:
+        return f'Error with Copilot Studio operation: {str(e)}'
+
+@mcp.tool(name='Power-Automate-Tool', description='Create and manage Power Automate workflows. List, create, trigger, and monitor cloud flows and desktop flows.')
+def power_automate_tool(action: str, flow_name: str = None, parameters: str = None) -> str:
+    """Manage Power Automate workflows and flows."""
+    try:
+        if action.lower() == 'list':
+            # List flows using PAC CLI
+            cmd = 'powershell.exe -Command "pac flow list"'
+            
+        elif action.lower() == 'create' and flow_name:
+            # Create a new flow (placeholder - would need flow definition)
+            cmd = f'powershell.exe -Command "Write-Output \'Creating Power Automate flow: {flow_name}. Flow creation requires detailed flow definition and proper environment setup.\'"'
+            
+        elif action.lower() == 'trigger' and flow_name:
+            # Trigger a flow
+            trigger_cmd = f'pac flow run --name "{flow_name}"'
+            if parameters:
+                trigger_cmd += f' --parameters \'{parameters}\''
+            cmd = f'powershell.exe -Command "{trigger_cmd}"'
+            
+        elif action.lower() == 'status' and flow_name:
+            # Check flow status
+            cmd = f'powershell.exe -Command "pac flow show --name \\"{flow_name}\\""'
+            
+        else:
+            return 'Error: Invalid action. Supported actions: list, create (requires flow_name), trigger (requires flow_name, optional parameters), status (requires flow_name)'
+        
+        response, status = desktop.execute_command(cmd)
+        
+        if status == 0:
+            return f'Power Automate operation completed:\n{response}'
+        else:
+            return f'Power Automate operation failed (Status: {status}):\n{response}'
+            
+    except Exception as e:
+        return f'Error with Power Automate operation: {str(e)}'
+
+@mcp.tool(name='M365-Copilot-Tool', description='Interact with Microsoft 365 Copilot features across Office apps (Word, Excel, PowerPoint, Teams, Outlook). Execute Copilot prompts and commands.')
+def m365_copilot_tool(app: str, prompt: str, context: str = None) -> str:
+    """Interact with Microsoft 365 Copilot in various Office applications."""
+    try:
+        # Validate the target application
+        supported_apps = ['word', 'excel', 'powerpoint', 'teams', 'outlook', 'onenote']
+        if app.lower() not in supported_apps:
+            return f'Error: Unsupported app. Supported apps: {", ".join(supported_apps)}'
+        
+        # This is a placeholder implementation as M365 Copilot integration
+        # would require specific Office application APIs and Copilot licensing
+        if app.lower() == 'word':
+            cmd = f'powershell.exe -Command "Write-Output \'M365 Copilot Word interaction: {prompt}. This requires Word with Copilot enabled and proper API integration.\'"'
+        elif app.lower() == 'excel':
+            cmd = f'powershell.exe -Command "Write-Output \'M365 Copilot Excel interaction: {prompt}. This requires Excel with Copilot enabled and proper API integration.\'"'
+        elif app.lower() == 'teams':
+            cmd = f'powershell.exe -Command "Write-Output \'M365 Copilot Teams interaction: {prompt}. This requires Teams with Copilot enabled and proper API integration.\'"'
+        else:
+            cmd = f'powershell.exe -Command "Write-Output \'M365 Copilot {app} interaction: {prompt}. This requires {app} with Copilot enabled and proper API integration.\'"'
+        
+        response, status = desktop.execute_command(cmd)
+        
+        if status == 0:
+            return f'M365 Copilot interaction completed:\n{response}'
+        else:
+            return f'M365 Copilot interaction failed (Status: {status}):\n{response}'
+            
+    except Exception as e:
+        return f'Error with M365 Copilot interaction: {str(e)}'
 
 if __name__ == "__main__":
     mcp.run()

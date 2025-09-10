@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.13"
 
 [[package]]
@@ -203,46 +203,13 @@ version = "3.22.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
-    { name = "docstring-parser", marker = "python_full_version < '4.0'" },
+    { name = "docstring-parser", marker = "python_full_version < '4'" },
     { name = "rich" },
     { name = "rich-rst" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/cc/2e/8c45ef5b00bd48d7cabbf6f90b7f12df4c232755cd46e6dbc6690f9ac0c5/cyclopts-3.22.2.tar.gz", hash = "sha256:d3495231af6ae86479579777d212ddf77b113200f828badeaf401162ed87227d", size = 74520, upload-time = "2025-07-09T12:21:46.866Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/83/5b/5939e05d87def1612c494429bee705d6b852fad1d21dd2dee1e3ce39997e/cyclopts-3.22.2-py3-none-any.whl", hash = "sha256:6681b0815fa2de2bccc364468fd25b15aa9617cb505c0b16ca62e2b18a57619e", size = 84578, upload-time = "2025-07-09T12:21:44.878Z" },
-]
-
-[[package]]
-name = "darbot-windows-mcp"
-version = "0.1.69"
-source = { virtual = "." }
-dependencies = [
-    { name = "fastmcp" },
-    { name = "fuzzywuzzy" },
-    { name = "humancursor" },
-    { name = "live-inspect" },
-    { name = "markdownify" },
-    { name = "pillow" },
-    { name = "psutil" },
-    { name = "pyautogui" },
-    { name = "python-levenshtein" },
-    { name = "requests" },
-    { name = "uiautomation" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "fastmcp", specifier = ">=2.8.1" },
-    { name = "fuzzywuzzy", specifier = ">=0.18.0" },
-    { name = "humancursor", specifier = ">=1.1.5" },
-    { name = "live-inspect", specifier = ">=0.1.1" },
-    { name = "markdownify", specifier = ">=1.1.0" },
-    { name = "pillow", specifier = ">=11.2.1" },
-    { name = "psutil", specifier = ">=7.0.0" },
-    { name = "pyautogui", specifier = ">=0.9.54" },
-    { name = "python-levenshtein", specifier = ">=0.27.1" },
-    { name = "requests", specifier = ">=2.32.3" },
-    { name = "uiautomation", specifier = ">=2.0.24" },
 ]
 
 [[package]]
@@ -1221,6 +1188,39 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e6/30/fba0d96b4b5fbf5948ed3f4681f7da2f9f64512e1d303f94b4cc174c24a5/websocket_client-1.8.0.tar.gz", hash = "sha256:3239df9f44da632f96012472805d40a23281a991027ce11d2f45a6f24ac4c3da", size = 54648, upload-time = "2024-04-23T22:16:16.976Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5a/84/44687a29792a70e111c5c477230a72c4b957d88d16141199bf9acb7537a3/websocket_client-1.8.0-py3-none-any.whl", hash = "sha256:17b44cc997f5c498e809b22cdf2d9c7a9e71c02c8cc2b6c56e7c2d1239bfa526", size = 58826, upload-time = "2024-04-23T22:16:14.422Z" },
+]
+
+[[package]]
+name = "windows-clippy-mcp"
+version = "0.1.69"
+source = { virtual = "." }
+dependencies = [
+    { name = "fastmcp" },
+    { name = "fuzzywuzzy" },
+    { name = "humancursor" },
+    { name = "live-inspect" },
+    { name = "markdownify" },
+    { name = "pillow" },
+    { name = "psutil" },
+    { name = "pyautogui" },
+    { name = "python-levenshtein" },
+    { name = "requests" },
+    { name = "uiautomation" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastmcp", specifier = ">=2.8.1" },
+    { name = "fuzzywuzzy", specifier = ">=0.18.0" },
+    { name = "humancursor", specifier = ">=1.1.5" },
+    { name = "live-inspect", specifier = ">=0.1.1" },
+    { name = "markdownify", specifier = ">=1.1.0" },
+    { name = "pillow", specifier = ">=11.2.1" },
+    { name = "psutil", specifier = ">=7.0.0" },
+    { name = "pyautogui", specifier = ">=0.9.54" },
+    { name = "python-levenshtein", specifier = ">=0.27.1" },
+    { name = "requests", specifier = ">=2.32.3" },
+    { name = "uiautomation", specifier = ">=2.0.24" },
 ]
 
 [[package]]

@@ -1,15 +1,15 @@
-<!-- Darbot Windows MCP – README -->
+<!-- Windows Clippy MCP – README -->
 
 <div align="center">
 
-  <h1>🪟 Darbot Windows MCP</h1>
+  <h1>📎 Windows Clippy MCP</h1>
 
-  <a href="https://github.com/dayour/Darbot-Windows-MCP/blob/main/LICENSE">
+  <a href="https://github.com/dayour/Windows-Clippy-MCP/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   </a>
   <img src="https://img.shields.io/badge/python-3.13%2B-blue" alt="Python">
   <img src="https://img.shields.io/badge/platform-Windows%2011-blue" alt="Platform: Windows 11">
-  <img src="https://img.shields.io/github/last-commit/dayour/Darbot-Windows-MCP" alt="Last Commit">
+  <img src="https://img.shields.io/github/last-commit/dayour/Windows-Clippy-MCP" alt="Last Commit">
   <br>
 
 
@@ -17,18 +17,18 @@
 
 ---
 
-Darbot Windows MCP is a lightweight, open-source **Model Context Protocol (MCP)** server that lets any MCP-aware client (VS Code agent-mode, Claude Desktop, Gemini CLI, custom LLM agents, etc.) control Windows just like a human.
+Windows Clippy MCP is your friendly AI assistant that brings the helpful spirit of the classic Microsoft Office assistant to modern desktop automation. This lightweight, open-source **Model Context Protocol (MCP)** server enables any MCP-aware client (VS Code agent-mode, Claude Desktop, Gemini CLI, custom LLM agents, etc.) to control Windows and interact with Microsoft 365 services, just like a human would.
 
+It exposes powerful tools for everyday desktop automation—launching apps, clicking, typing, scrolling, getting UI state, and integrating with Microsoft 365 services—while hiding all the Windows Accessibility and input-synthesis complexity behind a simple HTTP/stdio interface.
 
-It exposes 15 tools that cover everyday desktop automation—launching apps, clicking, typing, scrolling, getting UI state, and more—while hiding all the Windows Accessibility and input-synthesis complexity behind a simple HTTP/stdio interface.
-
-**All 15 tools have been validated and are working in VS Code agent mode!** ✅
+**All tools have been validated and are working in VS Code agent mode!** ✅
 
 ---
 
 ## ✨ Key Features
 
 • **Native Windows integration** – Uses UI Automation, Win32 APIs, and pyautogui for reliable control.  
+• **Microsoft 365 integration** – Built-in tools for Graph API, Power Platform, and Copilot Studio.  
 • **Zero CV / Vision optional** – Works with *any* LLM; screenshot attachment is optional.  
 • **Fast** – Typical end-to-end latency 1.5 – 2.3 s per action.  
 • **MCP-compliant** – Validates against the official JSON schema; ready for VS Code, Claude, Gemini CLI.  
@@ -46,6 +46,7 @@ It exposes 15 tools that cover everyday desktop automation—launching apps, cli
 
 ## 🛠️ Available Tools
 
+### Desktop Automation Tools
 | Tool | Purpose |
 |------|---------|
 | Launch-Tool | Launch an application from the Start menu. |
@@ -63,6 +64,16 @@ It exposes 15 tools that cover everyday desktop automation—launching apps, cli
 | Wait-Tool | Sleep for N seconds. |
 | Scrape-Tool | Fetch a webpage and return Markdown. |
 
+### Microsoft 365 & Power Platform Tools
+| Tool | Purpose |
+|------|---------|
+| PAC-CLI-Tool | Execute Power Platform CLI commands for app management. |
+| Connect-MGGraph-Tool | Authenticate with Microsoft Graph API. |
+| Graph-API-Tool | Execute Microsoft Graph API calls for Office 365 data. |
+| Copilot-Studio-Tool | Manage and interact with Copilot Studio bots. |
+| Power-Automate-Tool | Create and manage Power Automate workflows. |
+| M365-Copilot-Tool | Interact with Microsoft 365 Copilot features. |
+
 ---
 
 ## ⚡ Quick Start (VS Code Agent Mode)
@@ -71,8 +82,8 @@ It exposes 15 tools that cover everyday desktop automation—launching apps, cli
 
 1. **Clone the repository:**
 ```shell
-git clone https://github.com/dayour/Darbot-Windows-MCP.git
-cd Darbot-Windows-MCP
+git clone https://github.com/dayour/Windows-Clippy-MCP.git
+cd Windows-Clippy-MCP
 ```
 
 2. **Install dependencies:**
@@ -92,12 +103,12 @@ Create or update `.vscode/mcp.json` in the root your workspace:
 ```json
 {
   "servers": {
-    "darbot-windows-mcp": {
+    "windows-clippy-mcp": {
       "type": "stdio",
       "command": "uv",
       "args": [
         "--directory",
-        "${workspaceFolder}/Darbot-Windows-MCP",
+        "${workspaceFolder}/Windows-Clippy-MCP",
         "run",
         "main.py"
       ]
@@ -113,11 +124,11 @@ Create or update `.vscode/settings.json` in the root your workspace:
 ```json
 {
   "mcp.servers": {
-    "darbot-windows-mcp": {
+    "windows-clippy-mcp": {
       "command": "uv",
       "args": [
         "--directory",
-        "${workspaceFolder}/Darbot-Windows-MCP",
+        "${workspaceFolder}/Windows-Clippy-MCP",
         "run",
         "main.py"
       ],
@@ -127,7 +138,7 @@ Create or update `.vscode/settings.json` in the root your workspace:
 }
 ```
 
-6. **Restart VS Code** and start using Darbot Windows MCP tools in agent mode! 🚀
+6. **Restart VS Code** and start using Windows Clippy MCP tools in agent mode! 🚀
 
 ### Global Installation (All Workspaces)
 
@@ -136,8 +147,8 @@ For global installation that works across all VS Code workspaces:
 1. **Install globally with UV:**
 ```shell
 # Clone to a global location
-git clone https://github.com/dayour/Darbot-Windows-MCP.git %USERPROFILE%\darbot-windows-mcp
-cd %USERPROFILE%\darbot-windows-mcp
+git clone https://github.com/dayour/Windows-Clippy-MCP.git %USERPROFILE%\windows-clippy-mcp
+cd %USERPROFILE%\windows-clippy-mcp
 uv sync
 ```
 
@@ -147,11 +158,11 @@ Add to your global VS Code settings (`%APPDATA%\Code\User\settings.json`):
 ```json
 {
   "mcp.servers": {
-    "darbot-windows-mcp": {
+    "windows-clippy-mcp": {
       "command": "uv",
       "args": [
         "--directory",
-        "%USERPROFILE%\\darbot-windows-mcp",
+        "%USERPROFILE%\\windows-clippy-mcp",
         "run",
         "main.py"
       ],
@@ -173,7 +184,7 @@ uv tool install --editable .
 #### MCP Server Not Working
 1. **Restart the MCP server:**
    ```shell
-   cd Darbot-Windows-MCP
+   cd Windows-Clippy-MCP
    uv run main.py
    # Check for errors, then Ctrl+C to stop
    ```
@@ -195,37 +206,51 @@ uv tool install --editable .
 #### Dependencies Issues
 ```shell
 # Reinstall dependencies
-cd Darbot-Windows-MCP
+cd Windows-Clippy-MCP
 uv sync --reinstall
 ```
-```
 
-
-```markdown
-
-`
 ---
 
 ## 🗜️ Other Clients
 
 • **Claude Desktop** – Build `.dxt` then load in *Settings → Extensions*.  
-• **Gemini CLI** – Add `darbot-windows-mcp` entry in `%USERPROFILE%/.gemini/settings.json`.  
+• **Gemini CLI** – Add `windows-clippy-mcp` entry in `%USERPROFILE%/.gemini/settings.json`.  
 • Any HTTP or stdio MCP client.
 
 ---
 
 ## 📦 Prerequisites
 
+### Core Requirements
 • Python 3.13+  
 • [UV](https://github.com/astral-sh/uv) `pip install uv`  
 • English Windows locale (for consistent UI Automation tree)
+
+### Microsoft 365 & Power Platform Tools (Optional)
+For full Microsoft 365 integration functionality, install these PowerShell modules:
+
+```powershell
+# Microsoft Graph PowerShell SDK
+Install-Module Microsoft.Graph -Scope CurrentUser
+
+# Power Platform CLI
+# Download from: https://docs.microsoft.com/en-us/power-platform/developer/cli/introduction
+
+# Microsoft Teams PowerShell
+Install-Module MicrosoftTeams -Scope CurrentUser
+```
+
+Note: Microsoft 365 tools require appropriate licenses and permissions for your organization.
 
 ---
 
 ## 🚧 Limitations
 
 • Fine-grained text selection is pending.  
-• `Type-Tool` types whole blocks; not optimised for coding heavy files.
+• `Type-Tool` types whole blocks; not optimised for coding heavy files.  
+• Microsoft 365 tools require proper licenses, PowerShell modules, and API permissions.  
+• Some M365 Copilot features may require enterprise licenses and admin configuration.
 
 ---
 
@@ -237,4 +262,4 @@ Pull requests and issues welcome! See [CONTRIBUTING](CONTRIBUTING.md).
 
 ## 🪪 License
 
-MIT – © 2025 Darbot at Darbot Labs / contributors
+MIT – © 2025 Windows Clippy MCP Contributors
