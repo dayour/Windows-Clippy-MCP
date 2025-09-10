@@ -78,7 +78,33 @@ It exposes powerful tools for everyday desktop automation—launching apps, clic
 
 ## ⚡ Quick Start (VS Code Agent Mode)
 
-### Local Installation (Per Workspace)
+**Choose your preferred installation method:**
+
+### 🚀 Option 1: One-Click NPM Installation (Recommended)
+
+The fastest way to get started:
+
+```shell
+npm install -g @clippymcp/windows-clippy-mcp
+```
+
+That's it! The setup automatically:
+- ✅ Installs all dependencies
+- ✅ Configures VS Code integration  
+- ✅ Sets up Windows service options
+- ✅ Validates the installation
+
+After installation:
+1. **Restart VS Code completely**
+2. Start using Windows Clippy tools in agent mode! 🚀
+
+**📖 [Complete NPM Installation Guide →](NPM-INSTALL.md)**
+
+---
+
+### 🛠️ Option 2: Traditional Manual Installation
+
+For developers or custom setups:
 
 1. **Clone the repository:**
 ```shell
@@ -140,9 +166,11 @@ Create or update `.vscode/settings.json` in the root your workspace:
 
 6. **Restart VS Code** and start using Windows Clippy MCP tools in agent mode! 🚀
 
-### Global Installation (All Workspaces)
+### Global Installation (All Workspaces) - Manual Method
 
-For global installation that works across all VS Code workspaces:
+⚠️ **For NPM users:** Use `npm install -g @clippymcp/windows-clippy-mcp` instead for easier global installation.
+
+For global installation using the manual method that works across all VS Code workspaces:
 
 1. **Install globally with UV:**
 ```shell

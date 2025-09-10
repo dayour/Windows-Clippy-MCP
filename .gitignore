@@ -31,6 +31,16 @@ ENV/
 env.bak/
 venv.bak/
 
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+.yarn/
+package-lock.json
+yarn.lock
+
 # IDE
 .vscode/settings.json
 .idea/
@@ -54,3 +64,6 @@ Thumbs.db
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# NPM package files
+*.tgz
