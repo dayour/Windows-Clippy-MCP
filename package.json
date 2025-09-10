@@ -10,7 +10,8 @@
     "install-service": "node scripts/install-service.js",
     "uninstall-service": "node scripts/uninstall-service.js",
     "validate": "node scripts/validate.js",
-    "test": "node scripts/validate.js"
+    "test": "node scripts/validate.js && node scripts/integration-test.js",
+    "test:integration": "node scripts/integration-test.js"
   },
   "keywords": [
     "windows",
