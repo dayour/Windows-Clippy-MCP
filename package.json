@@ -1,0 +1,60 @@
+{
+  "name": "@clippymcp/windows-clippy-mcp",
+  "version": "0.1.69",
+  "description": "Windows Clippy MCP - Your friendly AI assistant for Windows desktop automation and Microsoft 365 integration. One-click setup for VS Code agent mode.",
+  "main": "main.py",
+  "scripts": {
+    "postinstall": "node scripts/setup.js",
+    "setup": "node scripts/setup.js",
+    "start": "uv run main.py",
+    "install-service": "node scripts/install-service.js",
+    "uninstall-service": "node scripts/uninstall-service.js",
+    "validate": "node scripts/validate.js",
+    "test": "node scripts/validate.js && node scripts/integration-test.js",
+    "test:integration": "node scripts/integration-test.js"
+  },
+  "keywords": [
+    "windows",
+    "mcp",
+    "ai",
+    "desktop",
+    "ai-agent",
+    "clippy",
+    "microsoft",
+    "m365",
+    "copilot",
+    "vscode",
+    "automation"
+  ],
+  "author": "Windows Clippy MCP Contributors",
+  "license": "MIT",
+  "homepage": "https://github.com/dayour/Windows-Clippy-MCP",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dayour/Windows-Clippy-MCP.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dayour/Windows-Clippy-MCP/issues"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "os": ["win32"],
+  "optionalDependencies": {
+    "chalk": "^4.1.2",
+    "node-windows": "^1.0.0-beta.8",
+    "ora": "^5.4.1"
+  },
+  "files": [
+    "main.py",
+    "src/**",
+    "manifest.json",
+    "pyproject.toml",
+    "uv.lock",
+    "scripts/**",
+    "README.md",
+    "LICENSE"
+  ],
+  "devDependencies": {},
+  "preferGlobal": false
+}
