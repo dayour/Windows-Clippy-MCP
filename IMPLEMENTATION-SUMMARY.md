@@ -1,5 +1,9 @@
 # Implementation Summary: 1-Click NPM Setup for Windows Clippy MCP
 
+<div align="center">
+  <img src="assets/WC25.png" alt="Windows Clippy MCP Logo" width="120" height="120">
+</div>
+
 ## 🎯 Objective Achieved
 
 Successfully implemented a complete 1-click NPM installation system for Windows Clippy MCP while preserving the traditional manual installation method.

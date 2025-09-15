@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="220" height="28" role="img" aria-label="Clippy MCP: v25">
+  <linearGradient id="g" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%" stop-color="#FF2DAE"/>
+    <stop offset="100%" stop-color="#00D1FF"/>
+  </linearGradient>
+  <rect rx="4" width="220" height="28" fill="#2d2f3a"/>
+  <rect rx="4" x="100" width="120" height="28" fill="url(#g)"/>
+  <g fill="#fff" font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="13">
+    <text x="10" y="19" fill="#fff">Clippy MCP</text>
+    <text x="160" y="19" fill="#0b0d18" text-anchor="middle" font-weight="bold">v25</text>
+  </g>
+</svg>

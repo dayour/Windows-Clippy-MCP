@@ -1,0 +1,15 @@
+{
+  "servers": {
+    "windows-clippy-mcp": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "--directory",
+        "G:\\Github\\DAYOUR\\Windows-Clippy-MCP",
+        "run",
+        "main.py"
+      ]
+    }
+  },
+  "inputs": []
+}

@@ -1,5 +1,9 @@
 # NPM Installation Guide
 
+<div align="center">
+  <img src="assets/WC25.png" alt="Windows Clippy MCP Logo" width="150" height="150">
+</div>
+
 Windows Clippy MCP now supports **one-click NPM installation** alongside the traditional manual setup. Choose the method that works best for you!
 
 ## 🚀 One-Click NPM Installation (Recommended)
@@ -13,7 +17,7 @@ The easiest way to get started with Windows Clippy MCP:
 
 ### Install & Setup
 ```bash
-npm install -g @clippymcp/windows-clippy-mcp
+npm install -g @dayour/windows-clippy-mcp
 ```
 
 That's it! The NPM package will automatically:

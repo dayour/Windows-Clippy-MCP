@@ -2,14 +2,16 @@
 
 <div align="center">
 
+  <img src="assets/WC25.png" alt="Windows Clippy MCP Logo" width="200" height="200">
+  
   <h1>📎 Windows Clippy MCP</h1>
 
-  <a href="https://github.com/dayour/Windows-Clippy-MCP/blob/main/LICENSE">
+  <a href="https://github.com/dayour/windows-clippy-mcp/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   </a>
   <img src="https://img.shields.io/badge/python-3.13%2B-blue" alt="Python">
   <img src="https://img.shields.io/badge/platform-Windows%2011-blue" alt="Platform: Windows 11">
-  <img src="https://img.shields.io/github/last-commit/dayour/Windows-Clippy-MCP" alt="Last Commit">
+  <img src="https://img.shields.io/github/last-commit/dayour/windows-clippy-mcp" alt="Last Commit">
   <br>
 
 
@@ -85,7 +87,7 @@ It exposes powerful tools for everyday desktop automation—launching apps, clic
 The fastest way to get started:
 
 ```shell
-npm install -g @clippymcp/windows-clippy-mcp
+npm install -g @dayour/windows-clippy-mcp
 ```
 
 That's it! The setup automatically:
@@ -108,8 +110,8 @@ For developers or custom setups:
 
 1. **Clone the repository:**
 ```shell
-git clone https://github.com/dayour/Windows-Clippy-MCP.git
-cd Windows-Clippy-MCP
+git clone https://github.com/dayour/windows-clippy-mcp.git
+cd windows-clippy-mcp
 ```
 
 2. **Install dependencies:**

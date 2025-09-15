@@ -22,8 +22,13 @@ os=system()
 version=release()
 
 instructions=dedent(f'''
-Windows MCP server provides tools to interact directly with the {os} {version} desktop, 
-thus enabling to operate the desktop on the user's behalf.
+Windows Clippy MCP 📎 - Your friendly AI assistant for Windows desktop automation!
+
+This MCP server provides tools to interact directly with the {os} {version} desktop, 
+thus enabling to operate the desktop on the user's behalf. Like the classic Office
+assistant, Windows Clippy MCP is here to help with all your desktop automation needs.
+
+Visual Identity: Look for the Windows Clippy MCP logo (WC25.png) in the assets folder.
 ''')
 
 desktop=Desktop()

@@ -1,5 +1,11 @@
 ## Process for Adding New Tools to Windows Clippy MCP
 
+<div align="center">
+  <img src="assets/WC25.png" alt="Windows Clippy MCP Logo" width="100" height="100">
+</div>
+
+*Your friendly AI assistant development guide*
+
 ### 1. **Tool Planning & Design**
 - **Identify the purpose**: Define what the tool should accomplish
 - **Choose appropriate name**: Follow the naming convention `<Function>-Tool` (e.g., Browser-Tool, Launch-Tool)

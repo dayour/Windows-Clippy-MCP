@@ -32,7 +32,8 @@ function logInfo(message) {
 }
 
 async function validatePackageStructure() {
-  log(`${colors.bold}🔍 Validating NPM Package Structure${colors.reset}`);
+  log(`${colors.bold}📎 Windows Clippy MCP - Package Validation${colors.reset}`);
+  log(`${colors.blue}   Validating package structure including WC25.png logo${colors.reset}`);
   log('');
 
   const requiredFiles = [
@@ -45,6 +46,7 @@ async function validatePackageStructure() {
     'scripts/uninstall-service.js',
     'src/desktop/__init__.py',
     'src/desktop/views.py',
+    'assets/WC25.png',
     'README.md',
     'LICENSE'
   ];

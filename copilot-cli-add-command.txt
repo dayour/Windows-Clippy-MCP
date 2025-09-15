@@ -1,0 +1,21 @@
+# Windows Clippy MCP - Copilot CLI Configuration Command
+# Copy and paste this exact command in your admin PowerShell window:
+
+gh copilot mcp add \
+  --name "windows-clippy-mcp" \
+  --description "Your friendly AI assistant for Windows desktop automation and Microsoft 365 integration. Features 21 tools including desktop automation, PowerShell execution, Microsoft Graph API, Power Platform, and M365 Copilot integration." \
+  --transport "local" \
+  --command "uv" \
+  --args "run,python,main.py" \
+  --working-directory "G:\Github\DAYOUR\Windows-Clippy-MCP" \
+  --env ""
+
+# Alternative single-line version (if multi-line doesn't work):
+gh copilot mcp add --name "windows-clippy-mcp" --description "Your friendly AI assistant for Windows desktop automation and Microsoft 365 integration. Features 21 tools including desktop automation, PowerShell execution, Microsoft Graph API, Power Platform, and M365 Copilot integration." --transport "local" --command "uv" --args "run,python,main.py" --working-directory "G:\Github\DAYOUR\Windows-Clippy-MCP" --env ""
+
+# Configuration Details:
+# - Transport: local (STDIO-based MCP server)
+# - Server Name: windows-clippy-mcp
+# - Tools Available: 21 (Launch-Tool, Click-Tool, State-Tool, Powershell-Tool, etc.)
+# - Logo: assets/WC25.png (integrated throughout codebase)
+# - Platform: Windows 11 (Windows 10 may work but unsupported)

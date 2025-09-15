@@ -2,6 +2,8 @@
 
 Windows Clippy MCP is a Python-based Model Context Protocol (MCP) server that provides Windows desktop automation and Microsoft 365 integration tools. It enables AI agents to control Windows desktop applications, interact with Office 365 services, and automate common desktop tasks.
 
+**Visual Identity:** Look for the WC25.png logo in the assets folder - this is the hero version of the Windows Clippy MCP logo.
+
 **ALWAYS reference these instructions first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.**
 
 ## Working Effectively

@@ -46,7 +46,7 @@ async function checkPlatform() {
 }
 
 async function checkDependencies() {
-  logStep('1/6', 'Checking dependencies...');
+  logStep('1/7', 'Checking dependencies...');
   
   // Check if Python is available
   try {
@@ -71,10 +71,106 @@ async function checkDependencies() {
       process.exit(1);
     }
   }
+
+  // Check if PAC CLI is available, install if not
+  try {
+    await execAsync('pac --version');
+    logSuccess('Power Platform CLI detected');
+  } catch (error) {
+    logWarning('PAC CLI not found. Will install Power Platform CLI...');
+    // Installation will happen in installPowerPlatformCLI step
+  }
+}
+
+async function installPowerPlatformCLI() {
+  logStep('2/7', 'Installing Power Platform CLI...');
+  
+  try {
+    // Check if already installed
+    await execAsync('pac --version');
+    logSuccess('Power Platform CLI already installed');
+    return;
+  } catch (error) {
+    // Not installed, proceed with installation
+  }
+
+  try {
+    logWarning('Downloading Power Platform CLI installer...');
+    
+    // Try winget first (fastest method)
+    try {
+      await execAsync('winget install Microsoft.PowerPlatformCLI --silent --accept-source-agreements --accept-package-agreements', {
+        timeout: 300000 // 5 minutes timeout
+      });
+      logSuccess('Power Platform CLI installed via winget');
+      
+      // Verify installation
+      await execAsync('pac --version');
+      logSuccess('Power Platform CLI installation verified');
+      return;
+    } catch (wingetError) {
+      logWarning('Winget installation failed, trying alternative method...');
+    }
+
+    // Alternative: Try chocolatey if available
+    try {
+      await execAsync('choco install powerplatform-cli -y', {
+        timeout: 300000
+      });
+      logSuccess('Power Platform CLI installed via chocolatey');
+      
+      // Verify installation
+      await execAsync('pac --version');
+      logSuccess('Power Platform CLI installation verified');
+      return;
+    } catch (chocoError) {
+      logWarning('Chocolatey installation failed, trying direct download...');
+    }
+
+    // Final fallback: Download and run installer directly
+    logWarning('Attempting direct installer download (this may require user interaction)...');
+    logWarning('Please follow the installer prompts if they appear...');
+    
+    const installerUrl = 'https://go.microsoft.com/fwlink/?linkid=2102613';
+    const tempDir = require('os').tmpdir();
+    const installerPath = path.join(tempDir, 'PowerPlatformCLI.exe');
+    
+    // Download installer
+    const https = require('https');
+    const fileStream = require('fs').createWriteStream(installerPath);
+    
+    await new Promise((resolve, reject) => {
+      https.get(installerUrl, (response) => {
+        response.pipe(fileStream);
+        fileStream.on('finish', resolve);
+        fileStream.on('error', reject);
+      }).on('error', reject);
+    });
+    
+    logSuccess('Installer downloaded, running installation...');
+    
+    // Run installer silently
+    await execAsync(`"${installerPath}" /quiet /norestart`, {
+      timeout: 600000 // 10 minutes timeout
+    });
+    
+    // Clean up
+    await fs.unlink(installerPath).catch(() => {});
+    
+    // Verify installation after a brief delay
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    await execAsync('pac --version');
+    logSuccess('Power Platform CLI installed successfully');
+    
+  } catch (error) {
+    logWarning(`Power Platform CLI installation had issues: ${error.message}`);
+    logWarning('You can manually install it later from: https://aka.ms/PowerPlatformCLI');
+    logWarning('The MCP server will work for most tools, but PAC-CLI-Tool will be limited.');
+  }
 }
 
 async function installPythonDependencies() {
-  logStep('2/6', 'Installing Python dependencies...');
+  logStep('3/7', 'Installing Python dependencies...');
   
   try {
     const { stdout, stderr } = await execAsync('uv sync', {
@@ -94,7 +190,7 @@ async function installPythonDependencies() {
 }
 
 async function createVSCodeConfig() {
-  logStep('3/6', 'Setting up VS Code configuration...');
+  logStep('4/7', 'Setting up VS Code configuration...');
   
   const packageDir = path.resolve(__dirname, '..');
   
@@ -219,7 +315,7 @@ async function createVSCodeConfig() {
 }
 
 async function createServiceScript() {
-  logStep('4/6', 'Creating Windows service scripts...');
+  logStep('5/7', 'Creating Windows service scripts...');
   
   const serviceScript = `
 @echo off
@@ -235,7 +331,7 @@ uv run main.py
 }
 
 async function registerService() {
-  logStep('5/6', 'Registering Windows service (optional)...');
+  logStep('6/7', 'Registering Windows service (optional)...');
   
   try {
     // This is optional and may require admin privileges
@@ -248,7 +344,7 @@ async function registerService() {
 }
 
 async function validateInstallation() {
-  logStep('6/6', 'Validating installation...');
+  logStep('7/7', 'Validating installation...');
   
   try {
     // Test that the MCP server can start (briefly)
@@ -274,7 +370,16 @@ async function validateInstallation() {
       testProcess.on('error', reject);
     });
     
-    logSuccess('Installation validation passed');
+    logSuccess('MCP server validation passed');
+
+    // Test PAC CLI availability
+    try {
+      await execAsync('pac --version');
+      logSuccess('PAC CLI validation passed');
+    } catch (error) {
+      logWarning('PAC CLI not available - some Power Platform tools may be limited');
+    }
+    
   } catch (error) {
     logWarning(`Validation had issues: ${error.message}`);
     logWarning('The installation may still work. Try running: npm start');
@@ -284,6 +389,15 @@ async function validateInstallation() {
 async function showCompletionMessage() {
   log('');
   log(`${colors.bold}${colors.green}🎉 Windows Clippy MCP Setup Complete!${colors.reset}`);
+  log('');
+  log(`${colors.bold}📎 Your friendly AI assistant is ready to help!${colors.reset}`);
+  log(`${colors.blue}   Look for the WC25.png logo in the assets folder${colors.reset}`);
+  log('');
+  log(`${colors.bold}✅ Installed Tools & Features:${colors.reset}`);
+  log(`  • ${colors.green}21 Desktop Automation & M365 Tools${colors.reset}`);
+  log(`  • ${colors.green}Power Platform CLI (PAC)${colors.reset}`);
+  log(`  • ${colors.green}Microsoft Graph Integration${colors.reset}`);
+  log(`  • ${colors.green}VS Code MCP Configuration${colors.reset}`);
   log('');
   log(`${colors.bold}Next steps:${colors.reset}`);
   log(`  1. ${colors.blue}Restart VS Code${colors.reset} completely for MCP integration`);
@@ -295,17 +409,19 @@ async function showCompletionMessage() {
   log(`  • ${colors.yellow}npm run install-service${colors.reset} - Install as Windows service (requires admin)`);
   log(`  • ${colors.yellow}npm run uninstall-service${colors.reset} - Remove Windows service`);
   log('');
-  log(`${colors.bold}Documentation:${colors.reset} https://github.com/dayour/Windows-Clippy-MCP`);
+  log(`${colors.bold}Documentation:${colors.reset} https://github.com/dayour/windows-clippy-mcp`);
   log('');
 }
 
 async function main() {
-  log(`${colors.bold}${colors.blue}🚀 Windows Clippy MCP - One-Click Setup${colors.reset}`);
+  log(`${colors.bold}${colors.blue}📎 Windows Clippy MCP - One-Click Setup${colors.reset}`);
+  log(`${colors.blue}   Your friendly AI assistant for Windows desktop automation${colors.reset}`);
   log('');
 
   try {
     await checkPlatform();
     await checkDependencies();
+    await installPowerPlatformCLI();
     await installPythonDependencies();
     await createVSCodeConfig();
     await createServiceScript();

@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#FF2DAE"/>
+      <stop offset="100%" stop-color="#00D1FF"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFA31A"/>
+      <stop offset="100%" stop-color="#FF512F"/>
+    </linearGradient>
+    <radialGradient id="metal" cx="35%" cy="15%" r="90%">
+      <stop offset="0%" stop-color="#8B86B2"/>
+      <stop offset="55%" stop-color="#56507B"/>
+      <stop offset="100%" stop-color="#363457"/>
+    </radialGradient>
+    <style>.cap{stroke-linecap:round;stroke-linejoin:round}</style>
+  </defs>
+  <!-- Paperclip -->
+  <path class="cap" d="M300,180 a220,220 0 0 1 300,0 v540 a170,170 0 0 1 -340,0 v-260 a105,105 0 0 1 210,0 v280"
+        fill="none" stroke="url(#metal)" stroke-width="56"/>
+  <!-- Visor outline -->
+  <path class="cap" d="M260,260 h520 a48,48 0 0 1 48,48 v105 a48,48 0 0 1 -48,48 h-280
+        q-26,0 -40,24 q-14,-24 -40,-24 h-160 a48,48 0 0 1 -48,-48 v-105 a48,48 0 0 1 48,-48 z"
+        fill="none" stroke="url(#g)" stroke-width="30"/>
+  <!-- Visor dots (always 3) -->
+  <circle cx="340" cy="330" r="16" fill="#FF6A3D"/>
+  <circle cx="390" cy="330" r="16" fill="#FFC83A"/>
+  <circle cx="440" cy="330" r="16" fill="#1DE9C3"/>
+  <!-- Memory coin: gradient rim + globe + orange bolt -->
+  <g transform="translate(640,690)">
+    <circle r="150" fill="none" stroke="url(#g)" stroke-width="26"/>
+    <!-- Globe lines -->
+    <g fill="none" stroke="#00D1FF" stroke-width="20">
+      <path d="M-110,0 h220"/>
+      <path d="M-70,-60 h140"/>
+      <path d="M-70,60 h140"/>
+      <path d="M0,-110 v220"/>
+      <path d="M-75,-95 a120,120 0 0 1 150,0"/>
+    </g>
+    <!-- Bolt -->
+    <path d="M-5,-120 L95,-20 L20,-10 L55,120 L-75,10 L-5,20 Z" fill="url(#bolt)"/>
+  </g>
+</svg>
