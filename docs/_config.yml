@@ -1,0 +1,13 @@
+title: Windows Clippy MCP
+description: Your friendly AI assistant for Windows desktop automation and Microsoft 365 integration
+baseurl: "/Darbot-Windows-MCP"
+url: "https://dayour.github.io"
+
+remote_theme: pages-themes/minimal@v0.2.0
+
+plugins:
+  - jekyll-remote-theme
+
+logo: /assets/clippy25_128.png
+
+show_downloads: false
