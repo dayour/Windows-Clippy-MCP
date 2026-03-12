@@ -22,11 +22,11 @@ function log(message, color = colors.reset) {
 }
 
 function logSuccess(message) {
-  log(`${colors.green}✓ ${message}${colors.reset}`);
+  log(`${colors.green} ${message}${colors.reset}`);
 }
 
 function logError(message) {
-  log(`${colors.red}✗ ${message}${colors.reset}`);
+  log(`${colors.red} ${message}${colors.reset}`);
 }
 
 async function installService() {
@@ -115,10 +115,10 @@ process.on('SIGTERM', () => {
     log(`Display Name: ${serviceDisplayName}`);
     log('');
     log(`${colors.bold}Service Management Commands:${colors.reset}`);
-    log(`  • Start:   sc start "${serviceName}"`);
-    log(`  • Stop:    sc stop "${serviceName}"`);
-    log(`  • Status:  sc query "${serviceName}"`);
-    log(`  • Remove:  npm run uninstall-service`);
+    log(` • Start: sc start "${serviceName}"`);
+    log(` • Stop: sc stop "${serviceName}"`);
+    log(` • Status: sc query "${serviceName}"`);
+    log(` • Remove: npm run uninstall-service`);
     log('');
 
   } catch (error) {

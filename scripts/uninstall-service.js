@@ -22,11 +22,11 @@ function log(message, color = colors.reset) {
 }
 
 function logSuccess(message) {
-  log(`${colors.green}✓ ${message}${colors.reset}`);
+  log(`${colors.green} ${message}${colors.reset}`);
 }
 
 function logError(message) {
-  log(`${colors.red}✗ ${message}${colors.reset}`);
+  log(`${colors.red} ${message}${colors.reset}`);
 }
 
 function logWarning(message) {
@@ -81,7 +81,7 @@ async function uninstallService() {
     log(`${colors.bold}${colors.green}Service uninstalled successfully!${colors.reset}`);
     log('');
     log(`${colors.bold}You can still use Windows Clippy MCP by running:${colors.reset}`);
-    log(`  • ${colors.yellow}npm start${colors.reset} - Start the MCP server manually`);
+    log(` • ${colors.yellow}npm start${colors.reset} - Start the MCP server manually`);
     log('');
 
   } catch (error) {

@@ -26,7 +26,7 @@ function logStep(step, message) {
 }
 
 function logSuccess(message) {
-  log(`${colors.green}✓ ${message}${colors.reset}`);
+  log(`${colors.green} ${message}${colors.reset}`);
 }
 
 function logWarning(message) {
@@ -34,7 +34,7 @@ function logWarning(message) {
 }
 
 function logError(message) {
-  log(`${colors.red}✗ ${message}${colors.reset}`);
+  log(`${colors.red} ${message}${colors.reset}`);
 }
 
 async function checkPlatform() {
@@ -391,23 +391,23 @@ async function showCompletionMessage() {
   log(`${colors.bold}${colors.green}Windows Clippy MCP Setup Complete!${colors.reset}`);
   log('');
   log(`${colors.bold}Your friendly AI assistant is ready to help!${colors.reset}`);
-  log(`${colors.blue}   Look for the WC25.png logo in the assets folder${colors.reset}`);
+  log(`${colors.blue} Look for the WC25.png logo in the assets folder${colors.reset}`);
   log('');
   log(`${colors.bold}Installed Tools & Features:${colors.reset}`);
-  log(`  • ${colors.green}21 Desktop Automation & M365 Tools${colors.reset}`);
-  log(`  • ${colors.green}Power Platform CLI (PAC)${colors.reset}`);
-  log(`  • ${colors.green}Microsoft Graph Integration${colors.reset}`);
-  log(`  • ${colors.green}VS Code MCP Configuration${colors.reset}`);
+  log(` • ${colors.green}21 Desktop Automation & M365 Tools${colors.reset}`);
+  log(` • ${colors.green}Power Platform CLI (PAC)${colors.reset}`);
+  log(` • ${colors.green}Microsoft Graph Integration${colors.reset}`);
+  log(` • ${colors.green}VS Code MCP Configuration${colors.reset}`);
   log('');
   log(`${colors.bold}Next steps:${colors.reset}`);
-  log(`  1. ${colors.blue}Restart VS Code${colors.reset} completely for MCP integration`);
-  log(`  2. ${colors.blue}Test the server:${colors.reset} npm start`);
-  log(`  3. ${colors.blue}Use in VS Code:${colors.reset} Open agent mode and start using Windows Clippy tools`);
+  log(` 1. ${colors.blue}Restart VS Code${colors.reset} completely for MCP integration`);
+  log(` 2. ${colors.blue}Test the server:${colors.reset} npm start`);
+  log(` 3. ${colors.blue}Use in VS Code:${colors.reset} Open agent mode and start using Windows Clippy tools`);
   log('');
   log(`${colors.bold}Available commands:${colors.reset}`);
-  log(`  • ${colors.yellow}npm start${colors.reset}          - Start the MCP server manually`);
-  log(`  • ${colors.yellow}npm run install-service${colors.reset} - Install as Windows service (requires admin)`);
-  log(`  • ${colors.yellow}npm run uninstall-service${colors.reset} - Remove Windows service`);
+  log(` • ${colors.yellow}npm start${colors.reset} - Start the MCP server manually`);
+  log(` • ${colors.yellow}npm run install-service${colors.reset} - Install as Windows service (requires admin)`);
+  log(` • ${colors.yellow}npm run uninstall-service${colors.reset} - Remove Windows service`);
   log('');
   log(`${colors.bold}Documentation:${colors.reset} https://github.com/dayour/windows-clippy-mcp`);
   log('');
@@ -415,7 +415,7 @@ async function showCompletionMessage() {
 
 async function main() {
   log(`${colors.bold}${colors.blue}Windows Clippy MCP - One-Click Setup${colors.reset}`);
-  log(`${colors.blue}   Your friendly AI assistant for Windows desktop automation${colors.reset}`);
+  log(`${colors.blue} Your friendly AI assistant for Windows desktop automation${colors.reset}`);
   log('');
 
   try {

@@ -28,7 +28,7 @@ function logStep(step, message) {
 }
 
 function logSuccess(message) {
-  log(`${colors.green}✓ ${message}${colors.reset}`);
+  log(`${colors.green} ${message}${colors.reset}`);
 }
 
 function logWarning(message) {
@@ -36,7 +36,7 @@ function logWarning(message) {
 }
 
 function logError(message) {
-  log(`${colors.red}✗ ${message}${colors.reset}`);
+  log(`${colors.red} ${message}${colors.reset}`);
 }
 
 async function testPackageIntegrity() {
@@ -276,17 +276,17 @@ async function testInstallationWorkflow() {
 
   try {
     // Simulate the steps a user would go through
-    logSuccess('✓ User runs: npm install -g @clippymcp/windows-clippy-mcp');
-    logSuccess('✓ NPM downloads and extracts package');
-    logSuccess('✓ NPM runs postinstall script (scripts/setup.js)');
-    logSuccess('✓ Setup script checks platform (Windows required)');
-    logSuccess('✓ Setup script checks/installs dependencies (UV, Python)');
-    logSuccess('✓ Setup script installs Python dependencies (uv sync)');
-    logSuccess('✓ Setup script creates VS Code configuration files');
-    logSuccess('✓ Setup script creates Windows service scripts');
-    logSuccess('✓ Setup script validates installation');
-    logSuccess('✓ User restarts VS Code');
-    logSuccess('✓ User enjoys Windows Clippy MCP in agent mode!');
+    logSuccess(' User runs: npm install -g @clippymcp/windows-clippy-mcp');
+    logSuccess(' NPM downloads and extracts package');
+    logSuccess(' NPM runs postinstall script (scripts/setup.js)');
+    logSuccess(' Setup script checks platform (Windows required)');
+    logSuccess(' Setup script checks/installs dependencies (UV, Python)');
+    logSuccess(' Setup script installs Python dependencies (uv sync)');
+    logSuccess(' Setup script creates VS Code configuration files');
+    logSuccess(' Setup script creates Windows service scripts');
+    logSuccess(' Setup script validates installation');
+    logSuccess(' User restarts VS Code');
+    logSuccess(' User enjoys Windows Clippy MCP in agent mode!');
 
     logSuccess('Installation workflow simulation completed');
 
@@ -329,9 +329,9 @@ async function showResults(results) {
     log(`${colors.bold}${colors.green}All Integration Tests Passed!${colors.reset}`);
     log('');
     log(`${colors.bold}Ready for:${colors.reset}`);
-    log(`  • NPM publication as @clippymcp/windows-clippy-mcp`);
-    log(`  • Windows testing with: npm install -g @clippymcp/windows-clippy-mcp`);
-    log(`  • VS Code agent mode integration`);
+    log(` • NPM publication as @clippymcp/windows-clippy-mcp`);
+    log(` • Windows testing with: npm install -g @clippymcp/windows-clippy-mcp`);
+    log(` • VS Code agent mode integration`);
     log('');
     return true;
   } else {

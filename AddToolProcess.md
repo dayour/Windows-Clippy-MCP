@@ -146,7 +146,7 @@ def appname_tool(parameter: str = None) -> str:
         launch_result, status = desktop.launch_app("appname")
         if status != 0:
             return f'Failed to launch AppName.'
-        pg.sleep(2)  # Wait for app to load
+        pg.sleep(2) # Wait for app to load
         # Additional navigation logic
         return f'Successfully launched AppName'
     except Exception as e:
@@ -200,11 +200,11 @@ def action_tool(x: int, y: int, parameter: str) -> str:
 #### **File Organization**
 ```
 windows-clippy-mcp/
-├── main.py          # All MCP tools defined here
-├── src/desktop/views.py  # Desktop class implementation
-├── README.md        # Documentation with tools table
-├── pyproject.toml   # Dependencies
-└── .vscode/         # VS Code MCP configuration
+ main.py # All MCP tools defined here
+ src/desktop/views.py # Desktop class implementation
+ README.md # Documentation with tools table
+ pyproject.toml # Dependencies
+ .vscode/ # VS Code MCP configuration
 ```
 
 #### **Key Objects Available**

@@ -174,14 +174,14 @@ def new_tool(param1: str, param2: int = 0) -> str:
 ### File Structure Understanding
 ```
 windows-clippy-mcp/
-├── main.py                    # Main MCP server with all 21 tools
-├── src/desktop/views.py       # Desktop automation classes
-├── pyproject.toml            # Dependencies and project config
-├── manifest.json             # MCP server metadata
-├── README.md                 # User documentation
-├── CONTRIBUTING.md           # Contribution guidelines  
-├── AddToolProcess.md         # Tool development guide
-└── assets/                   # Demo videos and screenshots
+ main.py # Main MCP server with all 21 tools
+ src/desktop/views.py # Desktop automation classes
+ pyproject.toml # Dependencies and project config
+ manifest.json # MCP server metadata
+ README.md # User documentation
+ CONTRIBUTING.md # Contribution guidelines 
+ AddToolProcess.md # Tool development guide
+ assets/ # Demo videos and screenshots
 ```
 
 ### Key Dependencies & Import Structure

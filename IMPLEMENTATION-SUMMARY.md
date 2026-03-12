@@ -73,29 +73,29 @@ Both methods provide identical functionality - user choice!
 ### Package Structure
 ```
 @clippymcp/windows-clippy-mcp/
-├── package.json              # NPM package configuration
-├── main.py                   # MCP server (21 tools)
-├── src/desktop/              # Desktop automation classes
-├── scripts/
-│   ├── setup.js              # Main installation orchestrator
-│   ├── install-service.js    # Windows service installer
-│   ├── uninstall-service.js  # Windows service remover
-│   ├── validate.js           # Package validation
-│   └── integration-test.js   # End-to-end testing
-├── pyproject.toml            # Python dependencies
-├── manifest.json             # MCP server metadata
-└── NPM-INSTALL.md           # Installation documentation
+ package.json # NPM package configuration
+ main.py # MCP server (21 tools)
+ src/desktop/ # Desktop automation classes
+ scripts/
+    setup.js # Main installation orchestrator
+    install-service.js # Windows service installer
+    uninstall-service.js # Windows service remover
+    validate.js # Package validation
+    integration-test.js # End-to-end testing
+ pyproject.toml # Python dependencies
+ manifest.json # MCP server metadata
+ NPM-INSTALL.md # Installation documentation
 ```
 
 ### NPM Scripts Available
 ```json
 {
-  "postinstall": "node scripts/setup.js",           // Auto-runs on install
-  "setup": "node scripts/setup.js",                 // Manual setup
-  "start": "uv run main.py",                        // Start MCP server
-  "install-service": "node scripts/install-service.js",    // Install Windows service
+  "postinstall": "node scripts/setup.js", // Auto-runs on install
+  "setup": "node scripts/setup.js", // Manual setup
+  "start": "uv run main.py", // Start MCP server
+  "install-service": "node scripts/install-service.js", // Install Windows service
   "uninstall-service": "node scripts/uninstall-service.js", // Remove Windows service
-  "validate": "node scripts/validate.js",           // Validate package
+  "validate": "node scripts/validate.js", // Validate package
   "test": "node scripts/validate.js && node scripts/integration-test.js" // Full tests
 }
 ```

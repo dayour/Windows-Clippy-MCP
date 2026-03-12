@@ -20,20 +20,20 @@ function log(message, color = colors.reset) {
 }
 
 function logSuccess(message) {
-  log(`${colors.green}✓ ${message}${colors.reset}`);
+  log(`${colors.green} ${message}${colors.reset}`);
 }
 
 function logError(message) {
-  log(`${colors.red}✗ ${message}${colors.reset}`);
+  log(`${colors.red} ${message}${colors.reset}`);
 }
 
 function logInfo(message) {
-  log(`${colors.blue}ℹ ${message}${colors.reset}`);
+  log(`${colors.blue} ${message}${colors.reset}`);
 }
 
 async function validatePackageStructure() {
   log(`${colors.bold}Windows Clippy MCP - Package Validation${colors.reset}`);
-  log(`${colors.blue}   Validating package structure including WC25.png logo${colors.reset}`);
+  log(`${colors.blue} Validating package structure including WC25.png logo${colors.reset}`);
   log('');
 
   const requiredFiles = [
