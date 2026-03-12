@@ -14,7 +14,6 @@ dependencies = [
     "fastmcp>=2.8.1",
     "fuzzywuzzy>=0.18.0",
     "humancursor>=1.1.5",
-    "live-inspect>=0.1.1",
     "markdownify>=1.1.0",
     "pillow>=11.2.1",
     "psutil>=7.0.0",

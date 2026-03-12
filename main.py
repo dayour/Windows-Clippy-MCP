@@ -1,4 +1,8 @@
-from live_inspect.watch_cursor import WatchCursor
+try:
+    from live_inspect.watch_cursor import WatchCursor
+    _has_watch_cursor = True
+except ImportError:
+    _has_watch_cursor = False
 from contextlib import asynccontextmanager
 from fastmcp.utilities.types import Image
 from humancursor import SystemCursor
@@ -40,19 +44,22 @@ Visual Identity: Look for the Windows Clippy MCP logo (WC25.png) in the assets f
 
 desktop=Desktop()
 cursor=SystemCursor()
-watch_cursor=WatchCursor()
+watch_cursor=WatchCursor() if _has_watch_cursor else None
 ctypes.windll.user32.SetProcessDPIAware()
 
 @asynccontextmanager
 async def lifespan(app: FastMCP):
     """Runs initialization code before the server starts and cleanup code after it shuts down."""
     try:
-        watch_cursor.start()
-        await asyncio.sleep(1) # Simulate startup latency
+        if watch_cursor:
+            watch_cursor.start()
+        await asyncio.sleep(1)
         yield
-        watch_cursor.stop()
+        if watch_cursor:
+            watch_cursor.stop()
     except Exception:
-        watch_cursor.stop()
+        if watch_cursor:
+            watch_cursor.stop()
 
 mcp=FastMCP(name='windows-clippy-mcp',instructions=instructions,lifespan=lifespan)
 
