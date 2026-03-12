@@ -15,25 +15,25 @@ Change the name and description fields.
 Change all instances of "Windows-MCP" to "Windows Clippy MCP". Here’s an updated excerpt:
 
 ```markdown
-# 📎 Windows Clippy MCP
+# Windows Clippy MCP
 
 **Windows Clippy MCP** is your friendly AI assistant that brings the helpful spirit of the classic Microsoft Office assistant to modern desktop automation.
 
 ## Updates
 
-- **🆕 VS Code Agent Mode Support** - Windows Clippy MCP now fully supports VS Code's native MCP integration
-- **🔧 Schema Validation Fixed** - Resolved all MCP JSON schema validation errors for seamless tool integration
-- **📎 Microsoft 365 Integration** - Added tools for Power Platform, Graph API, and M365 Copilot
-- **🆕 Rebranded** - Evolved from Windows Clippy MCP to Windows Clippy MCP with expanded capabilities
+- **VS Code Agent Mode Support** - Windows Clippy MCP now fully supports VS Code's native MCP integration
+- **Schema Validation Fixed** - Resolved all MCP JSON schema validation errors for seamless tool integration
+- **Microsoft 365 Integration** - Added tools for Power Platform, Graph API, and M365 Copilot
+- **Rebranded** - Evolved from Windows Clippy MCP to Windows Clippy MCP with expanded capabilities
 
 ### Supported Operating Systems
 
 - Windows 7
 - Windows 8, 8.1
 - Windows 10
-- Windows 11  
+- Windows 11
 
-## 🏁 Getting Started
+## Getting Started
 
 ### VS Code Agent Mode
 
@@ -41,13 +41,13 @@ VS Code now has native MCP support through agent mode. Follow these steps to set
 
 1. **Clone the repository:**
 ```shell
-git clone https://github.com/dayour/Windows-Clippy-MCP.git
-cd Windows-Clippy-MCP
+git clone https://github.com/dayour/windows-clippy-mcp.git
+cd windows-clippy-mcp
 ```
 
 2. **Install dependencies:**
 ```shell
-cd Windows-Clippy-MCP
+cd windows-clippy-mcp
 uv sync
 ```
 
@@ -62,7 +62,7 @@ Create or update `.vscode/mcp.json` in your workspace:
       "command": "uv",
       "args": [
         "--directory",
-        "${workspaceFolder}/Windows-Clippy-MCP",
+        "${workspaceFolder}/windows-clippy-mcp",
         "run",
         "main.py"
       ]
@@ -82,7 +82,7 @@ Create or update `.vscode/settings.json`:
       "command": "uv",
       "args": [
         "--directory",
-        "${workspaceFolder}/Windows-Clippy-MCP",
+        "${workspaceFolder}/windows-clippy-mcp",
         "run",
         "main.py"
       ],
@@ -92,7 +92,7 @@ Create or update `.vscode/settings.json`:
 }
 ```
 
-5. **Restart VS Code** and start using Windows Clippy MCP tools in agent mode! 🚀
+5. **Restart VS Code** and start using Windows Clippy MCP tools in agent mode!
 ```
 
 ### 3. Update `CHANGELOG.md`
@@ -101,14 +101,14 @@ Change all instances of "Windows-MCP" to "Windows Clippy MCP". Here’s an updat
 ```markdown
 ## [v0.2.0] - 2025-07-22
 
-### 🎉 Major Improvements
+### Major Improvements
 
-#### ✅ **Fixed MCP Schema Validation Issues**
+#### **Fixed MCP Schema Validation Issues**
 - **Fixed JSON Schema Array Type Validation**: Resolved "tool parameters array type must have items" errors
 - **Updated Parameter Types**: Replaced `tuple[int,int]` parameters with separate `x: int, y: int` parameters for better MCP compatibility
 - **Fixed List Type Annotations**: Changed `list[str]` to `List[str]` with proper import
 
-#### 🆕 **Windows Clippy MCP Integration**
+#### **Windows Clippy MCP Integration**
 - **Added MCP Configuration**: Created `.vscode/mcp.json` with proper server configuration
 - **Updated VS Code Settings**: Fixed `.vscode/settings.json` to properly configure windows-clippy-mcp server
 - **Full VS Code Agent Mode Support**: All tools now work seamlessly with VS Code's MCP integration
@@ -134,7 +134,7 @@ Change the server name from "windows-mcp" to "windows-clippy-mcp".
 			"command": "uv",
 			"args": [
 				"--directory",
-				"${workspaceFolder}/Windows-Clippy-MCP",
+				"${workspaceFolder}/windows-clippy-mcp",
 				"run",
 				"main.py"
 			]
@@ -154,7 +154,7 @@ Change the server name from "windows-mcp" to "windows-clippy-mcp".
       "command": "uv",
       "args": [
         "--directory",
-        "${workspaceFolder}/Windows-Clippy-MCP",
+        "${workspaceFolder}/windows-clippy-mcp",
         "run",
         "main.py"
       ],

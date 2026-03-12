@@ -5,7 +5,7 @@
       "command": "uv",
       "args": [
         "--directory",
-        "G:\\Github\\DAYOUR\\Windows-Clippy-MCP",
+        "G:\\Github\\DAYOUR\\windows-clippy-mcp",
         "run",
         "main.py"
       ]

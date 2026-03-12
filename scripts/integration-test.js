@@ -32,7 +32,7 @@ function logSuccess(message) {
 }
 
 function logWarning(message) {
-  log(`${colors.yellow}⚠ ${message}${colors.reset}`);
+  log(`${colors.yellow}${message}${colors.reset}`);
 }
 
 function logError(message) {
@@ -41,95 +41,95 @@ function logError(message) {
 
 async function testPackageIntegrity() {
   logStep('1/6', 'Testing Package Integrity...');
-  
+
   try {
     // Test package.json structure
     const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-    
+
     if (packageJson.name !== '@clippymcp/windows-clippy-mcp') {
       throw new Error('Package name mismatch');
     }
-    
+
     if (!packageJson.scripts.postinstall) {
       throw new Error('Missing postinstall script');
     }
-    
+
     logSuccess('Package.json structure is valid');
-    
+
     // Test that all required files exist
     const requiredFiles = [
       'main.py',
-      'manifest.json', 
+      'manifest.json',
       'pyproject.toml',
       'scripts/setup.js',
       'scripts/install-service.js',
       'scripts/uninstall-service.js'
     ];
-    
+
     for (const file of requiredFiles) {
       if (!fs.existsSync(file)) {
         throw new Error(`Missing required file: ${file}`);
       }
     }
-    
+
     logSuccess('All required files present');
-    
+
   } catch (error) {
     logError(`Package integrity test failed: ${error.message}`);
     return false;
   }
-  
+
   return true;
 }
 
 async function testSetupScriptLogic() {
   logStep('2/6', 'Testing Setup Script Logic...');
-  
+
   try {
     // Import setup script without executing main function
     const setupPath = path.resolve(__dirname, 'setup.js');
     delete require.cache[setupPath];
     const setupModule = require(setupPath);
-    
+
     if (typeof setupModule.main === 'function') {
       logSuccess('Setup script exports main function');
     } else {
       logWarning('Setup script does not export main function (may still work)');
     }
-    
+
     // Test that script handles platform detection
     const originalPlatform = process.platform;
-    
+
     // Don't actually change platform, just verify script structure
     logSuccess('Setup script structure is valid');
-    
+
   } catch (error) {
     logError(`Setup script test failed: ${error.message}`);
     return false;
   }
-  
+
   return true;
 }
 
 async function testVSCodeConfigGeneration() {
   logStep('3/6', 'Testing VS Code Configuration Generation...');
-  
+
   try {
     // Create a temporary test directory structure
     const testDir = path.join('/tmp', 'test-workspace');
     const vscodeDir = path.join(testDir, '.vscode');
-    
+
     // Clean up any existing test directory
     if (fs.existsSync(testDir)) {
       fs.rmSync(testDir, { recursive: true, force: true });
     }
-    
+
     fs.mkdirSync(testDir, { recursive: true });
     fs.mkdirSync(vscodeDir, { recursive: true });
-    
+
     // Test config generation logic by simulating what setup.js would do
     const packageDir = path.resolve(__dirname);
-    
+
     const mcpConfig = {
       servers: {
         "windows-clippy-mcp": {
@@ -145,13 +145,13 @@ async function testVSCodeConfigGeneration() {
       },
       inputs: []
     };
-    
+
     const settingsConfig = {
       "mcp.servers": {
         "windows-clippy-mcp": {
           command: "uv",
           args: [
-            "--directory", 
+            "--directory",
             packageDir,
             "run",
             "main.py"
@@ -160,93 +160,93 @@ async function testVSCodeConfigGeneration() {
         }
       }
     };
-    
+
     // Write test config files
     fs.writeFileSync(
       path.join(vscodeDir, 'mcp.json'),
       JSON.stringify(mcpConfig, null, 2)
     );
-    
+
     fs.writeFileSync(
       path.join(vscodeDir, 'settings.json'),
       JSON.stringify(settingsConfig, null, 2)
     );
-    
+
     // Validate the generated configs
     const generatedMcp = JSON.parse(fs.readFileSync(path.join(vscodeDir, 'mcp.json'), 'utf8'));
     const generatedSettings = JSON.parse(fs.readFileSync(path.join(vscodeDir, 'settings.json'), 'utf8'));
-    
-    if (generatedMcp.servers['windows-clippy-mcp'] && 
+
+    if (generatedMcp.servers['windows-clippy-mcp'] &&
         generatedSettings['mcp.servers']['windows-clippy-mcp']) {
       logSuccess('VS Code configuration generation works correctly');
     } else {
       throw new Error('Generated configurations missing required sections');
     }
-    
+
     // Clean up test directory
     fs.rmSync(testDir, { recursive: true, force: true });
-    
+
   } catch (error) {
     logError(`VS Code config test failed: ${error.message}`);
     return false;
   }
-  
+
   return true;
 }
 
 async function testServiceScripts() {
   logStep('4/6', 'Testing Service Scripts...');
-  
+
   try {
     // Test service script syntax and structure
     const installServicePath = path.resolve(__dirname, 'install-service.js');
     const uninstallServicePath = path.resolve(__dirname, 'uninstall-service.js');
-    
+
     delete require.cache[installServicePath];
     delete require.cache[uninstallServicePath];
-    
+
     const installService = require(installServicePath);
     const uninstallService = require(uninstallServicePath);
-    
+
     if (typeof installService.installService === 'function') {
       logSuccess('Install service script exports function');
     } else {
       logWarning('Install service script structure may need review');
     }
-    
+
     if (typeof uninstallService.uninstallService === 'function') {
       logSuccess('Uninstall service script exports function');
     } else {
       logWarning('Uninstall service script structure may need review');
     }
-    
+
     logSuccess('Service scripts are syntactically valid');
-    
+
   } catch (error) {
     logError(`Service script test failed: ${error.message}`);
     return false;
   }
-  
+
   return true;
 }
 
 async function testNPMCommands() {
   logStep('5/6', 'Testing NPM Commands...');
-  
+
   try {
     // Test NPM script definitions
     const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-    
+
     const expectedScripts = [
       'postinstall',
-      'setup', 
+      'setup',
       'start',
       'install-service',
       'uninstall-service',
       'validate',
       'test'
     ];
-    
+
     for (const script of expectedScripts) {
       if (packageJson.scripts[script]) {
         logSuccess(`NPM script defined: ${script}`);
@@ -254,7 +254,7 @@ async function testNPMCommands() {
         throw new Error(`Missing NPM script: ${script}`);
       }
     }
-    
+
     // Test that NPM pack would work
     try {
       await execAsync('npm pack --dry-run > /dev/null 2>&1');
@@ -262,18 +262,18 @@ async function testNPMCommands() {
     } catch (error) {
       logWarning('NPM pack test had issues (may work in real environment)');
     }
-    
+
   } catch (error) {
     logError(`NPM commands test failed: ${error.message}`);
     return false;
   }
-  
+
   return true;
 }
 
 async function testInstallationWorkflow() {
   logStep('6/6', 'Testing Installation Workflow Simulation...');
-  
+
   try {
     // Simulate the steps a user would go through
     logSuccess('✓ User runs: npm install -g @clippymcp/windows-clippy-mcp');
@@ -287,33 +287,33 @@ async function testInstallationWorkflow() {
     logSuccess('✓ Setup script validates installation');
     logSuccess('✓ User restarts VS Code');
     logSuccess('✓ User enjoys Windows Clippy MCP in agent mode!');
-    
+
     logSuccess('Installation workflow simulation completed');
-    
+
   } catch (error) {
     logError(`Installation workflow test failed: ${error.message}`);
     return false;
   }
-  
+
   return true;
 }
 
 async function showResults(results) {
   log('');
-  log(`${colors.bold}📊 Integration Test Results${colors.reset}`);
+  log(`${colors.bold}Integration Test Results${colors.reset}`);
   log('');
-  
+
   const testNames = [
     'Package Integrity',
-    'Setup Script Logic', 
+    'Setup Script Logic',
     'VS Code Config Generation',
     'Service Scripts',
     'NPM Commands',
     'Installation Workflow'
   ];
-  
+
   let allPassed = true;
-  
+
   for (let i = 0; i < results.length; i++) {
     if (results[i]) {
       logSuccess(`${testNames[i]}: PASSED`);
@@ -322,11 +322,11 @@ async function showResults(results) {
       allPassed = false;
     }
   }
-  
+
   log('');
-  
+
   if (allPassed) {
-    log(`${colors.bold}${colors.green}🎉 All Integration Tests Passed!${colors.reset}`);
+    log(`${colors.bold}${colors.green}All Integration Tests Passed!${colors.reset}`);
     log('');
     log(`${colors.bold}Ready for:${colors.reset}`);
     log(`  • NPM publication as @clippymcp/windows-clippy-mcp`);
@@ -335,7 +335,7 @@ async function showResults(results) {
     log('');
     return true;
   } else {
-    log(`${colors.bold}${colors.red}❌ Some Integration Tests Failed${colors.reset}`);
+    log(`${colors.bold}${colors.red}Some Integration Tests Failed${colors.reset}`);
     log('');
     log('Please review and fix the failing tests before proceeding.');
     log('');
@@ -344,7 +344,7 @@ async function showResults(results) {
 }
 
 async function main() {
-  log(`${colors.bold}${colors.blue}🧪 Windows Clippy MCP - Integration Tests${colors.reset}`);
+  log(`${colors.bold}${colors.blue}Windows Clippy MCP - Integration Tests${colors.reset}`);
   log('');
   log('Testing complete end-to-end NPM installation workflow...');
   log('');
@@ -357,9 +357,9 @@ async function main() {
     await testNPMCommands(),
     await testInstallationWorkflow()
   ];
-  
+
   const success = await showResults(results);
-  
+
   process.exit(success ? 0 : 1);
 }
 

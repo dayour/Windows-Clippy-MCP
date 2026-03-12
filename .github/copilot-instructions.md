@@ -23,8 +23,8 @@ Run these commands in sequence to set up the development environment:
 pip install uv
 
 # Clone and navigate to repository
-git clone https://github.com/dayour/Windows-Clippy-MCP.git
-cd Windows-Clippy-MCP
+git clone https://github.com/dayour/windows-clippy-mcp.git
+cd windows-clippy-mcp
 
 # Install dependencies and Python 3.13
 uv sync
@@ -67,7 +67,7 @@ To configure this MCP server with VS Code agent mode:
       "command": "uv",
       "args": [
         "--directory",
-        "${workspaceFolder}/Windows-Clippy-MCP",
+        "${workspaceFolder}/windows-clippy-mcp",
         "run",
         "main.py"
       ]
@@ -85,7 +85,7 @@ To configure this MCP server with VS Code agent mode:
       "command": "uv",
       "args": [
         "--directory",
-        "${workspaceFolder}/Windows-Clippy-MCP",
+        "${workspaceFolder}/windows-clippy-mcp",
         "run",
         "main.py"
       ],
@@ -173,7 +173,7 @@ def new_tool(param1: str, param2: int = 0) -> str:
 
 ### File Structure Understanding
 ```
-Windows-Clippy-MCP/
+windows-clippy-mcp/
 ├── main.py                    # Main MCP server with all 21 tools
 ├── src/desktop/views.py       # Desktop automation classes
 ├── pyproject.toml            # Dependencies and project config

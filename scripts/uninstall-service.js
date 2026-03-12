@@ -30,7 +30,7 @@ function logError(message) {
 }
 
 function logWarning(message) {
-  log(`${colors.yellow}⚠ ${message}${colors.reset}`);
+  log(`${colors.yellow}${message}${colors.reset}`);
 }
 
 async function uninstallService() {
@@ -39,10 +39,10 @@ async function uninstallService() {
     process.exit(1);
   }
 
-  log(`${colors.bold}${colors.blue}🗑️  Uninstalling Windows Clippy MCP Service${colors.reset}`);
+  log(`${colors.bold}${colors.blue}Uninstalling Windows Clippy MCP Service${colors.reset}`);
   log('');
 
-  const serviceName = 'WindowsClippyMCP';
+  const serviceName = 'windowsclippymcp';
 
   try {
     // Check if service exists
@@ -57,7 +57,7 @@ async function uninstallService() {
     try {
       await execAsync(`sc stop "${serviceName}"`);
       logSuccess(`Service '${serviceName}' stopped`);
-      
+
       // Wait a moment for the service to fully stop
       await new Promise(resolve => setTimeout(resolve, 2000));
     } catch (error) {

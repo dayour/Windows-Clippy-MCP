@@ -32,7 +32,7 @@ function logInfo(message) {
 }
 
 async function validatePackageStructure() {
-  log(`${colors.bold}📎 Windows Clippy MCP - Package Validation${colors.reset}`);
+  log(`${colors.bold}Windows Clippy MCP - Package Validation${colors.reset}`);
   log(`${colors.blue}   Validating package structure including WC25.png logo${colors.reset}`);
   log('');
 
@@ -69,11 +69,11 @@ async function validatePackageStructure() {
   }
 
   log('');
-  
+
   // Validate package.json structure
   try {
     const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-    
+
     const requiredFields = ['name', 'version', 'description', 'scripts', 'keywords'];
     for (const field of requiredFields) {
       if (packageJson[field]) {
@@ -101,7 +101,7 @@ async function validatePackageStructure() {
   }
 
   log('');
-  
+
   // Validate Python project structure
   try {
     const pyprojectToml = fs.readFileSync('pyproject.toml', 'utf8');
@@ -128,12 +128,12 @@ async function validatePackageStructure() {
 }
 
 async function validateScripts() {
-  log(`${colors.bold}🧪 Validating Script Syntax${colors.reset}`);
+  log(`${colors.bold}Validating Script Syntax${colors.reset}`);
   log('');
 
   const scripts = [
     'scripts/setup.js',
-    'scripts/install-service.js', 
+    'scripts/install-service.js',
     'scripts/uninstall-service.js'
   ];
 
@@ -161,34 +161,34 @@ async function validateScripts() {
 }
 
 async function showPlatformInfo() {
-  log(`${colors.bold}🖥️  Platform Information${colors.reset}`);
+  log(`${colors.bold}Platform Information${colors.reset}`);
   log('');
-  
+
   logInfo(`Platform: ${process.platform}`);
   logInfo(`Architecture: ${process.arch}`);
   logInfo(`Node.js: ${process.version}`);
-  
+
   if (process.platform === 'win32') {
     logSuccess('Running on Windows - full functionality available');
   } else {
     logInfo('Running on non-Windows platform - syntax validation only');
   }
-  
+
   log('');
 }
 
 async function main() {
-  log(`${colors.bold}${colors.blue}🚀 Windows Clippy MCP - Package Validation${colors.reset}`);
+  log(`${colors.bold}${colors.blue}Windows Clippy MCP - Package Validation${colors.reset}`);
   log('');
 
   await showPlatformInfo();
-  
+
   const structureValid = await validatePackageStructure();
   const scriptsValid = await validateScripts();
 
-  log(`${colors.bold}📋 Summary${colors.reset}`);
+  log(`${colors.bold}Summary${colors.reset}`);
   log('');
-  
+
   if (structureValid && scriptsValid) {
     logSuccess('All validation checks passed! Package is ready for publication.');
     process.exit(0);

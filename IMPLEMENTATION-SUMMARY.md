@@ -4,11 +4,11 @@
   <img src="assets/WC25.png" alt="Windows Clippy MCP Logo" width="120" height="120">
 </div>
 
-## 🎯 Objective Achieved
+## Objective Achieved
 
 Successfully implemented a complete 1-click NPM installation system for Windows Clippy MCP while preserving the traditional manual installation method.
 
-## 📦 What Was Implemented
+## What Was Implemented
 
 ### 1. NPM Package Structure
 - **Package Name**: `@clippymcp/windows-clippy-mcp`
@@ -40,7 +40,7 @@ Successfully implemented a complete 1-click NPM installation system for Windows 
 - **GitHub Workflow**: Automated NPM publishing on releases
 - **NPM Scripts**: Complete set of management commands
 
-## 🚀 User Experience
+## User Experience
 
 ### One-Click Installation (NEW)
 ```bash
@@ -49,26 +49,26 @@ npm install -g @clippymcp/windows-clippy-mcp
 ```
 
 **What happens automatically:**
-1. ✅ Package downloads and installs
-2. ✅ Platform validation (Windows required)
-3. ✅ Python/UV dependency checks and installation
-4. ✅ Python packages installed via `uv sync`
-5. ✅ VS Code MCP configuration created automatically
-6. ✅ Windows service scripts ready
-7. ✅ Installation validated
-8. ✅ User ready to use in VS Code agent mode
+1. Package downloads and installs
+2. Platform validation (Windows required)
+3. Python/UV dependency checks and installation
+4. Python packages installed via `uv sync`
+5. VS Code MCP configuration created automatically
+6. Windows service scripts ready
+7. Installation validated
+8. User ready to use in VS Code agent mode
 
 ### Traditional Installation (PRESERVED)
 ```bash
-git clone https://github.com/dayour/Windows-Clippy-MCP.git
-cd Windows-Clippy-MCP
+git clone https://github.com/dayour/windows-clippy-mcp.git
+cd windows-clippy-mcp
 uv sync
 # Manual VS Code configuration
 ```
 
 Both methods provide identical functionality - user choice!
 
-## 🛠️ Technical Implementation Details
+## Technical Implementation Details
 
 ### Package Structure
 ```
@@ -116,7 +116,7 @@ Both methods provide identical functionality - user choice!
 
 **Per-Workspace** (`.vscode/mcp.json` and `.vscode/settings.json` created automatically)
 
-## 🔄 Deployment Pipeline
+## Deployment Pipeline
 
 ### GitHub Actions Workflow
 - **Trigger**: On releases or manual dispatch
@@ -124,13 +124,13 @@ Both methods provide identical functionality - user choice!
 - **Automation**: Version management and release notes
 
 ### Publication Ready
-- ✅ Package validation passes
-- ✅ Integration tests pass  
-- ✅ NPM pack generates correctly
-- ✅ All scripts tested and working
-- ✅ Documentation complete
+- Package validation passes
+- Integration tests pass
+- NPM pack generates correctly
+- All scripts tested and working
+- Documentation complete
 
-## 🎛️ Quality Assurance
+## Quality Assurance
 
 ### Comprehensive Testing Implemented
 1. **Package Structure Validation**
@@ -153,7 +153,7 @@ Both methods provide identical functionality - user choice!
    - Global vs local installation
    - Service management workflows
 
-## 📊 Impact & Benefits
+## Impact & Benefits
 
 ### For End Users
 - **Reduced Setup Time**: From 10+ minutes to 2 minutes
@@ -174,24 +174,24 @@ Both methods provide identical functionality - user choice!
 - **Distribution Efficiency**: NPM registry provides global CDN
 - **Version Management**: Semantic versioning and update system
 
-## 🚦 Status: Implementation Complete
+## Status: Implementation Complete
 
-✅ **All Requirements Met**:
-- ✅ One-click NPM installation with `npm install -g @clippymcp/windows-clippy-mcp`
-- ✅ Automated setup script embedded in NPM package
-- ✅ Automatic VS Code configuration creation
-- ✅ Windows service auto-start capability
-- ✅ Traditional installation method preserved
-- ✅ Complete documentation for both methods
-- ✅ Comprehensive testing and validation
+**All Requirements Met**:
+- One-click NPM installation with `npm install -g @clippymcp/windows-clippy-mcp`
+- Automated setup script embedded in NPM package
+- Automatic VS Code configuration creation
+- Windows service auto-start capability
+- Traditional installation method preserved
+- Complete documentation for both methods
+- Comprehensive testing and validation
 
-🚀 **Ready for Production**:
+**Ready for Production**:
 - Package can be published to NPM immediately
 - All tests pass on development platform
 - Ready for Windows testing and validation
 - GitHub workflow configured for automated publishing
 
-## 🎉 Conclusion
+## Conclusion
 
 The Windows Clippy MCP now offers the best of both worlds:
 - **For casual users**: Simple one-click `npm install` experience

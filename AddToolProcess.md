@@ -116,7 +116,7 @@ def tool_function(param1: type, param2: type = default) -> str:
 #### **Pre-requisites for Automated Tool Addition**
 - Ensure MCP server is not running before making changes
 - Have VS Code with GitHub Copilot agent mode enabled
-- Working directory must be the Windows-Clippy-MCP folder
+- Working directory must be the windows-clippy-mcp folder
 
 #### **Step-by-Step Commands for Copilot**
 ```bash
@@ -199,7 +199,7 @@ def action_tool(x: int, y: int, parameter: str) -> str:
 
 #### **File Organization**
 ```
-Windows-Clippy-MCP/
+windows-clippy-mcp/
 ├── main.py          # All MCP tools defined here
 ├── src/desktop/views.py  # Desktop class implementation
 ├── README.md        # Documentation with tools table

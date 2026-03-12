@@ -30,7 +30,7 @@ function logSuccess(message) {
 }
 
 function logWarning(message) {
-  log(`${colors.yellow}⚠ ${message}${colors.reset}`);
+  log(`${colors.yellow}${message}${colors.reset}`);
 }
 
 function logError(message) {
@@ -47,7 +47,7 @@ async function checkPlatform() {
 
 async function checkDependencies() {
   logStep('1/7', 'Checking dependencies...');
-  
+
   // Check if Python is available
   try {
     await execAsync('python --version');
@@ -84,7 +84,7 @@ async function checkDependencies() {
 
 async function installPowerPlatformCLI() {
   logStep('2/7', 'Installing Power Platform CLI...');
-  
+
   try {
     // Check if already installed
     await execAsync('pac --version');
@@ -96,14 +96,14 @@ async function installPowerPlatformCLI() {
 
   try {
     logWarning('Downloading Power Platform CLI installer...');
-    
+
     // Try winget first (fastest method)
     try {
       await execAsync('winget install Microsoft.PowerPlatformCLI --silent --accept-source-agreements --accept-package-agreements', {
         timeout: 300000 // 5 minutes timeout
       });
       logSuccess('Power Platform CLI installed via winget');
-      
+
       // Verify installation
       await execAsync('pac --version');
       logSuccess('Power Platform CLI installation verified');
@@ -118,7 +118,7 @@ async function installPowerPlatformCLI() {
         timeout: 300000
       });
       logSuccess('Power Platform CLI installed via chocolatey');
-      
+
       // Verify installation
       await execAsync('pac --version');
       logSuccess('Power Platform CLI installation verified');
@@ -130,15 +130,15 @@ async function installPowerPlatformCLI() {
     // Final fallback: Download and run installer directly
     logWarning('Attempting direct installer download (this may require user interaction)...');
     logWarning('Please follow the installer prompts if they appear...');
-    
+
     const installerUrl = 'https://go.microsoft.com/fwlink/?linkid=2102613';
     const tempDir = require('os').tmpdir();
     const installerPath = path.join(tempDir, 'PowerPlatformCLI.exe');
-    
+
     // Download installer
     const https = require('https');
     const fileStream = require('fs').createWriteStream(installerPath);
-    
+
     await new Promise((resolve, reject) => {
       https.get(installerUrl, (response) => {
         response.pipe(fileStream);
@@ -146,22 +146,22 @@ async function installPowerPlatformCLI() {
         fileStream.on('error', reject);
       }).on('error', reject);
     });
-    
+
     logSuccess('Installer downloaded, running installation...');
-    
+
     // Run installer silently
     await execAsync(`"${installerPath}" /quiet /norestart`, {
       timeout: 600000 // 10 minutes timeout
     });
-    
+
     // Clean up
     await fs.unlink(installerPath).catch(() => {});
-    
+
     // Verify installation after a brief delay
     await new Promise(resolve => setTimeout(resolve, 5000));
     await execAsync('pac --version');
     logSuccess('Power Platform CLI installed successfully');
-    
+
   } catch (error) {
     logWarning(`Power Platform CLI installation had issues: ${error.message}`);
     logWarning('You can manually install it later from: https://aka.ms/PowerPlatformCLI');
@@ -171,17 +171,17 @@ async function installPowerPlatformCLI() {
 
 async function installPythonDependencies() {
   logStep('3/7', 'Installing Python dependencies...');
-  
+
   try {
     const { stdout, stderr } = await execAsync('uv sync', {
       cwd: __dirname.replace('/scripts', ''),
       timeout: 600000 // 10 minutes timeout
     });
-    
+
     if (stderr && !stderr.includes('Resolved') && !stderr.includes('Installing')) {
       logWarning(`UV output: ${stderr}`);
     }
-    
+
     logSuccess('Python dependencies installed');
   } catch (error) {
     logError(`Failed to install Python dependencies: ${error.message}`);
@@ -191,9 +191,9 @@ async function installPythonDependencies() {
 
 async function createVSCodeConfig() {
   logStep('4/7', 'Setting up VS Code configuration...');
-  
+
   const packageDir = path.resolve(__dirname, '..');
-  
+
   // Try to find workspace directories where VS Code might be used
   const possibleWorkspaces = [
     process.cwd(),
@@ -260,7 +260,7 @@ async function createVSCodeConfig() {
       };
 
       await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2));
-      
+
       if (workspace === process.cwd()) {
         logSuccess(`VS Code configuration created in current directory: ${workspace}`);
         configured = true;
@@ -274,12 +274,12 @@ async function createVSCodeConfig() {
   // Also create a global configuration
   try {
     const globalSettingsPath = path.join(
-      process.env.APPDATA || '', 
-      'Code', 
-      'User', 
+      process.env.APPDATA || '',
+      'Code',
+      'User',
       'settings.json'
     );
-    
+
     let globalSettings = {};
     try {
       const existingGlobalSettings = await fs.readFile(globalSettingsPath, 'utf8');
@@ -316,7 +316,7 @@ async function createVSCodeConfig() {
 
 async function createServiceScript() {
   logStep('5/7', 'Creating Windows service scripts...');
-  
+
   const serviceScript = `
 @echo off
 echo Starting Windows Clippy MCP Service...
@@ -326,13 +326,13 @@ uv run main.py
 
   const servicePath = path.join(__dirname, 'start-service.bat');
   await fs.writeFile(servicePath, serviceScript);
-  
+
   logSuccess('Service script created');
 }
 
 async function registerService() {
   logStep('6/7', 'Registering Windows service (optional)...');
-  
+
   try {
     // This is optional and may require admin privileges
     logWarning('Service registration requires administrator privileges.');
@@ -345,7 +345,7 @@ async function registerService() {
 
 async function validateInstallation() {
   logStep('7/7', 'Validating installation...');
-  
+
   try {
     // Test that the MCP server can start (briefly)
     const testProcess = spawn('uv', ['run', 'python', '-c', 'from fastmcp import FastMCP; print("MCP server validation: OK")'], {
@@ -358,7 +358,7 @@ async function validateInstallation() {
       testProcess.stdout.on('data', (data) => {
         output += data.toString();
       });
-      
+
       testProcess.on('close', (code) => {
         if (code === 0 && output.includes('OK')) {
           resolve();
@@ -366,10 +366,10 @@ async function validateInstallation() {
           reject(new Error(`Validation failed with code ${code}`));
         }
       });
-      
+
       testProcess.on('error', reject);
     });
-    
+
     logSuccess('MCP server validation passed');
 
     // Test PAC CLI availability
@@ -379,7 +379,7 @@ async function validateInstallation() {
     } catch (error) {
       logWarning('PAC CLI not available - some Power Platform tools may be limited');
     }
-    
+
   } catch (error) {
     logWarning(`Validation had issues: ${error.message}`);
     logWarning('The installation may still work. Try running: npm start');
@@ -388,12 +388,12 @@ async function validateInstallation() {
 
 async function showCompletionMessage() {
   log('');
-  log(`${colors.bold}${colors.green}🎉 Windows Clippy MCP Setup Complete!${colors.reset}`);
+  log(`${colors.bold}${colors.green}Windows Clippy MCP Setup Complete!${colors.reset}`);
   log('');
-  log(`${colors.bold}📎 Your friendly AI assistant is ready to help!${colors.reset}`);
+  log(`${colors.bold}Your friendly AI assistant is ready to help!${colors.reset}`);
   log(`${colors.blue}   Look for the WC25.png logo in the assets folder${colors.reset}`);
   log('');
-  log(`${colors.bold}✅ Installed Tools & Features:${colors.reset}`);
+  log(`${colors.bold}Installed Tools & Features:${colors.reset}`);
   log(`  • ${colors.green}21 Desktop Automation & M365 Tools${colors.reset}`);
   log(`  • ${colors.green}Power Platform CLI (PAC)${colors.reset}`);
   log(`  • ${colors.green}Microsoft Graph Integration${colors.reset}`);
@@ -414,7 +414,7 @@ async function showCompletionMessage() {
 }
 
 async function main() {
-  log(`${colors.bold}${colors.blue}📎 Windows Clippy MCP - One-Click Setup${colors.reset}`);
+  log(`${colors.bold}${colors.blue}Windows Clippy MCP - One-Click Setup${colors.reset}`);
   log(`${colors.blue}   Your friendly AI assistant for Windows desktop automation${colors.reset}`);
   log('');
 

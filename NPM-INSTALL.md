@@ -6,7 +6,7 @@
 
 Windows Clippy MCP now supports **one-click NPM installation** alongside the traditional manual setup. Choose the method that works best for you!
 
-## 🚀 One-Click NPM Installation (Recommended)
+## One-Click NPM Installation (Recommended)
 
 The easiest way to get started with Windows Clippy MCP:
 
@@ -21,10 +21,10 @@ npm install -g @dayour/windows-clippy-mcp
 ```
 
 That's it! The NPM package will automatically:
-- ✅ Install Python dependencies via UV
-- ✅ Create VS Code MCP configuration files
-- ✅ Set up Windows service scripts
-- ✅ Validate the installation
+- Install Python dependencies via UV
+- Create VS Code MCP configuration files
+- Set up Windows service scripts
+- Validate the installation
 
 ### Usage
 After installation:
@@ -44,11 +44,11 @@ npm run uninstall-service
 The setup automatically configures VS Code. Just:
 1. **Restart VS Code completely**
 2. Open agent mode
-3. Start using Windows Clippy tools! 🎉
+3. Start using Windows Clippy tools!
 
 ---
 
-## 🛠️ Traditional Manual Installation
+## Traditional Manual Installation
 
 For developers who want full control or to contribute to the project:
 
@@ -60,8 +60,8 @@ For developers who want full control or to contribute to the project:
 ### Steps
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/dayour/Windows-Clippy-MCP.git
-   cd Windows-Clippy-MCP
+   git clone https://github.com/dayour/windows-clippy-mcp.git
+   cd windows-clippy-mcp
    ```
 
 2. **Install dependencies:**
@@ -86,7 +86,7 @@ For developers who want full control or to contribute to the project:
          "command": "uv",
          "args": [
            "--directory",
-           "${workspaceFolder}/Windows-Clippy-MCP",
+           "${workspaceFolder}/windows-clippy-mcp",
            "run",
            "main.py"
          ]
@@ -104,7 +104,7 @@ For developers who want full control or to contribute to the project:
          "command": "uv",
          "args": [
            "--directory",
-           "${workspaceFolder}/Windows-Clippy-MCP",
+           "${workspaceFolder}/windows-clippy-mcp",
            "run",
            "main.py"
          ],
@@ -114,11 +114,11 @@ For developers who want full control or to contribute to the project:
    }
    ```
 
-5. **Restart VS Code** and enjoy! 🚀
+5. **Restart VS Code** and enjoy!
 
 ---
 
-## 🔄 Comparison: NPM vs Manual
+## Comparison: NPM vs Manual
 
 | Feature | NPM Installation | Manual Installation |
 |---------|------------------|-------------------|
@@ -131,7 +131,7 @@ For developers who want full control or to contribute to the project:
 
 ---
 
-## 📋 Available Tools (21 Total)
+## Available Tools (21 Total)
 
 Both installation methods provide access to all Windows Clippy MCP tools:
 
@@ -147,7 +147,7 @@ Both installation methods provide access to all Windows Clippy MCP tools:
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### NPM Installation Issues
 ```bash
@@ -171,11 +171,11 @@ npm install -g @clippymcp/windows-clippy-mcp
 ### Windows Service Issues
 ```bash
 # Check service status
-sc query WindowsClippyMCP
+sc query windowsclippymcp
 
 # Restart service
-sc stop WindowsClippyMCP
-sc start WindowsClippyMCP
+sc stop windowsclippymcp
+sc start windowsclippymcp
 
 # Reinstall service (as admin)
 npm run uninstall-service
@@ -184,20 +184,20 @@ npm run install-service
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 - **Full Documentation**: [README.md](README.md)
 - **Contributing**: [CONTRIBUTING.md](CONTRIBUTING.md)
 - **Add Tools**: [AddToolProcess.md](AddToolProcess.md)
-- **GitHub**: [dayour/Windows-Clippy-MCP](https://github.com/dayour/Windows-Clippy-MCP)
+- **GitHub**: [dayour/windows-clippy-mcp](https://github.com/dayour/windows-clippy-mcp)
 
 ---
 
-## 🤝 Support
+## Support
 
-- **Issues**: [GitHub Issues](https://github.com/dayour/Windows-Clippy-MCP/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/dayour/Windows-Clippy-MCP/discussions)
+- **Issues**: [GitHub Issues](https://github.com/dayour/windows-clippy-mcp/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/dayour/windows-clippy-mcp/discussions)
 
 ---
 
-**🎉 Welcome to Windows Clippy MCP! Your friendly AI assistant for Windows automation is ready to help.**
+**Welcome to Windows Clippy MCP! Your friendly AI assistant for Windows automation is ready to help.**

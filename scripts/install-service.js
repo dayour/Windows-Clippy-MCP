@@ -35,12 +35,12 @@ async function installService() {
     process.exit(1);
   }
 
-  log(`${colors.bold}${colors.blue}🔧 Installing Windows Clippy MCP as Windows Service${colors.reset}`);
+  log(`${colors.bold}${colors.blue}Installing Windows Clippy MCP as Windows Service${colors.reset}`);
   log('');
 
   try {
     // Create a more robust service script
-    const serviceName = 'WindowsClippyMCP';
+    const serviceName = 'windowsclippymcp';
     const serviceDisplayName = 'Windows Clippy MCP Server';
     const serviceDescription = 'Windows Clippy MCP - AI assistant for Windows desktop automation';
     const packageDir = path.resolve(__dirname, '..');
@@ -55,7 +55,7 @@ const packageDir = '${packageDir.replace(/\\/g, '\\\\')}';
 
 function startMCPServer() {
   console.log('Starting Windows Clippy MCP Server...');
-  
+
   const server = spawn('uv', ['run', 'main.py'], {
     cwd: packageDir,
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -101,7 +101,7 @@ process.on('SIGTERM', () => {
 
     // Create Windows service using sc command
     const createCommand = `sc create "${serviceName}" binPath= "node \\"${scriptPath}\\"" DisplayName= "${serviceDisplayName}" Description= "${serviceDescription}" start= auto`;
-    
+
     await execAsync(createCommand);
     logSuccess(`Service '${serviceName}' created successfully`);
 
