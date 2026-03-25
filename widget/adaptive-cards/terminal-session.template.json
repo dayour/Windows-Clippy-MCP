@@ -1,0 +1,223 @@
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.2",
+  "fallbackText": "Windows Clippy terminal session snapshot for ${session.displayName}",
+  "body": [
+    {
+      "type": "TextBlock",
+      "text": "${session.displayName}",
+      "weight": "Bolder",
+      "size": "Medium",
+      "wrap": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "Windows Clippy terminal snapshot. ${status.agent} in ${status.mode} mode.",
+      "spacing": "None",
+      "isSubtle": true,
+      "wrap": true
+    },
+    {
+      "type": "FactSet",
+      "facts": [
+        {
+          "title": "Session",
+          "value": "${session.shortSessionId}"
+        },
+        {
+          "title": "Host",
+          "value": "${status.hostStateLabel}"
+        },
+        {
+          "title": "Model",
+          "value": "${status.model}"
+        },
+        {
+          "title": "PID",
+          "value": "${status.pid}"
+        },
+        {
+          "title": "Tools",
+          "value": "${status.toolFlagSummary}"
+        },
+        {
+          "title": "Transport",
+          "value": "${session.transport}"
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "$when": "${session.workingDirectory}",
+      "text": "Working directory: ${session.workingDirectory}",
+      "wrap": true,
+      "isSubtle": true,
+      "size": "Small"
+    },
+    {
+      "type": "Container",
+      "$when": "${transcript.latestUserPrompt}",
+      "separator": true,
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "Latest prompt",
+          "weight": "Bolder",
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": "${transcript.latestUserPrompt}",
+          "wrap": true,
+          "fontType": "Monospace",
+          "spacing": "Small"
+        }
+      ]
+    },
+    {
+      "type": "Container",
+      "$when": "${transcript.latestAssistantText}",
+      "separator": true,
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "Assistant",
+          "weight": "Bolder",
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": "${transcript.latestAssistantText}",
+          "wrap": true,
+          "fontType": "Monospace",
+          "spacing": "Small"
+        }
+      ]
+    },
+    {
+      "type": "Container",
+      "$when": "${transcript.latestPlainText}",
+      "separator": true,
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "Transcript preview",
+          "weight": "Bolder",
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": "${transcript.latestPlainText}",
+          "wrap": true,
+          "fontType": "Monospace",
+          "spacing": "Small"
+        }
+      ]
+    },
+    {
+      "type": "Container",
+      "$when": "${transcript.latestThoughtText}",
+      "separator": true,
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "Reasoning",
+          "weight": "Bolder",
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": "${transcript.latestThoughtText}",
+          "wrap": true,
+          "fontType": "Monospace",
+          "spacing": "Small",
+          "isSubtle": true
+        }
+      ]
+    },
+    {
+      "type": "Container",
+      "$when": "${recentTools}",
+      "separator": true,
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "Recent tools",
+          "weight": "Bolder",
+          "wrap": true
+        },
+        {
+          "type": "Container",
+          "$data": "${recentTools}",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "${name} [${statusLabel}]",
+              "wrap": true,
+              "spacing": "Small"
+            },
+            {
+              "type": "TextBlock",
+              "$when": "${inputPreview}",
+              "text": "Input: ${inputPreview}",
+              "wrap": true,
+              "fontType": "Monospace",
+              "size": "Small",
+              "isSubtle": true,
+              "spacing": "None"
+            },
+            {
+              "type": "TextBlock",
+              "$when": "${resultPreview}",
+              "text": "Result: ${resultPreview}",
+              "wrap": true,
+              "fontType": "Monospace",
+              "size": "Small",
+              "spacing": "None"
+            },
+            {
+              "type": "TextBlock",
+              "$when": "${errorPreview}",
+              "text": "Error: ${errorPreview}",
+              "wrap": true,
+              "fontType": "Monospace",
+              "size": "Small",
+              "spacing": "None",
+              "color": "Attention"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "Container",
+      "$when": "${transcript.lastError}",
+      "separator": true,
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "Last error",
+          "weight": "Bolder",
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": "${transcript.lastError}",
+          "wrap": true,
+          "fontType": "Monospace",
+          "spacing": "Small",
+          "color": "Attention"
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "Updated ${generatedAt}",
+      "wrap": true,
+      "size": "Small",
+      "isSubtle": true,
+      "separator": true
+    }
+  ]
+}

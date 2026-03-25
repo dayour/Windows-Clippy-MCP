@@ -36,19 +36,40 @@ async function validatePackageStructure() {
   log(`${colors.blue} Validating package structure including WC25.png logo${colors.reset}`);
   log('');
 
-  const requiredFiles = [
-    'package.json',
-    'main.py',
-    'manifest.json',
-    'pyproject.toml',
-    'scripts/setup.js',
+    const requiredFiles = [
+      'package.json',
+      'main.py',
+      'manifest.json',
+      'pyproject.toml',
+      'scripts/clippy-session.js',
+      'scripts/clippy-widget-refresh.js',
+      'scripts/clippy-widget-restart.js',
+      'scripts/start-native-livetile.js',
+      'scripts/clippy_widget_service.js',
+      'scripts/service-runner.js',
+      'scripts/setup.js',
+      'scripts/start-widget.js',
     'scripts/install-service.js',
     'scripts/uninstall-service.js',
-    'src/desktop/__init__.py',
-    'src/desktop/views.py',
-    'assets/WC25.png',
-    'README.md',
-    'LICENSE'
+      'src/desktop/__init__.py',
+      'src/desktop/views.py',
+      'src/terminal/TerminalAdaptiveCard.js',
+      'widget/Launch-ClippyWidget.cmd',
+      'widget/Launch-ClippyLiveTile.cmd',
+      'widget/clippy-widget.ps1',
+      'widget/LiveTileHost/LiveTileHost.csproj',
+      'widget/LiveTileHost/App.xaml',
+      'widget/LiveTileHost/App.xaml.cs',
+      'widget/LiveTileHost/MainWindow.xaml',
+      'widget/LiveTileHost/MainWindow.xaml.cs',
+      'widget/adaptive-cards/terminal-session.template.json',
+      'widget/adaptive-cards/terminal-session.data.schema.json',
+      'widget/adaptive-cards/clippy-native-livetile.template.json',
+      'widget/adaptive-cards/clippy-native-livetile.data.schema.json',
+      'widget/adaptive-cards/clippy-native-livetile.data.json',
+      'assets/WC25.png',
+      'README.md',
+      'LICENSE'
   ];
 
   let allValid = true;
@@ -84,8 +105,47 @@ async function validatePackageStructure() {
       }
     }
 
+    if (
+      packageJson.bin &&
+      packageJson.bin.clippy &&
+      packageJson.bin['clippy-widget'] &&
+      packageJson.bin['clippy-live-tile'] &&
+      packageJson.bin.clippy_widget_refresh &&
+      packageJson.bin.clippy_widget_restart
+    ) {
+      logSuccess('package.json exposes clippy, clippy-widget, clippy-live-tile, clippy_widget_refresh, and clippy_widget_restart binaries');
+    } else {
+      logError('package.json missing required widget bin entries');
+      allValid = false;
+    }
+
+    const requiredPackagedPaths = [
+      'assets/**',
+      'scripts/**',
+      'widget/clippy-widget.ps1',
+      'widget/Launch-ClippyWidget.cmd',
+      'widget/Launch-ClippyLiveTile.cmd',
+      'widget/adaptive-cards/**',
+      'widget/LiveTileHost/*.csproj',
+      'widget/LiveTileHost/*.xaml',
+      'widget/LiveTileHost/*.cs',
+      'widget/TerminalHost/bin/Debug/net8.0-windows/*.dll',
+      'widget/TerminalHost/bin/Debug/net8.0-windows/*.exe',
+      'widget/TerminalHost/bin/Debug/net8.0-windows/*.json',
+      'widget/TerminalHost/bin/Debug/net8.0-windows/runtimes/**/native/*.dll'
+    ];
+
+    for (const packagedPath of requiredPackagedPaths) {
+      if (Array.isArray(packageJson.files) && packageJson.files.includes(packagedPath)) {
+        logSuccess(`package.json files includes ${packagedPath}`);
+      } else {
+        logError(`package.json files missing ${packagedPath}`);
+        allValid = false;
+      }
+    }
+
     // Check required scripts
-    const requiredScripts = ['postinstall', 'setup', 'start', 'install-service', 'uninstall-service'];
+    const requiredScripts = ['postinstall', 'setup', 'start', 'start:widget', 'start:widget:debug', 'start:live-tile', 'refresh:widget', 'restart:widget', 'start:mcp', 'install-service', 'uninstall-service'];
     for (const script of requiredScripts) {
       if (packageJson.scripts && packageJson.scripts[script]) {
         logSuccess(`Script defined: ${script}`);
@@ -131,10 +191,25 @@ async function validateScripts() {
   log(`${colors.bold}Validating Script Syntax${colors.reset}`);
   log('');
 
-  const scripts = [
-    'scripts/setup.js',
+    const scripts = [
+      'scripts/clippy-session.js',
+      'scripts/clippy-widget-refresh.js',
+      'scripts/clippy-widget-restart.js',
+      'scripts/start-native-livetile.js',
+      'scripts/clippy_widget_service.js',
+      'scripts/service-runner.js',
+      'scripts/setup.js',
+      'scripts/start-widget.js',
     'scripts/install-service.js',
-    'scripts/uninstall-service.js'
+    'scripts/uninstall-service.js',
+    // Terminal broker scaffold (pty-renderer-architecture)
+    'src/terminal/SessionCore.js',
+     'src/terminal/TranscriptSink.js',
+     'src/terminal/ChildHost.js',
+     'src/terminal/SessionTab.js',
+     'src/terminal/SessionBroker.js',
+     'src/terminal/TerminalAdaptiveCard.js',
+     'src/terminal/index.js'
   ];
 
   let allValid = true;

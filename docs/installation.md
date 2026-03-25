@@ -14,6 +14,7 @@ npm install -g @dayour/windows-clippy-mcp
 ```
 
 The setup automatically:
+- Bootstraps `uv` and Python 3.13 if they are not already available
 - Installs all dependencies
 - Configures VS Code integration
 - Sets up Windows service options
@@ -21,7 +22,11 @@ The setup automatically:
 
 After installation:
 1. **Restart VS Code completely**
-2. Start using Windows Clippy tools in agent mode!
+2. Run `clippy-widget` to launch the floating widget.
+3. Run `clippy_widget_refresh` to relaunch running widget hosts after updates.
+4. Run `clippy_widget_restart` to restart the widget service and relaunch widget hosts.
+5. Run `clippy` to open a Copilot terminal session that automatically attaches a widget.
+6. Start using Windows Clippy tools in agent mode.
 
 ---
 
@@ -193,7 +198,7 @@ uv sync --reinstall
 
 ## Prerequisites
 
-- Python 3.13+
-- [UV](https://github.com/astral-sh/uv) (`pip install uv`)
-- English Windows locale (for consistent UI Automation tree)
 - Windows 11 (tested; Windows 10 may work but is not officially supported)
+- Node.js 16+ for the one-click `npm install` flow
+- Python 3.13+ and [UV](https://github.com/astral-sh/uv) (`pip install uv`) for manual setup, or let the npm setup bootstrap them automatically
+- English Windows locale (for consistent UI Automation tree)

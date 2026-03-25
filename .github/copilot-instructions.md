@@ -126,7 +126,7 @@ uv run python -c "import json; json.load(open('manifest.json'))"
 ```bash
 # Test full MCP server startup (Windows only)
 timeout 10 uv run main.py
-# Should start without errors and report 21 available tools
+# Should start without errors and report 49 available tools
 
 # Test Windows-specific imports
 uv run python -c "
@@ -174,7 +174,7 @@ def new_tool(param1: str, param2: int = 0) -> str:
 ### File Structure Understanding
 ```
 windows-clippy-mcp/
- main.py # Main MCP server with all 21 tools
+ main.py # Main MCP server with all 49 tools
  src/desktop/views.py # Desktop automation classes
  pyproject.toml # Dependencies and project config
  manifest.json # MCP server metadata
@@ -223,30 +223,25 @@ windows-clippy-mcp/
    - Update documentation as needed
 3. **Before committing:** Verify all validation steps pass
 
-## Available Tools (21 Total)
+## Available Tools (49 Total)
 
-### Desktop Automation Tools (15)
-- Launch-Tool: Launch applications from Start menu
-- Powershell-Tool: Execute PowerShell commands
-- State-Tool: Get desktop state and UI elements
-- Clipboard-Tool: Copy/paste clipboard operations
-- Click-Tool: Click at coordinates with various buttons
-- Type-Tool: Type text into focused elements
-- Switch-Tool: Switch between application windows
-- Scroll-Tool: Scroll in specified directions
-- Drag-Tool: Drag and drop operations
-- Move-Tool: Move mouse cursor
-- Shortcut-Tool: Execute keyboard shortcuts
-- Key-Tool: Press individual keys
-- Wait-Tool: Add delays between actions
-- Scrape-Tool: Fetch and convert web content
-- Browser-Tool: Launch Edge browser with optional URL
+### Desktop Automation Tools (42)
+- Core Interaction (13): Launch-Tool, Powershell-Tool, State-Tool, Clipboard-Tool, Click-Tool, Type-Tool, Switch-Tool, Scroll-Tool, Drag-Tool, Move-Tool, Shortcut-Tool, Key-Tool, Wait-Tool
+- Web & Browser (2): Browser-Tool, Scrape-Tool
+- Window Management (3): Window-Tool, TaskView-Tool, Taskbar-Tool
+- Screenshot & Visual (4): Screenshot-Tool, Snip-Tool, Screen-Info-Tool, Cursor-Position-Tool
+- System Control (6): Volume-Tool, Lock-Tool, ActionCenter-Tool, Emoji-Tool, Clipboard-History-Tool, Run-Dialog-Tool
+- Settings & Configuration (4): Settings-Tool, Registry-Tool, Wifi-Tool, Bluetooth-Tool
+- File & Process (5): File-Tool, FileExplorer-Tool, Process-Tool, SystemInfo-Tool, Search-Tool
+- Text Editing (4): Text-Select-Tool, Find-Replace-Tool, Undo-Redo-Tool, Zoom-Tool
+- Notification (1): Notification-Tool
 
-### Microsoft 365 & Power Platform Tools (6)
+### M365 & Power Platform Tools (7)
 - PAC-CLI-Tool: Power Platform CLI operations
 - Connect-MGGraph-Tool: Microsoft Graph authentication
 - Graph-API-Tool: Execute Graph API calls
-- Copilot-Studio-Tool: Manage Copilot Studio bots
+- Copilot-Studio-Tool: Manage Copilot Studio agents
+- Agent-Studio-Tool: Query Agent Studio evals, feedback, and monitoring data
 - Power-Automate-Tool: Create and manage Power Automate flows
 - M365-Copilot-Tool: Interact with Microsoft 365 Copilot
 

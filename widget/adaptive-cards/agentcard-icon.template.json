@@ -1,0 +1,180 @@
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.2",
+  "fallbackText": "Windows Clippy agentcard icon-generation tile for ${title}",
+  "body": [
+    {
+      "type": "TextBlock",
+      "text": "${title}",
+      "weight": "Bolder",
+      "size": "Medium",
+      "wrap": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "${summary}",
+      "spacing": "None",
+      "isSubtle": true,
+      "wrap": true
+    },
+    {
+      "type": "FactSet",
+      "facts": [
+        {
+          "title": "Agent",
+          "value": "${generation.agent}"
+        },
+        {
+          "title": "Model",
+          "value": "${generation.reasoningModel}"
+        },
+        {
+          "title": "Tool",
+          "value": "${generation.tool}"
+        },
+        {
+          "title": "Bridge",
+          "value": "${generation.bridge}"
+        },
+        {
+          "title": "State",
+          "value": "${iconAssets.selectedState}"
+        }
+      ]
+    },
+    {
+      "type": "Container",
+      "separator": true,
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "Icon assets",
+          "weight": "Bolder",
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": "192: ${iconAssets.hero192}",
+          "wrap": true,
+          "fontType": "Monospace",
+          "size": "Small"
+        },
+        {
+          "type": "TextBlock",
+          "text": "32 default: ${iconAssets.default32}",
+          "wrap": true,
+          "fontType": "Monospace",
+          "size": "Small",
+          "spacing": "None"
+        },
+        {
+          "type": "TextBlock",
+          "text": "32 focused: ${iconAssets.focused32}",
+          "wrap": true,
+          "fontType": "Monospace",
+          "size": "Small",
+          "spacing": "None"
+        }
+      ]
+    },
+    {
+      "type": "Container",
+      "$when": "${tools}",
+      "separator": true,
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "Generation tools",
+          "weight": "Bolder",
+          "wrap": true
+        },
+        {
+          "type": "Container",
+          "$data": "${tools}",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "${name} [${kind}]",
+              "wrap": true,
+              "spacing": "Small"
+            },
+            {
+              "type": "TextBlock",
+              "text": "${purpose}",
+              "wrap": true,
+              "size": "Small",
+              "isSubtle": true,
+              "spacing": "None"
+            },
+            {
+              "type": "TextBlock",
+              "$when": "${source}",
+              "text": "Source: ${source}",
+              "wrap": true,
+              "size": "Small",
+              "fontType": "Monospace",
+              "spacing": "None"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "Container",
+      "separator": true,
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "Review status",
+          "weight": "Bolder",
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": "${review.summary}",
+          "wrap": true,
+          "size": "Small"
+        },
+        {
+          "type": "Container",
+          "$data": "${review.notes}",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "- ${$data}",
+              "wrap": true,
+              "size": "Small",
+              "isSubtle": true,
+              "spacing": "None"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "Data: ${artifacts.dataPath}",
+      "wrap": true,
+      "size": "Small",
+      "isSubtle": true,
+      "separator": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "Schema: ${artifacts.dataSchemaPath}",
+      "wrap": true,
+      "size": "Small",
+      "isSubtle": true,
+      "spacing": "None"
+    },
+    {
+      "type": "TextBlock",
+      "text": "Manifest: ${artifacts.packageManifestPath}",
+      "wrap": true,
+      "size": "Small",
+      "isSubtle": true,
+      "spacing": "None"
+    }
+  ]
+}

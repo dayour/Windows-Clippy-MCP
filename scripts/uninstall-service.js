@@ -81,7 +81,8 @@ async function uninstallService() {
     log(`${colors.bold}${colors.green}Service uninstalled successfully!${colors.reset}`);
     log('');
     log(`${colors.bold}You can still use Windows Clippy MCP by running:${colors.reset}`);
-    log(` • ${colors.yellow}npm start${colors.reset} - Start the MCP server manually`);
+    log(` • ${colors.yellow}npm start${colors.reset} - Launch the Clippy widget`);
+    log(` • ${colors.yellow}npm run start:mcp${colors.reset} - Start the MCP server manually`);
     log('');
 
   } catch (error) {

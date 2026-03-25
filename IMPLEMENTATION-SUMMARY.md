@@ -74,7 +74,7 @@ Both methods provide identical functionality - user choice!
 ```
 @clippymcp/windows-clippy-mcp/
  package.json # NPM package configuration
- main.py # MCP server (21 tools)
+ main.py # MCP server (49 total tools: 42 Desktop Automation + 7 M365/Power Platform)
  src/desktop/ # Desktop automation classes
  scripts/
     setup.js # Main installation orchestrator

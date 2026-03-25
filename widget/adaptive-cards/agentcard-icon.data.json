@@ -1,0 +1,66 @@
+{
+  "templateVersion": "1.0",
+  "adaptiveCardVersion": "1.2",
+  "generatedAt": "2026-03-16T08:18:38.718599+00:00",
+  "title": "Agentcard icon tile",
+  "summary": "Adaptive live tile metadata for the Windows Clippy agentcard icon workflow, including the packaged asset set and the tools that generated it.",
+  "iconAssets": {
+    "hero192": "E:\\Windows-Clippy-MCP\\assets\\agentcard_192.png",
+    "default32": "E:\\Windows-Clippy-MCP\\assets\\agentcard_32.png",
+    "focused32": "E:\\Windows-Clippy-MCP\\assets\\agentcard_focused_32.png",
+    "primaryColor": "#2146C7",
+    "accentColor": "#77E8FF",
+    "selectedState": "default"
+  },
+  "generation": {
+    "agent": "dayour-icon",
+    "reasoningModel": "claude-sonnet-4.6",
+    "tool": "image_flux_2_pro",
+    "bridge": "http://localhost:4300/api/generate",
+    "outputDirectory": "M:\\images",
+    "promptSummary": "Single clipped-corner capability card with a centered agent spark, optimized for Windows Clippy and 32x32 readability.",
+    "negativeConstraints": "No text, borders, multiple cards, profile avatars, screenshots, or low-contrast detail."
+  },
+  "tools": [
+    {
+      "name": "dayour-icon",
+      "kind": "agent",
+      "purpose": "Turns icon briefs into FLUX.2 prompts, package specs, and review artifacts.",
+      "source": "C:\\Users\\dayour\\.copilot\\agents\\dayour-icon.md"
+    },
+    {
+      "name": "image_flux_2_pro",
+      "kind": "image-tool",
+      "purpose": "Generates the master square icon candidate through the local llm-lib bridge.",
+      "source": "http://localhost:4300/api/tools"
+    },
+    {
+      "name": "python-postprocess",
+      "kind": "packager",
+      "purpose": "Resizes the selected master into 192/32/focused PNG outputs and copies widget assets.",
+      "source": "E:\\Windows-Clippy-MCP\\widget\\adaptive-cards\\agentcard-icon.package-manifest.json"
+    },
+    {
+      "name": "adaptive-card-files",
+      "kind": "schema",
+      "purpose": "Defines the tile template, data schema, and live data payload consumed by the widget window.",
+      "source": "E:\\Windows-Clippy-MCP\\widget\\adaptive-cards"
+    }
+  ],
+  "artifacts": {
+    "templatePath": "E:\\Windows-Clippy-MCP\\widget\\adaptive-cards\\agentcard-icon.template.json",
+    "dataSchemaPath": "E:\\Windows-Clippy-MCP\\widget\\adaptive-cards\\agentcard-icon.data.schema.json",
+    "dataPath": "E:\\Windows-Clippy-MCP\\widget\\adaptive-cards\\agentcard-icon.data.json",
+    "packageManifestPath": "E:\\Windows-Clippy-MCP\\widget\\adaptive-cards\\agentcard-icon.package-manifest.json",
+    "specPath": "E:\\Windows-Clippy-MCP\\widget\\adaptive-cards\\agentcard-icon.spec.json"
+  },
+  "review": {
+    "status": "candidate-ready",
+    "summary": "The current agentcard assets are packaged and ready for widget preview.",
+    "notes": [
+      "Icon assets are stored under E:\\Windows-Clippy-MCP\\assets.",
+      "The focused 32px icon is a derived active-state variant.",
+      "The schema and template are now local to the widget repo."
+    ]
+  }
+}

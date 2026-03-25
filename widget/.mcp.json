@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@playwright/mcp@latest", "--browser", "msedge", "--user-data-dir", "%USERPROFILE%\\.playwright-mcp-edge"]
+    },
+    "microsoft-learn": {
+      "type": "http",
+      "url": "https://learn.microsoft.com/api/mcp"
+    },
+    "workiq": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@microsoft/workiq", "mcp"]
+    },
+    "pac-cli": {
+      "command": "node",
+      "args": ["tools/pac-mcp-wrapper.js"]
+    }
+  }
+}

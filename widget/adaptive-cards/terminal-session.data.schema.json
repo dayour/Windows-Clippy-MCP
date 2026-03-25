@@ -1,0 +1,254 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dayour/windows-clippy-mcp/blob/main/widget/adaptive-cards/terminal-session.data.schema.json",
+  "title": "Windows Clippy Terminal Session Card Data",
+  "description": "Portable data contract for rendering a Windows Clippy terminal/session snapshot as an Adaptive Card.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "templateVersion",
+    "adaptiveCardVersion",
+    "generatedAt",
+    "assets",
+    "session",
+    "status",
+    "transcript",
+    "recentTools"
+  ],
+  "properties": {
+    "templateVersion": {
+      "type": "string"
+    },
+    "adaptiveCardVersion": {
+      "type": "string"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "assets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "templatePath",
+        "dataSchemaPath"
+      ],
+      "properties": {
+        "templatePath": {
+          "type": "string"
+        },
+        "dataSchemaPath": {
+          "type": "string"
+        }
+      }
+    },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tabId",
+        "displayName",
+        "sessionId",
+        "shortSessionId",
+        "workingDirectory",
+        "configDirectory",
+        "transport"
+      ],
+      "properties": {
+        "tabId": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "shortSessionId": {
+          "type": "string"
+        },
+        "workingDirectory": {
+          "type": "string"
+        },
+        "configDirectory": {
+          "type": "string"
+        },
+        "transport": {
+          "type": "string"
+        }
+      }
+    },
+    "status": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hostState",
+        "hostStateLabel",
+        "isLive",
+        "pid",
+        "agent",
+        "model",
+        "mode",
+        "rawMode",
+        "toolFlags",
+        "toolFlagSummary",
+        "extraFlags",
+        "extraFlagSummary"
+      ],
+      "properties": {
+        "hostState": {
+          "type": "string"
+        },
+        "hostStateLabel": {
+          "type": "string"
+        },
+        "isLive": {
+          "type": "boolean"
+        },
+        "pid": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "agent": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "rawMode": {
+          "type": "string"
+        },
+        "toolFlags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "toolFlagSummary": {
+          "type": "string"
+        },
+        "extraFlags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "extraFlagSummary": {
+          "type": "string"
+        }
+      }
+    },
+    "transcript": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "latestUserPrompt",
+        "latestAssistantText",
+        "latestThoughtText",
+        "latestPlainText",
+        "lastError",
+        "waitingForResponse",
+        "lastUpdatedAt",
+        "lastExitCode",
+        "lastSignal"
+      ],
+      "properties": {
+        "latestUserPrompt": {
+          "type": "string"
+        },
+        "latestAssistantText": {
+          "type": "string"
+        },
+        "latestThoughtText": {
+          "type": "string"
+        },
+        "latestPlainText": {
+          "type": "string"
+        },
+        "lastError": {
+          "type": "string"
+        },
+        "waitingForResponse": {
+          "type": "boolean"
+        },
+        "lastUpdatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "lastExitCode": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "lastSignal": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "recentTools": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/recentTool"
+      }
+    }
+  },
+  "$defs": {
+    "recentTool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "status",
+        "statusLabel",
+        "inputPreview",
+        "resultPreview",
+        "errorPreview",
+        "startedAt",
+        "endedAt"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "statusLabel": {
+          "type": "string"
+        },
+        "inputPreview": {
+          "type": "string"
+        },
+        "resultPreview": {
+          "type": "string"
+        },
+        "errorPreview": {
+          "type": "string"
+        },
+        "startedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "endedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

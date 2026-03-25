@@ -39,70 +39,18 @@ async function installService() {
   log('');
 
   try {
-    // Create a more robust service script
     const serviceName = 'windowsclippymcp';
     const serviceDisplayName = 'Windows Clippy MCP Server';
     const serviceDescription = 'Windows Clippy MCP - AI assistant for Windows desktop automation';
     const packageDir = path.resolve(__dirname, '..');
     const scriptPath = path.join(packageDir, 'scripts', 'service-runner.js');
-
-    // Create service runner script
-    const serviceRunner = `
-const { spawn } = require('child_process');
-const path = require('path');
-
-const packageDir = '${packageDir.replace(/\\/g, '\\\\')}';
-
-function startMCPServer() {
-  console.log('Starting Windows Clippy MCP Server...');
-
-  const server = spawn('uv', ['run', 'main.py'], {
-    cwd: packageDir,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    detached: false
-  });
-
-  server.stdout.on('data', (data) => {
-    console.log(\`MCP: \${data.toString()}\`);
-  });
-
-  server.stderr.on('data', (data) => {
-    console.error(\`MCP Error: \${data.toString()}\`);
-  });
-
-  server.on('close', (code) => {
-    console.log(\`MCP server exited with code \${code}\`);
-    // Auto-restart after 5 seconds
-    setTimeout(startMCPServer, 5000);
-  });
-
-  server.on('error', (error) => {
-    console.error(\`MCP server error: \${error.message}\`);
-    setTimeout(startMCPServer, 5000);
-  });
-}
-
-// Start the server
-startMCPServer();
-
-// Keep the process alive
-process.on('SIGINT', () => {
-  console.log('Service stopping...');
-  process.exit(0);
-});
-
-process.on('SIGTERM', () => {
-  console.log('Service stopping...');
-  process.exit(0);
-});
-`;
-
-    await fs.writeFile(scriptPath, serviceRunner);
+    await fs.access(scriptPath);
 
     // Create Windows service using sc command
-    const createCommand = `sc create "${serviceName}" binPath= "node \\"${scriptPath}\\"" DisplayName= "${serviceDisplayName}" Description= "${serviceDescription}" start= auto`;
+    const createCommand = `sc create "${serviceName}" binPath= "\\"${process.execPath}\\" \\"${scriptPath}\\"" DisplayName= "${serviceDisplayName}" start= auto`;
 
     await execAsync(createCommand);
+    await execAsync(`sc description "${serviceName}" "${serviceDescription}"`);
     logSuccess(`Service '${serviceName}' created successfully`);
 
     // Start the service

@@ -326,34 +326,265 @@ def graph_api_tool(endpoint: str, method: str = "GET", body: str = None) -> str:
     except Exception as e:
         return f'Error executing Graph API call: {str(e)}'
 
-@mcp.tool(name='Copilot-Studio-Tool', description='Manage Microsoft Copilot Studio bots and conversations. Create, configure, and interact with custom copilots built in Copilot Studio.')
-def copilot_studio_tool(action: str, bot_name: str = None, message: str = None) -> str:
-    """Manage Copilot Studio bots and interactions."""
+@mcp.tool(name='Copilot-Studio-Tool', description='Manage Copilot Studio agents via the Agent Studio backend (localhost:3004). Actions: list (list agents), profiles (list environment profiles), switch-profile (switch active profile), eval-status (get eval details for an agent), generate-eval (generate and persist native eval test cases), trigger-eval (trigger a native Copilot Studio evaluation run), poll-eval (check eval run status). Requires Agent Studio server running on port 3004.')
+def copilot_studio_tool(
+    action: str,
+    bot_id: str = None,
+    profile_id: str = None,
+    test_set_id: str = None,
+    run_id: str = None,
+    question_count: int = 5,
+    eval_name: str = None,
+    org_url: str = None,
+) -> str:
+    """Interact with Copilot Studio agents via the Agent Studio backend API."""
+    import json as _json
+    base = 'http://localhost:3004/api/copilot-studio'
+    headers = {}
+    if org_url:
+        headers['x-agent-studio-org-url'] = org_url
+
     try:
         if action.lower() == 'list':
-            # List available bots (would typically require Copilot Studio API)
-            cmd = 'powershell.exe -Command "Write-Output \'Copilot Studio integration requires specific API setup. Please configure your Copilot Studio environment first.\'"'
+            resp = requests.get(f'{base}/agents', headers=headers, timeout=30)
+            resp.raise_for_status()
+            agents = resp.json()
+            lines = [f'Found {len(agents)} agents:']
+            for a in agents:
+                pub = a.get('publishedOn') or 'not published'
+                lines.append(f'  - {a.get("name")} | botId: {a.get("botId")} | published: {pub}')
+            return '\n'.join(lines)
 
-        elif action.lower() == 'create' and bot_name:
-            # Create a new bot (placeholder for Copilot Studio operations)
-            cmd = f'powershell.exe -Command "Write-Output \'Creating Copilot Studio bot: {bot_name}. This would typically use Copilot Studio APIs.\'"'
+        elif action.lower() == 'profiles':
+            resp = requests.get(f'{base}/profiles', timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+            lines = [f'Active profile: {data.get("activeProfileId")}']
+            for p in data.get('profiles', []):
+                tag = ' [ACTIVE]' if p.get('active') else ''
+                lines.append(f'  {p["id"]}: {p["name"]} ({p.get("orgUrl", "?")}){tag}')
+            return '\n'.join(lines)
 
-        elif action.lower() == 'chat' and bot_name and message:
-            # Send message to a bot (placeholder for bot interaction)
-            cmd = f'powershell.exe -Command "Write-Output \'Sending message to {bot_name}: {message}. This requires Copilot Studio runtime configuration.\'"'
+        elif action.lower() == 'switch-profile' and profile_id:
+            resp = requests.post(f'{base}/profiles/switch',
+                json={'profileId': profile_id}, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+            return f'Switched to profile: {data.get("activeProfileId")} ({data.get("profile", {}).get("name", "?")})'
+
+        elif action.lower() == 'eval-status' and bot_id:
+            resp = requests.get(f'{base}/evals/{bot_id}', headers=headers, timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+            native = data.get('native', {})
+            dl = data.get('directLine', {})
+            lines = [
+                f'Agent: {bot_id}',
+                f'Native eval configs: {native.get("configurationCount", 0)}',
+                f'Test cases: {native.get("testCaseCount", 0)}',
+                f'Eval runs: {native.get("evaluationRunCount", 0)}',
+                f'Direct Line available: {dl.get("available", False)}',
+                f'Published: {dl.get("published", False)} (on {dl.get("publishedOn", "?")})',
+            ]
+            for cfg in native.get('configurations', []):
+                lines.append(f'  Config: {cfg.get("name")} (id: {cfg.get("id")})')
+            for run in native.get('recentRuns', []):
+                lines.append(f'  Run: {run.get("name")} state={run.get("state")} created={run.get("createdOn")}')
+            return '\n'.join(lines)
+
+        elif action.lower() == 'generate-eval' and bot_id:
+            body = {
+                'botId': bot_id,
+                'count': question_count,
+                'persist': True,
+                'evaluationName': eval_name or f'Clippy Eval - {bot_id[:8]}',
+                'evaluationDescription': 'Evaluation generated by Windows Clippy MCP',
+            }
+            resp = requests.post(f'{base}/generate-questions',
+                json=body, headers=headers, timeout=120)
+            resp.raise_for_status()
+            data = resp.json()
+            persisted = data.get('persisted', {})
+            questions = data.get('questions', [])
+            lines = [f'Generated {len(questions)} questions for {bot_id}']
+            if persisted.get('testSetId'):
+                lines.append(f'Persisted to native eval! testSetId: {persisted["testSetId"]}')
+                lines.append(f'Test set name: {persisted.get("name", "?")}')
+            for q in questions:
+                lines.append(f'  Q: {q.get("query", "?")}')
+            return '\n'.join(lines)
+
+        elif action.lower() == 'trigger-eval' and bot_id and test_set_id:
+            resp = requests.post(f'{base}/evals/{bot_id}/native-run',
+                json={'testSetId': test_set_id}, headers=headers, timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+            return (
+                f'Native eval triggered!\n'
+                f'  runId: {data.get("runId")}\n'
+                f'  state: {data.get("executionState")}\n'
+                f'  environment: {data.get("environment", "?")}\n'
+                f'  botId: {data.get("botId")}'
+            )
+
+        elif action.lower() == 'poll-eval' and bot_id and run_id:
+            resp = requests.get(f'{base}/evals/{bot_id}/native-run/{run_id}',
+                headers=headers, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+            return (
+                f'Run: {data.get("runId")}\n'
+                f'  State: {data.get("executionState")}\n'
+                f'  Processed: {data.get("processedItems")}/{data.get("totalItems")} items\n'
+                f'  Last updated: {data.get("lastUpdatedAt", "?")}'
+            )
 
         else:
-            return 'Error: Invalid action. Supported actions: list, create (requires bot_name), chat (requires bot_name and message)'
+            return (
+                'Copilot Studio Tool - available actions:\n'
+                '  list              - List all agents in active environment\n'
+                '  profiles          - List environment profiles\n'
+                '  switch-profile    - Switch active profile (requires profile_id)\n'
+                '  eval-status       - Get eval details for agent (requires bot_id)\n'
+                '  generate-eval     - Generate and persist eval test cases (requires bot_id)\n'
+                '  trigger-eval      - Trigger native eval run (requires bot_id, test_set_id)\n'
+                '  poll-eval         - Poll eval run status (requires bot_id, run_id)\n'
+                '\n'
+                'NOTE: Requires Agent Studio server running on localhost:3004'
+            )
 
-        response, status = desktop.execute_command(cmd)
-
-        if status == 0:
-            return f'Copilot Studio operation completed:\n{response}'
-        else:
-            return f'Copilot Studio operation failed (Status: {status}):\n{response}'
-
+    except requests.exceptions.ConnectionError:
+        return 'Error: Cannot connect to Agent Studio server at localhost:3004. Start it with: cd E:\\agent-studio && node server/server.js'
+    except requests.exceptions.HTTPError as e:
+        return f'Error: Agent Studio API returned {e.response.status_code}: {e.response.text[:500]}'
     except Exception as e:
         return f'Error with Copilot Studio operation: {str(e)}'
+
+@mcp.tool(name='Agent-Studio-Tool', description='Query the Agent Studio unified store for eval runs, feedback, monitoring snapshots, and activity logs. Actions: overview (dashboard stats), timeline (agent activity timeline), query (flexible store query), capabilities (list MCP capability manifest), evals (list recent eval runs). Requires Agent Studio server on port 3004.')
+def agent_studio_tool(
+    action: str,
+    agent_id: str = None,
+    event_type: str = None,
+    limit: int = 20,
+) -> str:
+    """Query Agent Studio unified store and capability manifest."""
+    import json as _json
+    api_base = 'http://localhost:3004/api'
+    mcp_base = 'http://localhost:3447'
+
+    try:
+        if action.lower() == 'overview':
+            resp = requests.get(f'{api_base}/store/overview', timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+            lines = ['Agent Studio Store Overview:']
+            for key, val in data.items():
+                lines.append(f'  {key}: {val}')
+            return '\n'.join(lines)
+
+        elif action.lower() == 'timeline' and agent_id:
+            resp = requests.get(f'{api_base}/store/timeline/{agent_id}', params={'limit': limit}, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+            lines = [f'Timeline for agent {agent_id} ({len(data)} events):']
+            for event in data:
+                lines.append(
+                    f'  [{event.get("source", "?")}] {event.get("timestamp", "?")} - '
+                    f'{_json.dumps(event.get("summary", ""), ensure_ascii=False)[:120]}'
+                )
+            return '\n'.join(lines)
+
+        elif action.lower() == 'query':
+            where = []
+            sql_params = []
+            if event_type:
+                where.append('event_type = ?')
+                sql_params.append(event_type)
+            if agent_id:
+                where.append('agent_id = ?')
+                sql_params.append(agent_id)
+            sql = (
+                'SELECT id, agent_id, event_type, channel, detail, response_ms, created_at '
+                'FROM activity_log'
+            )
+            if where:
+                sql += ' WHERE ' + ' AND '.join(where)
+            sql += ' ORDER BY created_at DESC LIMIT ?'
+            sql_params.append(limit)
+            resp = requests.post(
+                f'{api_base}/store/query',
+                json={'sql': sql, 'params': sql_params},
+                timeout=15,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            return _json.dumps(data.get('rows', []), indent=2, ensure_ascii=False)[:3000]
+
+        elif action.lower() == 'capabilities':
+            try:
+                resp = requests.get(f'{mcp_base}/capabilities', timeout=10)
+            except requests.exceptions.ConnectionError:
+                return 'Error: Cannot connect to Agent Studio MCP server at localhost:3447. Start it with: cd E:\\agent-studio && npm run start:mcp'
+            resp.raise_for_status()
+            data = resp.json()
+            lines = [f'Agent Studio MCP Capabilities (v{data.get("version", "?")}):', '']
+            for cat_name, cat_tools in data.get('capabilities', {}).items():
+                lines.append(f'  {cat_name}:')
+                for tool in cat_tools:
+                    lines.append(f'    - {tool.get("name")}: {tool.get("description", "")[:80]}')
+            return '\n'.join(lines)
+
+        elif action.lower() == 'evals':
+            where = []
+            sql_params = []
+            if agent_id:
+                where.append('agent_id = ?')
+                sql_params.append(agent_id)
+            sql = (
+                'SELECT id, agent_id, agent_name, profile_id, question_count, '
+                'passed, failed, pass_rate, status, started_at, completed_at '
+                'FROM eval_runs'
+            )
+            if where:
+                sql += ' WHERE ' + ' AND '.join(where)
+            sql += ' ORDER BY started_at DESC LIMIT ?'
+            sql_params.append(limit)
+            resp = requests.post(
+                f'{api_base}/store/query',
+                json={'sql': sql, 'params': sql_params},
+                timeout=15,
+            )
+            resp.raise_for_status()
+            rows = resp.json().get('rows', [])
+            lines = [f'Recent eval runs ({len(rows)} entries):']
+            for row in rows:
+                lines.append(
+                    f'  Agent: {row.get("agent_name") or row.get("agent_id", "?")} '
+                    f'| profile: {row.get("profile_id", "?")} '
+                    f'| passRate: {row.get("pass_rate", "?")}% '
+                    f'| status: {row.get("status", "?")} '
+                    f'| runId: {row.get("id", "?")}'
+                )
+            return '\n'.join(lines)
+
+        else:
+            return (
+                'Agent Studio Tool - available actions:\n'
+                '  overview       - Dashboard stats (eval runs, feedback, activity counts)\n'
+                '  timeline       - Agent activity timeline (requires agent_id)\n'
+                '  query          - Flexible store query (optional: agent_id, event_type, limit)\n'
+                '  capabilities   - List MCP capability manifest\n'
+                '  evals          - List recent eval runs and results\n'
+                '\n'
+                'NOTE: Requires Agent Studio backend on localhost:3004; capabilities also require MCP server on localhost:3447'
+            )
+
+    except requests.exceptions.ConnectionError:
+        return 'Error: Cannot connect to Agent Studio server at localhost:3004. Start it with: cd E:\\agent-studio && node server/server.js'
+    except requests.exceptions.HTTPError as e:
+        return f'Error: Agent Studio API returned {e.response.status_code}: {e.response.text[:500]}'
+    except Exception as e:
+        return f'Error with Agent Studio operation: {str(e)}'
 
 @mcp.tool(name='Power-Automate-Tool', description='Create and manage Power Automate workflows. List, create, trigger, and monitor cloud flows and desktop flows.')
 def power_automate_tool(action: str, flow_name: str = None, parameters: str = None) -> str:

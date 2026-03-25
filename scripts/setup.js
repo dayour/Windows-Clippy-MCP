@@ -1,11 +1,16 @@
 #!/usr/bin/env node
 
 const fs = require('fs').promises;
+const os = require('os');
 const path = require('path');
-const { exec, spawn } = require('child_process');
+const { exec, execFile, spawn } = require('child_process');
 const { promisify } = require('util');
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+const packageDir = path.resolve(__dirname, '..');
+const requiredPythonVersion = '3.13';
+let resolvedUvExecutable = null;
 
 // Console colors for better output
 const colors = {
@@ -37,6 +42,215 @@ function logError(message) {
   log(`${colors.red} ${message}${colors.reset}`);
 }
 
+function prependToPath(directory) {
+  if (!directory) {
+    return;
+  }
+
+  const pathEntries = (process.env.PATH || '')
+    .split(path.delimiter)
+    .filter(Boolean);
+
+  const alreadyPresent = pathEntries.some(
+    (entry) => entry.toLowerCase() === directory.toLowerCase()
+  );
+
+  if (!alreadyPresent) {
+    process.env.PATH = `${directory}${path.delimiter}${process.env.PATH || ''}`;
+  }
+}
+
+async function canRunExecutable(executable, args = ['--version']) {
+  try {
+    await execFileAsync(executable, args, { windowsHide: true });
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+async function findUvExecutable() {
+  if (resolvedUvExecutable && await canRunExecutable(resolvedUvExecutable)) {
+    return resolvedUvExecutable;
+  }
+
+  const userProfile = process.env.USERPROFILE || os.homedir();
+  const candidatePaths = [
+    'uv',
+    path.join(process.env.LOCALAPPDATA || '', 'Microsoft', 'WindowsApps', 'uv.exe'),
+    path.join(userProfile, '.local', 'bin', 'uv.exe'),
+    path.join(userProfile, '.cargo', 'bin', 'uv.exe')
+  ];
+
+  for (const candidate of candidatePaths) {
+    if (await canRunExecutable(candidate)) {
+      if (candidate !== 'uv') {
+        prependToPath(path.dirname(candidate));
+      }
+
+      resolvedUvExecutable = candidate;
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+async function installUv() {
+  const existingUv = await findUvExecutable();
+  if (existingUv) {
+    logSuccess('UV package manager detected');
+    return existingUv;
+  }
+
+  logWarning('UV not found. Installing UV...');
+
+  try {
+    await execFileAsync(
+      'winget',
+      [
+        'install',
+        '--id=astral-sh.uv',
+        '-e',
+        '--silent',
+        '--accept-source-agreements',
+        '--accept-package-agreements'
+      ],
+      {
+        windowsHide: true,
+        timeout: 300000
+      }
+    );
+  } catch (error) {
+    logWarning('Winget UV installation failed, trying the official UV installer...');
+  }
+
+  let installedUv = await findUvExecutable();
+  if (installedUv) {
+    logSuccess('UV installed successfully');
+    return installedUv;
+  }
+
+  try {
+    await execFileAsync(
+      'powershell',
+      [
+        '-ExecutionPolicy',
+        'ByPass',
+        '-NoProfile',
+        '-Command',
+        'irm https://astral.sh/uv/install.ps1 | iex'
+      ],
+      {
+        windowsHide: true,
+        timeout: 300000
+      }
+    );
+  } catch (error) {
+    logWarning('The official UV installer failed, trying pip as a final fallback...');
+
+    try {
+      await execFileAsync('python', ['-m', 'pip', 'install', 'uv'], {
+        windowsHide: true,
+        timeout: 300000
+      });
+    } catch (pipError) {
+      logError('Failed to install UV automatically. Please install it manually from https://docs.astral.sh/uv/getting-started/installation/');
+      process.exit(1);
+    }
+  }
+
+  installedUv = await findUvExecutable();
+  if (!installedUv) {
+    logError('UV installation completed, but the executable is still not available. Please restart your shell and run npm install again.');
+    process.exit(1);
+  }
+
+  logSuccess('UV installed successfully');
+  return installedUv;
+}
+
+function parsePythonVersion(output) {
+  const match = /Python\s+(\d+)\.(\d+)(?:\.(\d+))?/i.exec(output || '');
+  if (!match) {
+    return null;
+  }
+
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3] || 0),
+    text: `Python ${match[1]}.${match[2]}.${match[3] || 0}`
+  };
+}
+
+function isCompatiblePython(versionInfo) {
+  return versionInfo && (
+    versionInfo.major > 3 ||
+    (versionInfo.major === 3 && versionInfo.minor >= 13)
+  );
+}
+
+async function detectPython(command, args) {
+  try {
+    const { stdout, stderr } = await execFileAsync(command, args, {
+      windowsHide: true
+    });
+    const versionText = `${stdout || ''}${stderr || ''}`.trim();
+    const versionInfo = parsePythonVersion(versionText);
+
+    return versionInfo
+      ? { command, args, versionInfo, versionText }
+      : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+async function ensurePythonRuntime(uvExecutable) {
+  const compatiblePythonChecks = [
+    ['python', ['--version']],
+    ['py', ['-3.13', '--version']]
+  ];
+
+  for (const [command, args] of compatiblePythonChecks) {
+    const detected = await detectPython(command, args);
+    if (detected && isCompatiblePython(detected.versionInfo)) {
+      logSuccess(`${detected.versionText} detected`);
+      return;
+    }
+  }
+
+  const incompatiblePython = (
+    await detectPython('python', ['--version'])
+  ) || (
+    await detectPython('py', ['--version'])
+  );
+
+  if (incompatiblePython) {
+    logWarning(`${incompatiblePython.versionText} detected, but Python ${requiredPythonVersion}+ is required. Installing a managed Python ${requiredPythonVersion} with UV...`);
+  } else {
+    logWarning(`Python ${requiredPythonVersion}+ not found. Installing a managed Python ${requiredPythonVersion} with UV...`);
+  }
+
+  try {
+    await execFileAsync(
+      uvExecutable,
+      ['python', 'install', requiredPythonVersion],
+      {
+        cwd: packageDir,
+        windowsHide: true,
+        timeout: 600000,
+        maxBuffer: 10 * 1024 * 1024
+      }
+    );
+    logSuccess(`Python ${requiredPythonVersion} installed via UV`);
+  } catch (error) {
+    logError(`Failed to install Python ${requiredPythonVersion} via UV: ${error.message}`);
+    process.exit(1);
+  }
+}
+
 async function checkPlatform() {
   if (process.platform !== 'win32') {
     logError('This package only works on Windows. Please use a Windows system.');
@@ -48,29 +262,8 @@ async function checkPlatform() {
 async function checkDependencies() {
   logStep('1/7', 'Checking dependencies...');
 
-  // Check if Python is available
-  try {
-    await execAsync('python --version');
-    logSuccess('Python detected');
-  } catch (error) {
-    logError('Python not found. Please install Python 3.13+ from python.org');
-    process.exit(1);
-  }
-
-  // Check if UV is available, install if not
-  try {
-    await execAsync('uv --version');
-    logSuccess('UV package manager detected');
-  } catch (error) {
-    logWarning('UV not found. Installing UV...');
-    try {
-      await execAsync('pip install uv');
-      logSuccess('UV installed successfully');
-    } catch (installError) {
-      logError('Failed to install UV. Please install manually: pip install uv');
-      process.exit(1);
-    }
-  }
+  const uvExecutable = await installUv();
+  await ensurePythonRuntime(uvExecutable);
 
   // Check if PAC CLI is available, install if not
   try {
@@ -173,9 +366,12 @@ async function installPythonDependencies() {
   logStep('3/7', 'Installing Python dependencies...');
 
   try {
-    const { stdout, stderr } = await execAsync('uv sync', {
-      cwd: __dirname.replace('/scripts', ''),
-      timeout: 600000 // 10 minutes timeout
+    const uvExecutable = await findUvExecutable();
+    const { stdout, stderr } = await execFileAsync(uvExecutable || 'uv', ['sync'], {
+      cwd: packageDir,
+      windowsHide: true,
+      timeout: 600000,
+      maxBuffer: 10 * 1024 * 1024
     });
 
     if (stderr && !stderr.includes('Resolved') && !stderr.includes('Installing')) {
@@ -191,8 +387,6 @@ async function installPythonDependencies() {
 
 async function createVSCodeConfig() {
   logStep('4/7', 'Setting up VS Code configuration...');
-
-  const packageDir = path.resolve(__dirname, '..');
 
   // Try to find workspace directories where VS Code might be used
   const possibleWorkspaces = [
@@ -319,9 +513,9 @@ async function createServiceScript() {
 
   const serviceScript = `
 @echo off
-echo Starting Windows Clippy MCP Service...
-cd /d "${path.resolve(__dirname, '..')}"
-uv run main.py
+echo Starting Windows Clippy MCP Service and widget...
+cd /d "%~dp0.."
+node "%~dp0service-runner.js"
 `;
 
   const servicePath = path.join(__dirname, 'start-service.bat');
@@ -347,9 +541,11 @@ async function validateInstallation() {
   logStep('7/7', 'Validating installation...');
 
   try {
+    const uvExecutable = await findUvExecutable();
+
     // Test that the MCP server can start (briefly)
-    const testProcess = spawn('uv', ['run', 'python', '-c', 'from fastmcp import FastMCP; print("MCP server validation: OK")'], {
-      cwd: path.resolve(__dirname, '..'),
+    const testProcess = spawn(uvExecutable || 'uv', ['run', 'python', '-c', 'from fastmcp import FastMCP; print("MCP server validation: OK")'], {
+      cwd: packageDir,
       timeout: 30000
     });
 
@@ -382,7 +578,7 @@ async function validateInstallation() {
 
   } catch (error) {
     logWarning(`Validation had issues: ${error.message}`);
-    logWarning('The installation may still work. Try running: npm start');
+    logWarning('The installation may still work. Try running: npm run start:mcp');
   }
 }
 
@@ -394,18 +590,25 @@ async function showCompletionMessage() {
   log(`${colors.blue} Look for the WC25.png logo in the assets folder${colors.reset}`);
   log('');
   log(`${colors.bold}Installed Tools & Features:${colors.reset}`);
-  log(` • ${colors.green}21 Desktop Automation & M365 Tools${colors.reset}`);
+  log(` • ${colors.green}49 total tools (42 Desktop Automation + 7 M365/Power Platform)${colors.reset}`);
   log(` • ${colors.green}Power Platform CLI (PAC)${colors.reset}`);
   log(` • ${colors.green}Microsoft Graph Integration${colors.reset}`);
   log(` • ${colors.green}VS Code MCP Configuration${colors.reset}`);
   log('');
   log(`${colors.bold}Next steps:${colors.reset}`);
   log(` 1. ${colors.blue}Restart VS Code${colors.reset} completely for MCP integration`);
-  log(` 2. ${colors.blue}Test the server:${colors.reset} npm start`);
-  log(` 3. ${colors.blue}Use in VS Code:${colors.reset} Open agent mode and start using Windows Clippy tools`);
+  log(` 2. ${colors.blue}Launch the floating widget:${colors.reset} clippy-widget`);
+  log(` 3. ${colors.blue}Refresh widget hosts after changes:${colors.reset} clippy_widget_refresh`);
+  log(` 4. ${colors.blue}Restart the widget service if needed:${colors.reset} clippy_widget_restart`);
+  log(` 5. ${colors.blue}Launch a terminal session with an attached widget:${colors.reset} clippy`);
+  log(` 6. ${colors.blue}Use in VS Code:${colors.reset} Open agent mode and start using Windows Clippy tools`);
   log('');
   log(`${colors.bold}Available commands:${colors.reset}`);
-  log(` • ${colors.yellow}npm start${colors.reset} - Start the MCP server manually`);
+  log(` • ${colors.yellow}clippy-widget${colors.reset} - Launch the floating Clippy widget`);
+  log(` • ${colors.yellow}clippy_widget_refresh${colors.reset} - Refresh running widget hosts through the background service`);
+  log(` • ${colors.yellow}clippy_widget_restart${colors.reset} - Restart the widget service and relaunch widget hosts`);
+  log(` • ${colors.yellow}clippy${colors.reset} - Start a Copilot terminal session and attach a widget`);
+  log(` • ${colors.yellow}npm run start:mcp${colors.reset} - Start the MCP server manually`);
   log(` • ${colors.yellow}npm run install-service${colors.reset} - Install as Windows service (requires admin)`);
   log(` • ${colors.yellow}npm run uninstall-service${colors.reset} - Remove Windows service`);
   log('');

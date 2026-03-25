@@ -51,3 +51,10 @@ coverage/
 # Logs
 logs/
 *.log
+
+# Widget build junk not needed in the published package
+widget/TerminalHost/obj/
+widget/TerminalHost/**/*.pdb
+widget/TerminalHost/**/*.cs
+widget/TerminalHost/**/*.xaml
+widget/TerminalHost/**/*.csproj

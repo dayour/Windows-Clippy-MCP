@@ -46,12 +46,22 @@ async function testPackageIntegrity() {
     // Test package.json structure
     const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 
-    if (packageJson.name !== '@clippymcp/windows-clippy-mcp') {
+    if (packageJson.name !== '@dayour/windows-clippy-mcp') {
       throw new Error('Package name mismatch');
     }
 
     if (!packageJson.scripts.postinstall) {
       throw new Error('Missing postinstall script');
+    }
+
+    if (
+      !packageJson.bin ||
+      !packageJson.bin.clippy ||
+      !packageJson.bin['clippy-widget'] ||
+      !packageJson.bin.clippy_widget_refresh ||
+      !packageJson.bin.clippy_widget_restart
+    ) {
+      throw new Error('Missing required clippy widget bin definitions');
     }
 
     logSuccess('Package.json structure is valid');
@@ -61,9 +71,17 @@ async function testPackageIntegrity() {
       'main.py',
       'manifest.json',
       'pyproject.toml',
+      'scripts/clippy-session.js',
+      'scripts/clippy-widget-refresh.js',
+      'scripts/clippy-widget-restart.js',
+      'scripts/clippy_widget_service.js',
+      'scripts/service-runner.js',
       'scripts/setup.js',
+      'scripts/start-widget.js',
       'scripts/install-service.js',
-      'scripts/uninstall-service.js'
+      'scripts/uninstall-service.js',
+      'widget/Launch-ClippyWidget.cmd',
+      'widget/clippy-widget.ps1'
     ];
 
     for (const file of requiredFiles) {
@@ -90,11 +108,24 @@ async function testSetupScriptLogic() {
     const setupPath = path.resolve(__dirname, 'setup.js');
     delete require.cache[setupPath];
     const setupModule = require(setupPath);
+    const setupSource = fs.readFileSync(setupPath, 'utf8');
 
     if (typeof setupModule.main === 'function') {
       logSuccess('Setup script exports main function');
     } else {
       logWarning('Setup script does not export main function (may still work)');
+    }
+
+    if (setupSource.includes('astral-sh.uv') || setupSource.includes('install.ps1')) {
+      logSuccess('Setup script can bootstrap UV without relying on pip first');
+    } else {
+      throw new Error('Setup script is missing UV bootstrap logic');
+    }
+
+    if (setupSource.includes("['python', 'install', requiredPythonVersion]")) {
+      logSuccess('Setup script provisions Python 3.13 through UV when needed');
+    } else {
+      throw new Error('Setup script is missing UV-managed Python provisioning');
     }
 
     // Test that script handles platform detection
@@ -200,12 +231,15 @@ async function testServiceScripts() {
   try {
     // Test service script syntax and structure
     const installServicePath = path.resolve(__dirname, 'install-service.js');
+    const serviceRunnerPath = path.resolve(__dirname, 'service-runner.js');
     const uninstallServicePath = path.resolve(__dirname, 'uninstall-service.js');
 
     delete require.cache[installServicePath];
+    delete require.cache[serviceRunnerPath];
     delete require.cache[uninstallServicePath];
 
     const installService = require(installServicePath);
+    require(serviceRunnerPath);
     const uninstallService = require(uninstallServicePath);
 
     if (typeof installService.installService === 'function') {
@@ -220,6 +254,7 @@ async function testServiceScripts() {
       logWarning('Uninstall service script structure may need review');
     }
 
+    logSuccess('Service runner script is syntactically valid');
     logSuccess('Service scripts are syntactically valid');
 
   } catch (error) {
@@ -241,6 +276,11 @@ async function testNPMCommands() {
       'postinstall',
       'setup',
       'start',
+      'start:widget',
+      'start:widget:debug',
+      'refresh:widget',
+      'restart:widget',
+      'start:mcp',
       'install-service',
       'uninstall-service',
       'validate',
@@ -286,6 +326,11 @@ async function testInstallationWorkflow() {
     logSuccess(' Setup script creates Windows service scripts');
     logSuccess(' Setup script validates installation');
     logSuccess(' User restarts VS Code');
+    logSuccess(' User launches the Clippy widget with: clippy-widget');
+    logSuccess(' User refreshes widget hosts with: clippy_widget_refresh');
+    logSuccess(' User restarts the widget service with: clippy_widget_restart');
+    logSuccess(' User launches a terminal session with an attached widget using: clippy');
+    logSuccess(' User starts the MCP server when needed with: npm run start:mcp');
     logSuccess(' User enjoys Windows Clippy MCP in agent mode!');
 
     logSuccess('Installation workflow simulation completed');
@@ -329,8 +374,8 @@ async function showResults(results) {
     log(`${colors.bold}${colors.green}All Integration Tests Passed!${colors.reset}`);
     log('');
     log(`${colors.bold}Ready for:${colors.reset}`);
-    log(` • NPM publication as @clippymcp/windows-clippy-mcp`);
-    log(` • Windows testing with: npm install -g @clippymcp/windows-clippy-mcp`);
+      log(` • NPM publication as @dayour/windows-clippy-mcp`);
+      log(` • Windows testing with: npm install -g @dayour/windows-clippy-mcp`);
     log(` • VS Code agent mode integration`);
     log('');
     return true;

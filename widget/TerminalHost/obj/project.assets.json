@@ -1,0 +1,228 @@
+{
+  "version": 3,
+  "targets": {
+    "net8.0-windows7.0": {
+      "CI.Microsoft.Terminal.Wpf/1.22.250204002": {
+        "type": "package",
+        "compile": {
+          "lib/net6.0-windows7.0/Microsoft.Terminal.Wpf.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0-windows7.0/Microsoft.Terminal.Wpf.dll": {
+            "related": ".xml"
+          }
+        },
+        "frameworkReferences": [
+          "Microsoft.WindowsDesktop.App.WPF"
+        ],
+        "runtimeTargets": {
+          "runtimes/win-arm64/native/Microsoft.Terminal.Control.dll": {
+            "assetType": "native",
+            "rid": "win-arm64"
+          },
+          "runtimes/win-arm64/native/Microsoft.Terminal.Control.pdb": {
+            "assetType": "native",
+            "rid": "win-arm64"
+          },
+          "runtimes/win-x64/native/Microsoft.Terminal.Control.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x64/native/Microsoft.Terminal.Control.pdb": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x86/native/Microsoft.Terminal.Control.dll": {
+            "assetType": "native",
+            "rid": "win-x86"
+          },
+          "runtimes/win-x86/native/Microsoft.Terminal.Control.pdb": {
+            "assetType": "native",
+            "rid": "win-x86"
+          }
+        }
+      },
+      "CI.Microsoft.Windows.Console.ConPTY/1.22.250314001": {
+        "type": "package",
+        "runtimeTargets": {
+          "runtimes/win10-arm64/native/conpty.dll": {
+            "assetType": "native",
+            "rid": "win10-arm64"
+          },
+          "runtimes/win10-x64/native/conpty.dll": {
+            "assetType": "native",
+            "rid": "win10-x64"
+          },
+          "runtimes/win10-x86/native/conpty.dll": {
+            "assetType": "native",
+            "rid": "win10-x86"
+          }
+        }
+      },
+      "EasyWindowsTerminalControl/1.0.36": {
+        "type": "package",
+        "dependencies": {
+          "CI.Microsoft.Terminal.Wpf": "1.22.250204002",
+          "CI.Microsoft.Windows.Console.ConPTY": "1.22.250314001"
+        },
+        "compile": {
+          "lib/net8.0-windows7.0/EasyWindowsTerminalControl.dll": {}
+        },
+        "runtime": {
+          "lib/net8.0-windows7.0/EasyWindowsTerminalControl.dll": {}
+        },
+        "frameworkReferences": [
+          "Microsoft.WindowsDesktop.App.WPF"
+        ]
+      }
+    }
+  },
+  "libraries": {
+    "CI.Microsoft.Terminal.Wpf/1.22.250204002": {
+      "sha512": "LKniygRuE6GQkQhyVrRFHqV0P1PeJ0LGScNKRcq0wSsRYhqKeMzzw9A8Qx19rqqAB3H0TMtaJ36VFEnAL9BS3g==",
+      "type": "package",
+      "path": "ci.microsoft.terminal.wpf/1.22.250204002",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "ci.microsoft.terminal.wpf.1.22.250204002.nupkg.sha512",
+        "ci.microsoft.terminal.wpf.nuspec",
+        "lib/net472/Microsoft.Terminal.Wpf.dll",
+        "lib/net472/Microsoft.Terminal.Wpf.xml",
+        "lib/net6.0-windows7.0/Microsoft.Terminal.Wpf.dll",
+        "lib/net6.0-windows7.0/Microsoft.Terminal.Wpf.xml",
+        "runtimes/win-arm64/native/Microsoft.Terminal.Control.dll",
+        "runtimes/win-arm64/native/Microsoft.Terminal.Control.pdb",
+        "runtimes/win-x64/native/Microsoft.Terminal.Control.dll",
+        "runtimes/win-x64/native/Microsoft.Terminal.Control.pdb",
+        "runtimes/win-x86/native/Microsoft.Terminal.Control.dll",
+        "runtimes/win-x86/native/Microsoft.Terminal.Control.pdb"
+      ]
+    },
+    "CI.Microsoft.Windows.Console.ConPTY/1.22.250314001": {
+      "sha512": "U2rLjqdKuXT3zu4YvFoWISaTPHKLhyye/tUjU2IPc6lFuWuFCRjInEU/7v7vDQ5upFtkunRXpIQuVG9oSE159Q==",
+      "type": "package",
+      "path": "ci.microsoft.windows.console.conpty/1.22.250314001",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "build/Microsoft.Windows.Console.ConPTY.props",
+        "build/Microsoft.Windows.Console.ConPTY.targets",
+        "build/native/Microsoft.Windows.Console.ConPTY.props",
+        "build/native/Microsoft.Windows.Console.ConPTY.targets",
+        "build/native/runtimes/arm64/OpenConsole.exe",
+        "build/native/runtimes/x64/OpenConsole.exe",
+        "build/native/runtimes/x86/OpenConsole.exe",
+        "ci.microsoft.windows.console.conpty.1.22.250314001.nupkg.sha512",
+        "ci.microsoft.windows.console.conpty.nuspec",
+        "inc/conpty.h",
+        "runtimes/win10-arm64/lib/uap10.0/conpty.lib",
+        "runtimes/win10-arm64/native/conpty.dll",
+        "runtimes/win10-x64/lib/uap10.0/conpty.lib",
+        "runtimes/win10-x64/native/conpty.dll",
+        "runtimes/win10-x86/lib/uap10.0/conpty.lib",
+        "runtimes/win10-x86/native/conpty.dll"
+      ]
+    },
+    "EasyWindowsTerminalControl/1.0.36": {
+      "sha512": "zs1ZS9bzijvVg5K4h66SFewxpgmYL96Ay3BLM+OnhLY6Z5sQHtZH40DtEcQ2O3SwjUACRkeRvkUr4Lk0hnks0w==",
+      "type": "package",
+      "path": "easywindowsterminalcontrol/1.0.36",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "easywindowsterminalcontrol.1.0.36.nupkg.sha512",
+        "easywindowsterminalcontrol.nuspec",
+        "lib/net6.0-windows7.0/EasyWindowsTerminalControl.dll",
+        "lib/net8.0-windows7.0/EasyWindowsTerminalControl.dll"
+      ]
+    }
+  },
+  "projectFileDependencyGroups": {
+    "net8.0-windows7.0": [
+      "EasyWindowsTerminalControl >= 1.0.36"
+    ]
+  },
+  "packageFolders": {
+    "C:\\Users\\dayour\\.nuget\\packages\\": {},
+    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
+  },
+  "project": {
+    "version": "1.0.0",
+    "restore": {
+      "projectUniqueName": "E:\\Windows-Clippy-MCP\\widget\\TerminalHost\\TerminalHost.csproj",
+      "projectName": "TerminalHost",
+      "projectPath": "E:\\Windows-Clippy-MCP\\widget\\TerminalHost\\TerminalHost.csproj",
+      "packagesPath": "C:\\Users\\dayour\\.nuget\\packages\\",
+      "outputPath": "E:\\Windows-Clippy-MCP\\widget\\TerminalHost\\obj\\",
+      "projectStyle": "PackageReference",
+      "fallbackFolders": [
+        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+      ],
+      "configFilePaths": [
+        "C:\\Users\\dayour\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+      ],
+      "originalTargetFrameworks": [
+        "net8.0-windows"
+      ],
+      "sources": {
+        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+        "C:\\Program Files\\dotnet\\library-packs": {},
+        "https://api.nuget.org/v3/index.json": {}
+      },
+      "frameworks": {
+        "net8.0-windows7.0": {
+          "targetAlias": "net8.0-windows",
+          "projectReferences": {}
+        }
+      },
+      "warningProperties": {
+        "warnAsError": [
+          "NU1605"
+        ]
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
+      },
+      "SdkAnalysisLevel": "10.0.100"
+    },
+    "frameworks": {
+      "net8.0-windows7.0": {
+        "targetAlias": "net8.0-windows",
+        "dependencies": {
+          "EasyWindowsTerminalControl": {
+            "target": "Package",
+            "version": "[1.0.36, )"
+          }
+        },
+        "imports": [
+          "net461",
+          "net462",
+          "net47",
+          "net471",
+          "net472",
+          "net48",
+          "net481"
+        ],
+        "assetTargetFallback": true,
+        "warn": true,
+        "frameworkReferences": {
+          "Microsoft.NETCore.App": {
+            "privateAssets": "all"
+          },
+          "Microsoft.WindowsDesktop.App.WPF": {
+            "privateAssets": "none"
+          }
+        },
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.102/PortableRuntimeIdentifierGraph.json"
+      }
+    }
+  }
+}

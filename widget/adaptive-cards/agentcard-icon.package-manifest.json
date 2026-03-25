@@ -1,0 +1,104 @@
+{
+  "schemaVersion": "1.0",
+  "artifactType": "copilot-icon-pack-manifest",
+  "runId": "dayour-icon-test-002-agentcard",
+  "createdAt": "2026-03-16T01:06:19.745296-07:00",
+  "specRef": {
+    "path": "C:\\Users\\dayour\\.copilot\\session-state\\44849b63-cfb8-4f43-9fe3-373207b57416\\files\\dayour-icon-test-002-agentcard\\spec.json",
+    "tool": "image_flux_2_pro",
+    "modelReference": "FLUX.2-pro / flux2",
+    "requestedSeed": 4317,
+    "appliedSeed": null
+  },
+  "sourceGeneration": {
+    "endpoint": "http://localhost:4300/api/generate",
+    "outputDirectory": "M:\\images",
+    "rawCandidates": [
+      {
+        "path": "C:\\Users\\dayour\\.copilot\\session-state\\44849b63-cfb8-4f43-9fe3-373207b57416\\files\\dayour-icon-test-002-agentcard\\candidates\\candidate-01.png",
+        "width": 1024,
+        "height": 1024,
+        "sha256": "AA9D0849C6243EC90D92793BEFFB3F8EA5CCBEDBAF4E3212B13469A32AB4EE6F"
+      }
+    ],
+    "selectedCandidate": "C:\\Users\\dayour\\.copilot\\session-state\\44849b63-cfb8-4f43-9fe3-373207b57416\\files\\dayour-icon-test-002-agentcard\\candidates\\candidate-01.png",
+    "llmLibManifest": "C:\\Users\\dayour\\.copilot\\session-state\\44849b63-cfb8-4f43-9fe3-373207b57416\\files\\dayour-icon-test-002-agentcard\\llm-lib-project\\manifest.json",
+    "llmLibProjectState": "C:\\Users\\dayour\\.copilot\\session-state\\44849b63-cfb8-4f43-9fe3-373207b57416\\files\\dayour-icon-test-002-agentcard\\llm-lib-project\\project-state.json"
+  },
+  "assets": [
+    {
+      "name": "app-192",
+      "path": "C:\\Users\\dayour\\.copilot\\session-state\\44849b63-cfb8-4f43-9fe3-373207b57416\\files\\dayour-icon-test-002-agentcard\\final\\app-192.png",
+      "format": "png",
+      "width": 192,
+      "height": 192,
+      "state": "app",
+      "sha256": "B0BD8ED091B879FF79BFCE9CD44F8A26870C1F4057BD331CA708241FFEBCDDB8",
+      "notes": "Resized from selected master"
+    },
+    {
+      "name": "default-32",
+      "path": "C:\\Users\\dayour\\.copilot\\session-state\\44849b63-cfb8-4f43-9fe3-373207b57416\\files\\dayour-icon-test-002-agentcard\\final\\default-32.png",
+      "format": "png",
+      "width": 32,
+      "height": 32,
+      "state": "default",
+      "sha256": "2EF76648FEE050D29223643912712F02856920AA9B10ED7D426DCC295E4E5595",
+      "notes": "Direct 32x32 resize from selected master"
+    },
+    {
+      "name": "focused-32",
+      "path": "C:\\Users\\dayour\\.copilot\\session-state\\44849b63-cfb8-4f43-9fe3-373207b57416\\files\\dayour-icon-test-002-agentcard\\final\\focused-32.png",
+      "format": "png",
+      "width": 32,
+      "height": 32,
+      "state": "focused",
+      "sha256": "9FFE35BD6CE4B6FD67526F4AC172D8F52F9DDAA6D13114C6FC92678531BD452B",
+      "notes": "Brightness-enhanced 32x32 derivative for active-state review"
+    }
+  ],
+  "widgetAssets": {
+    "app192": "E:\\Windows-Clippy-MCP\\assets\\agentcard_192.png",
+    "default32": "E:\\Windows-Clippy-MCP\\assets\\agentcard_32.png",
+    "focused32": "E:\\Windows-Clippy-MCP\\assets\\agentcard_focused_32.png"
+  },
+  "supportingArtifacts": [
+    {
+      "name": "prompts",
+      "path": "C:\\Users\\dayour\\.copilot\\session-state\\44849b63-cfb8-4f43-9fe3-373207b57416\\files\\dayour-icon-test-002-agentcard\\prompts.md"
+    },
+    {
+      "name": "generation-response",
+      "path": "C:\\Users\\dayour\\.copilot\\session-state\\44849b63-cfb8-4f43-9fe3-373207b57416\\files\\dayour-icon-test-002-agentcard\\generation-response.json"
+    },
+    {
+      "name": "contact-sheet",
+      "path": "C:\\Users\\dayour\\.copilot\\session-state\\44849b63-cfb8-4f43-9fe3-373207b57416\\files\\dayour-icon-test-002-agentcard\\contact-sheet.png"
+    },
+    {
+      "name": "llm-lib-manifest",
+      "path": "C:\\Users\\dayour\\.copilot\\session-state\\44849b63-cfb8-4f43-9fe3-373207b57416\\files\\dayour-icon-test-002-agentcard\\llm-lib-project\\manifest.json"
+    },
+    {
+      "name": "llm-lib-project-state",
+      "path": "C:\\Users\\dayour\\.copilot\\session-state\\44849b63-cfb8-4f43-9fe3-373207b57416\\files\\dayour-icon-test-002-agentcard\\llm-lib-project\\project-state.json"
+    }
+  ],
+  "constraintsApplied": [
+    "png-only",
+    "120x120 safe area target on 192 canvas",
+    "96x96 visual balance target",
+    "no pre-rounded corners",
+    "no borders",
+    "high contrast",
+    "32x32 readability"
+  ],
+  "review": {
+    "status": "candidate-ready",
+    "notes": [
+      "Second-pass agentcard render generated through the local FLUX.2-pro bridge.",
+      "Assets were copied into E:\\Windows-Clippy-MCP\\assets for widget use.",
+      "Focused 32px asset remains a derived active-state variant and may be refined later."
+    ]
+  }
+}

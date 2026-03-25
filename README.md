@@ -21,7 +21,7 @@
 
 Windows Clippy MCP is your friendly AI assistant that brings the helpful spirit of the classic Microsoft Office assistant to modern desktop automation. This lightweight, open-source **Model Context Protocol (MCP)** server enables any MCP-aware client (VS Code agent-mode, Claude Desktop, Gemini CLI, custom LLM agents, etc.) to control Windows and interact with Microsoft 365 services, just like a human would.
 
-It exposes **40+ tools** that cover everyday desktop automation--launching apps, clicking, typing, scrolling, getting UI state, managing windows, controlling volume, taking screenshots, and more--while hiding all the Windows Accessibility and input-synthesis complexity behind a simple HTTP/stdio interface.
+It exposes **49 tools total: 42 Desktop Automation tools + 7 M365/Power Platform tools** that cover everyday desktop automation--launching apps, clicking, typing, scrolling, getting UI state, managing windows, controlling volume, taking screenshots, and more--while hiding all the Windows Accessibility and input-synthesis complexity behind a simple HTTP/stdio interface.
 
 **All tools have been validated and are working in VS Code agent mode!**
 
@@ -46,9 +46,11 @@ It exposes **40+ tools** that cover everyday desktop automation--launching apps,
 
 ---
 
-## Available Tools (40+ Tools)
+## Available Tools (49 Total: 42 Desktop Automation + 7 M365/Power Platform)
 
-### Core Interaction Tools
+### Desktop Automation Tools (42)
+
+#### Core Interaction Tools
 
 | Tool | Purpose |
 |------|---------|
@@ -142,7 +144,8 @@ It exposes **40+ tools** that cover everyday desktop automation--launching apps,
 | PAC-CLI-Tool | Execute Power Platform CLI commands for app management. |
 | Connect-MGGraph-Tool | Authenticate with Microsoft Graph API. |
 | Graph-API-Tool | Execute Microsoft Graph API calls for Office 365 data. |
-| Copilot-Studio-Tool | Manage and interact with Copilot Studio bots. |
+| Copilot-Studio-Tool | Manage Copilot Studio agents: list, eval, trigger native evaluation runs via Agent Studio backend. |
+| Agent-Studio-Tool | Query the unified Agent Studio store: eval runs, feedback, monitoring, activity timelines, MCP capabilities. |
 | Power-Automate-Tool | Create and manage Power Automate workflows. |
 | M365-Copilot-Tool | Interact with Microsoft 365 Copilot features. |
 
@@ -161,6 +164,7 @@ npm install -g @dayour/windows-clippy-mcp
 ```
 
 That's it! The setup automatically:
+- Bootstraps `uv` and a managed Python 3.13 runtime when needed
 - Installs all dependencies
 - Configures VS Code integration
 - Sets up Windows service options
@@ -168,7 +172,12 @@ That's it! The setup automatically:
 
 After installation:
 1. **Restart VS Code completely**
-2. Start using Windows Clippy tools in agent mode!
+2. Run `clippy-widget` to launch the floating widget.
+3. Run `clippy-live-tile` to launch the dedicated native adaptive live tile for icon and widget review.
+4. Run `clippy_widget_refresh` to relaunch running widget hosts after changes.
+5. Run `clippy_widget_restart` to restart the widget service and relaunch widget hosts.
+6. Run `clippy` to open a Copilot terminal session that automatically attaches a widget.
+7. Start using Windows Clippy tools in agent mode.
 
 **[Complete NPM Installation Guide →](NPM-INSTALL.md)**
 
@@ -326,8 +335,9 @@ uv sync --reinstall
 ## Prerequisites
 
 ### Core Requirements
-• Python 3.13+
-• [UV](https://github.com/astral-sh/uv) `pip install uv`
+• Windows 10/11
+• Node.js 16+ for the one-click `npm install` flow
+• Python 3.13+ and [UV](https://github.com/astral-sh/uv) `pip install uv` for manual setup, or let `npm install` provision them automatically
 • English Windows locale (for consistent UI Automation tree)
 
 ### Microsoft 365 & Power Platform Tools (Optional)

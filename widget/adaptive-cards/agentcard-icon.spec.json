@@ -1,0 +1,97 @@
+{
+  "schemaVersion": "1.0",
+  "artifactType": "copilot-icon-pack-spec",
+  "runId": "dayour-icon-test-002-agentcard",
+  "createdAt": "2026-03-16T01:06:16.244802-07:00",
+  "agent": {
+    "name": "dayour-icon",
+    "reasoningModel": "claude-sonnet-4.6",
+    "generationTool": "image_flux_2_pro",
+    "modelReference": "FLUX.2-pro / flux2"
+  },
+  "brief": {
+    "agentName": "Agentcard",
+    "agentSlug": "agentcard",
+    "iconConcept": "A single clipped-corner capability card with a luminous centered agent spark, representing a reusable agent card artifact inside the Windows Clippy widget.",
+    "brandKeywords": [
+      "agentcard",
+      "adaptive-card",
+      "windows-clippy",
+      "modern",
+      "flat-vector",
+      "cobalt",
+      "widget",
+      "tooling"
+    ],
+    "primaryColor": "#2146C7",
+    "accentColor": "#77E8FF",
+    "backgroundMode": "solid",
+    "outputRoot": "M:\\images",
+    "seed": 4317,
+    "negativeConstraints": "text, letters, watermark, border, frame, rounded-square tile, busy background, multiple cards, document stack, profile avatar, human face, credit card, id badge, screenshot, low contrast, tiny details, photorealism, 3d render clutter, gradients that blur edges",
+    "safeAreaPercent": 74,
+    "smallSizePriority": true,
+    "reviewCount": 1,
+    "forbiddenSymbols": [
+      "profile avatar",
+      "human face",
+      "credit card",
+      "id badge",
+      "stacked documents",
+      "microsoft copilot wave mark"
+    ],
+    "referenceNotes": "Target surfaces: Windows Clippy widget live tile, schema popup, and Microsoft 365-compatible icon packaging. Prioritize unmistakable 32x32 recognition over decorative detail.",
+    "stateIcons": [
+      {
+        "name": "default-32",
+        "state": "default/rest",
+        "meaning": "Agentcard schema and tool palette are available but idle.",
+        "visualDelta": "Card body remains neutral ice-white with a standard cyan spark inset."
+      },
+      {
+        "name": "focused-32",
+        "state": "focused/pressed",
+        "meaning": "Agentcard tile is active or generating icon outputs.",
+        "visualDelta": "Same silhouette with brighter cyan spark and slightly elevated luminance for active-state emphasis."
+      }
+    ]
+  },
+  "generation": {
+    "endpoint": "http://localhost:4300/api/generate",
+    "tool": "image_flux_2_pro",
+    "width": 1024,
+    "height": 1024,
+    "n": 1,
+    "seedRequested": 4317,
+    "seedApplied": null,
+    "outputRoot": "M:\\images",
+    "prompt": "Create a clean square software agent icon. Style: modern Microsoft-adjacent productivity icon, flat vector, crisp silhouette, centered composition, strong contrast, minimal detail, no text, no border, no rounded-corner container. Subject: a single upright capability card shape with a clipped top-right corner and a centered four-point agent spark inset, representing an agent card. The foreground symbol should read as one card, not a document stack. Use a deep cobalt background #2146C7, an ice-white card body, and an electric cyan spark accent #77E8FF. Keep the symbol centered inside a generous safe area, occupying about 58 percent of the canvas. Legible at 32x32, simple solid background, strong silhouette, subtle inner depth only where it helps small-size readability. Avoid document lines, avatar portraits, profile photos, credit cards, ID badges, stacks of cards, UI screenshots, tiny details, or decorative textures.",
+    "negativePrompt": "text, letters, watermark, border, frame, rounded-square tile, busy background, multiple cards, document stack, profile avatar, human face, credit card, id badge, screenshot, low contrast, tiny details, photorealism, 3d render clutter, gradients that blur edges"
+  },
+  "variantPlan": [
+    {
+      "name": "app-192",
+      "targetSize": "192x192",
+      "source": "selected-master"
+    },
+    {
+      "name": "default-32",
+      "targetSize": "32x32",
+      "source": "selected-master"
+    },
+    {
+      "name": "focused-32",
+      "targetSize": "32x32",
+      "source": "selected-master-with-brightness-boost"
+    }
+  ],
+  "reviewChecklist": [
+    "192x192 PNG exists",
+    "32x32 default PNG exists",
+    "32x32 focused PNG exists",
+    "core card symbol stays within safe area",
+    "no border or pre-rounded tile",
+    "card silhouette remains legible at 32x32",
+    "spark accent remains visible at 32x32"
+  ]
+}

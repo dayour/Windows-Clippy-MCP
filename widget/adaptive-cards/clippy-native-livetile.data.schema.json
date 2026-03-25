@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Windows Clippy native live tile payload",
+  "type": "object",
+  "required": [
+    "title",
+    "summary",
+    "iconAssets",
+    "generation",
+    "artifacts",
+    "review"
+  ],
+  "properties": {
+    "templateVersion": {
+      "type": "string"
+    },
+    "adaptiveCardVersion": {
+      "type": "string"
+    },
+    "generatedAt": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "window": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "topmost": {
+          "type": "boolean"
+        },
+        "left": {
+          "type": "number"
+        },
+        "top": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "iconAssets": {
+      "type": "object",
+      "required": [
+        "hero192",
+        "default32",
+        "focused32"
+      ],
+      "properties": {
+        "hero192": {
+          "type": "string"
+        },
+        "default32": {
+          "type": "string"
+        },
+        "focused32": {
+          "type": "string"
+        },
+        "primaryColor": {
+          "type": "string"
+        },
+        "accentColor": {
+          "type": "string"
+        },
+        "selectedState": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "generation": {
+      "type": "object",
+      "required": [
+        "agent",
+        "tool",
+        "bridge"
+      ],
+      "properties": {
+        "agent": {
+          "type": "string"
+        },
+        "reasoningModel": {
+          "type": "string"
+        },
+        "tool": {
+          "type": "string"
+        },
+        "bridge": {
+          "type": "string"
+        },
+        "outputDirectory": {
+          "type": "string"
+        },
+        "promptSummary": {
+          "type": "string"
+        },
+        "negativeConstraints": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "kind",
+          "purpose",
+          "source"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "required": [
+        "templatePath",
+        "schemaPath",
+        "dataPath",
+        "launchScriptPath",
+        "cmdPath"
+      ],
+      "properties": {
+        "templatePath": {
+          "type": "string"
+        },
+        "schemaPath": {
+          "type": "string"
+        },
+        "dataPath": {
+          "type": "string"
+        },
+        "launchScriptPath": {
+          "type": "string"
+        },
+        "cmdPath": {
+          "type": "string"
+        },
+        "packageManifestPath": {
+          "type": "string"
+        },
+        "specPath": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "review": {
+      "type": "object",
+      "required": [
+        "status",
+        "summary",
+        "notes"
+      ],
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -123,9 +123,41 @@ These tools require appropriate Microsoft 365 licenses, PowerShell modules, and 
 | PAC-CLI-Tool | Execute Power Platform CLI commands for app management. |
 | Connect-MGGraph-Tool | Authenticate with Microsoft Graph API. |
 | Graph-API-Tool | Execute Microsoft Graph API calls for Office 365 data. |
-| Copilot-Studio-Tool | Manage and interact with Copilot Studio bots. |
+| Copilot-Studio-Tool | Manage Copilot Studio agents: list agents, switch profiles, generate eval test cases, trigger native evals, poll run status. |
+| Agent-Studio-Tool | Query the unified Agent Studio store: eval runs, feedback, monitoring snapshots, activity timelines, MCP capability manifest. |
 | Power-Automate-Tool | Create and manage Power Automate workflows. |
 | M365-Copilot-Tool | Interact with Microsoft 365 Copilot features. |
+
+### Agent Studio Integration
+
+The `Copilot-Studio-Tool` and `Agent-Studio-Tool` connect to the Agent Studio backend server at `localhost:3004`. Start it before using these tools:
+
+```powershell
+cd E:\agent-studio
+node server/server.js
+```
+
+**Copilot-Studio-Tool actions:**
+
+| Action | Parameters | Description |
+|--------|-----------|-------------|
+| `list` | org_url (optional) | List all agents in the active environment |
+| `profiles` | -- | List environment profiles (dydev25, dydev26, workshop, etc.) |
+| `switch-profile` | profile_id | Switch active environment profile |
+| `eval-status` | bot_id | Get native eval details, test sets, and Direct Line readiness |
+| `generate-eval` | bot_id, question_count, eval_name | Generate Q&A test cases and persist to Copilot Studio Evaluation tab |
+| `trigger-eval` | bot_id, test_set_id | Trigger a native Copilot Studio evaluation run |
+| `poll-eval` | bot_id, run_id | Check status of a running evaluation |
+
+**Agent-Studio-Tool actions:**
+
+| Action | Parameters | Description |
+|--------|-----------|-------------|
+| `overview` | -- | Dashboard stats (eval runs, feedback, activity counts) |
+| `timeline` | agent_id, limit | Agent activity timeline across all event types |
+| `query` | agent_id, event_type, limit | Flexible store query |
+| `capabilities` | -- | List MCP capability manifest |
+| `evals` | limit | List recent eval runs and results |
 
 ### Setup
 

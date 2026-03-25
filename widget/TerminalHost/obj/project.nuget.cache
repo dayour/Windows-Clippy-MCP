@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "n3ERyIuM7SA=",
+  "success": true,
+  "projectFilePath": "E:\\Windows-Clippy-MCP\\widget\\TerminalHost\\TerminalHost.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\dayour\\.nuget\\packages\\ci.microsoft.terminal.wpf\\1.22.250204002\\ci.microsoft.terminal.wpf.1.22.250204002.nupkg.sha512",
+    "C:\\Users\\dayour\\.nuget\\packages\\ci.microsoft.windows.console.conpty\\1.22.250314001\\ci.microsoft.windows.console.conpty.1.22.250314001.nupkg.sha512",
+    "C:\\Users\\dayour\\.nuget\\packages\\easywindowsterminalcontrol\\1.0.36\\easywindowsterminalcontrol.1.0.36.nupkg.sha512"
+  ],
+  "logs": []
+}

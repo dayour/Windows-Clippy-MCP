@@ -1,17 +1,30 @@
 {
   "name": "@dayour/windows-clippy-mcp",
-  "version": "0.1.71",
+  "version": "0.1.75",
   "description": "Windows Clippy MCP - Your friendly AI assistant for Windows desktop automation and Microsoft 365 integration. One-click setup for VS Code agent mode.",
   "main": "main.py",
   "icon": "assets/WC25.png",
+  "bin": {
+    "clippy": "scripts/clippy-session.js",
+    "clippy-widget": "scripts/start-widget.js",
+    "clippy-live-tile": "scripts/start-native-livetile.js",
+    "clippy_widget_refresh": "scripts/clippy-widget-refresh.js",
+    "clippy_widget_restart": "scripts/clippy-widget-restart.js"
+  },
   "scripts": {
     "postinstall": "node scripts/setup.js",
     "setup": "node scripts/setup.js",
-    "start": "uv run main.py",
+    "start": "node scripts/start-widget.js",
+    "start:widget": "node scripts/start-widget.js",
+    "start:widget:debug": "node scripts/start-widget.js --debug",
+    "start:live-tile": "node scripts/start-native-livetile.js",
+    "refresh:widget": "node scripts/clippy-widget-refresh.js",
+    "restart:widget": "node scripts/clippy-widget-restart.js",
+    "start:mcp": "uv run main.py",
     "install-service": "node scripts/install-service.js",
     "uninstall-service": "node scripts/uninstall-service.js",
     "validate": "node scripts/validate.js",
-    "test": "node scripts/validate.js && node scripts/integration-test.js",
+    "test": "node scripts/validate.js && node scripts/test-terminal-broker.js && node scripts/integration-test.js",
     "test:integration": "node scripts/integration-test.js"
   },
   "keywords": [
@@ -40,7 +53,9 @@
   "engines": {
     "node": ">=16.0.0"
   },
-  "os": ["win32"],
+  "os": [
+    "win32"
+  ],
   "optionalDependencies": {
     "chalk": "^4.1.2",
     "node-windows": "^1.0.0-beta.8",
@@ -48,15 +63,30 @@
   },
   "files": [
     "main.py",
-    "src/**",
+    "src/desktop/__init__.py",
+    "src/desktop/views.py",
+    "src/terminal/**",
     "assets/**",
     "manifest.json",
     "pyproject.toml",
     "uv.lock",
     "scripts/**",
+    "widget/clippy-widget.ps1",
+    "widget/Launch-ClippyWidget.cmd",
+    "widget/Launch-ClippyLiveTile.cmd",
+    "widget/adaptive-cards/**",
+    "widget/LiveTileHost/*.csproj",
+    "widget/LiveTileHost/*.xaml",
+    "widget/LiveTileHost/*.cs",
+    "widget/TerminalHost/bin/Debug/net8.0-windows/*.dll",
+    "widget/TerminalHost/bin/Debug/net8.0-windows/*.exe",
+    "widget/TerminalHost/bin/Debug/net8.0-windows/*.json",
+    "widget/TerminalHost/bin/Debug/net8.0-windows/runtimes/**/native/*.dll",
     "README.md",
     "LICENSE"
   ],
-  "devDependencies": {},
-  "preferGlobal": false
+  "preferGlobal": false,
+  "dependencies": {
+    "node-pty": "^1.1.0"
+  }
 }

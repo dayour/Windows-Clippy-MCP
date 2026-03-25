@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dayour/windows-clippy-mcp/blob/main/widget/adaptive-cards/agentcard-icon.data.schema.json",
+  "title": "Windows Clippy Agentcard Icon Tile Data",
+  "description": "Portable data contract for rendering the Windows Clippy agentcard icon-generation tile as an Adaptive Card.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "templateVersion",
+    "adaptiveCardVersion",
+    "generatedAt",
+    "title",
+    "summary",
+    "iconAssets",
+    "generation",
+    "tools",
+    "artifacts",
+    "review"
+  ],
+  "properties": {
+    "templateVersion": {
+      "type": "string"
+    },
+    "adaptiveCardVersion": {
+      "type": "string"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "title": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "iconAssets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hero192",
+        "default32",
+        "focused32",
+        "primaryColor",
+        "accentColor",
+        "selectedState"
+      ],
+      "properties": {
+        "hero192": {
+          "type": "string"
+        },
+        "default32": {
+          "type": "string"
+        },
+        "focused32": {
+          "type": "string"
+        },
+        "primaryColor": {
+          "type": "string"
+        },
+        "accentColor": {
+          "type": "string"
+        },
+        "selectedState": {
+          "type": "string"
+        }
+      }
+    },
+    "generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent",
+        "reasoningModel",
+        "tool",
+        "bridge",
+        "outputDirectory",
+        "promptSummary",
+        "negativeConstraints"
+      ],
+      "properties": {
+        "agent": {
+          "type": "string"
+        },
+        "reasoningModel": {
+          "type": "string"
+        },
+        "tool": {
+          "type": "string"
+        },
+        "bridge": {
+          "type": "string"
+        },
+        "outputDirectory": {
+          "type": "string"
+        },
+        "promptSummary": {
+          "type": "string"
+        },
+        "negativeConstraints": {
+          "type": "string"
+        }
+      }
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/tool"
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "templatePath",
+        "dataSchemaPath",
+        "dataPath",
+        "packageManifestPath",
+        "specPath"
+      ],
+      "properties": {
+        "templatePath": {
+          "type": "string"
+        },
+        "dataSchemaPath": {
+          "type": "string"
+        },
+        "dataPath": {
+          "type": "string"
+        },
+        "packageManifestPath": {
+          "type": "string"
+        },
+        "specPath": {
+          "type": "string"
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "summary",
+        "notes"
+      ],
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "kind",
+        "purpose",
+        "source"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

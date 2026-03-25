@@ -1,0 +1,80 @@
+{
+  "templateVersion": "1.0",
+  "adaptiveCardVersion": "1.5",
+  "generatedAt": "2026-03-16",
+  "title": "Windows Clippy native live tile",
+  "summary": "Dedicated native WPF widget for the agentcard icon pipeline. The tile reads the adaptive payload, watches for JSON edits, and keeps the icon-generation review surface pinned on the Windows desktop.",
+  "window": {
+    "title": "Windows Clippy Live Tile",
+    "width": 432,
+    "height": 720,
+    "topmost": true
+  },
+  "iconAssets": {
+    "hero192": "E:\\Windows-Clippy-MCP\\assets\\agentcard_192.png",
+    "default32": "E:\\Windows-Clippy-MCP\\assets\\agentcard_32.png",
+    "focused32": "E:\\Windows-Clippy-MCP\\assets\\agentcard_focused_32.png",
+    "primaryColor": "#2146C7",
+    "accentColor": "#77E8FF",
+    "selectedState": "focused"
+  },
+  "generation": {
+    "agent": "dayour-icon",
+    "reasoningModel": "claude-sonnet-4.6",
+    "tool": "image_flux_2_pro",
+    "bridge": "http://localhost:4300/api/generate",
+    "outputDirectory": "M:\\images",
+    "promptSummary": "Render a clipped capability card mark that stays legible at 32x32 and feels native to Windows Clippy.",
+    "negativeConstraints": "No text inside the mark, no pre-rounded border, no screenshots, and no low-contrast micro detail."
+  },
+  "capabilities": [
+    "Standalone native WPF window with an always-on-top desktop footprint.",
+    "Adaptive-card-backed payload that can be reviewed and edited without reopening the host.",
+    "Automatic JSON file watching so the live tile refreshes when icon metadata changes.",
+    "Dedicated launcher command that builds the host on demand and opens the tile."
+  ],
+  "tools": [
+    {
+      "name": "clippy-live-tile",
+      "kind": "launcher",
+      "purpose": "Builds and launches the dedicated native live tile host from the repo root.",
+      "source": "E:\\Windows-Clippy-MCP\\scripts\\start-native-livetile.js"
+    },
+    {
+      "name": "LiveTileHost",
+      "kind": "native-host",
+      "purpose": "Standalone WPF renderer for the adaptive live-tile payload and icon assets.",
+      "source": "E:\\Windows-Clippy-MCP\\widget\\LiveTileHost\\LiveTileHost.csproj"
+    },
+    {
+      "name": "dayour-icon",
+      "kind": "agent",
+      "purpose": "Turns icon design specs into reviewable prompts, packaged assets, and widget-ready metadata.",
+      "source": "C:\\Users\\dayour\\.copilot\\agents\\dayour-icon.md"
+    },
+    {
+      "name": "image_flux_2_pro",
+      "kind": "image-tool",
+      "purpose": "Generates the master square icon candidate through the local llm-lib bridge.",
+      "source": "http://localhost:4300/api/tools"
+    }
+  ],
+  "artifacts": {
+    "templatePath": "E:\\Windows-Clippy-MCP\\widget\\adaptive-cards\\clippy-native-livetile.template.json",
+    "schemaPath": "E:\\Windows-Clippy-MCP\\widget\\adaptive-cards\\clippy-native-livetile.data.schema.json",
+    "dataPath": "E:\\Windows-Clippy-MCP\\widget\\adaptive-cards\\clippy-native-livetile.data.json",
+    "launchScriptPath": "E:\\Windows-Clippy-MCP\\scripts\\start-native-livetile.js",
+    "cmdPath": "E:\\Windows-Clippy-MCP\\widget\\Launch-ClippyLiveTile.cmd",
+    "packageManifestPath": "E:\\Windows-Clippy-MCP\\widget\\adaptive-cards\\agentcard-icon.package-manifest.json",
+    "specPath": "E:\\Windows-Clippy-MCP\\widget\\adaptive-cards\\agentcard-icon.spec.json"
+  },
+  "review": {
+    "status": "native-widget-ready",
+    "summary": "The dedicated live tile is wired to the current agentcard icon payload and ready for desktop review.",
+    "notes": [
+      "The host reads the adaptive-card data file directly and refreshes when the JSON changes.",
+      "The same icon asset bundle used by the widget schema is surfaced natively in WPF.",
+      "The launcher builds LiveTileHost on demand so the repo does not need a separate packaging step."
+    ]
+  }
+}

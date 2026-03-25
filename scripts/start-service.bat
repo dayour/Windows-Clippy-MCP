@@ -1,5 +1,5 @@
 
 @echo off
-echo Starting Windows Clippy MCP Service...
-cd /d "G:\Github\DAYOUR\Windows-Clippy-MCP"
-uv run main.py
+echo Starting Windows Clippy MCP Service and widget...
+cd /d "%~dp0.."
+node "%~dp0service-runner.js"

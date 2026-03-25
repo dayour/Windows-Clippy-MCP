@@ -13,7 +13,7 @@ The easiest way to get started with Windows Clippy MCP:
 ### Prerequisites
 - Windows 10/11
 - Node.js 16+ (install from [nodejs.org](https://nodejs.org))
-- Python 3.13+ (will be auto-detected and guided if missing)
+- Internet access for the first install (the setup bootstraps `uv` and Python 3.13 automatically if needed)
 
 ### Install & Setup
 ```bash
@@ -21,6 +21,7 @@ npm install -g @dayour/windows-clippy-mcp
 ```
 
 That's it! The NPM package will automatically:
+- Bootstrap `uv` and a managed Python 3.13 runtime when they are missing
 - Install Python dependencies via UV
 - Create VS Code MCP configuration files
 - Set up Windows service scripts
@@ -30,8 +31,20 @@ That's it! The NPM package will automatically:
 After installation:
 
 ```bash
-# Start the MCP server manually
-npm start
+# Launch the floating Clippy widget
+clippy-widget
+
+# Refresh running widget hosts after changes
+clippy_widget_refresh
+
+# Restart the widget service and relaunch widget hosts
+clippy_widget_restart
+
+# Start a Copilot terminal session and attach a widget automatically
+clippy
+
+# Start the MCP server manually from a repo checkout
+npm run start:mcp
 
 # Install as Windows service (requires admin privileges)
 npm run install-service
@@ -131,19 +144,24 @@ For developers who want full control or to contribute to the project:
 
 ---
 
-## Available Tools (21 Total)
+## Available Tools (49 Total)
 
-Both installation methods provide access to all Windows Clippy MCP tools:
+Both installation methods provide access to all **49 tools** in Windows Clippy MCP:
 
-### Desktop Automation (15 tools)
-- Launch-Tool, Click-Tool, Type-Tool, State-Tool
-- Clipboard-Tool, Switch-Tool, Scroll-Tool, Drag-Tool
-- Move-Tool, Shortcut-Tool, Key-Tool, Wait-Tool
-- Powershell-Tool, Scrape-Tool, Browser-Tool
+### Desktop Automation (42 tools)
+- Core Interaction (13): Launch-Tool, Powershell-Tool, State-Tool, Clipboard-Tool, Click-Tool, Type-Tool, Switch-Tool, Scroll-Tool, Drag-Tool, Move-Tool, Shortcut-Tool, Key-Tool, Wait-Tool
+- Web & Browser (2): Browser-Tool, Scrape-Tool
+- Window Management (3): Window-Tool, TaskView-Tool, Taskbar-Tool
+- Screenshot & Visual (4): Screenshot-Tool, Snip-Tool, Screen-Info-Tool, Cursor-Position-Tool
+- System Control (6): Volume-Tool, Lock-Tool, ActionCenter-Tool, Emoji-Tool, Clipboard-History-Tool, Run-Dialog-Tool
+- Settings & Configuration (4): Settings-Tool, Registry-Tool, Wifi-Tool, Bluetooth-Tool
+- File & Process (5): File-Tool, FileExplorer-Tool, Process-Tool, SystemInfo-Tool, Search-Tool
+- Text Editing (4): Text-Select-Tool, Find-Replace-Tool, Undo-Redo-Tool, Zoom-Tool
+- Notification (1): Notification-Tool
 
-### Microsoft 365 & Power Platform (6 tools)
+### M365 / Power Platform (7 tools)
 - PAC-CLI-Tool, Connect-MGGraph-Tool, Graph-API-Tool
-- Copilot-Studio-Tool, Power-Automate-Tool, M365-Copilot-Tool
+- Copilot-Studio-Tool, Agent-Studio-Tool, Power-Automate-Tool, M365-Copilot-Tool
 
 ---
 
@@ -155,17 +173,17 @@ Both installation methods provide access to all Windows Clippy MCP tools:
 node --version  # Should be 16+
 
 # Check if package installed correctly
-npm list -g @clippymcp/windows-clippy-mcp
+npm list -g @dayour/windows-clippy-mcp
 
 # Reinstall if needed
-npm uninstall -g @clippymcp/windows-clippy-mcp
-npm install -g @clippymcp/windows-clippy-mcp
+npm uninstall -g @dayour/windows-clippy-mcp
+npm install -g @dayour/windows-clippy-mcp
 ```
 
 ### VS Code Not Connecting
 1. **Restart VS Code completely** (close all windows)
 2. Check MCP configuration in VS Code settings
-3. Verify the MCP server starts: `npm start`
+3. Verify the MCP server starts: `npm run start:mcp`
 4. Check VS Code Developer Tools (Help → Toggle Developer Tools) for errors
 
 ### Windows Service Issues
