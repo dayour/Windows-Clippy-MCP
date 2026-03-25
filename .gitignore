@@ -67,3 +67,10 @@ dmypy.json
 
 # NPM package files
 *.tgz
+
+# .NET build artifacts
+widget/TerminalHost/bin/
+widget/TerminalHost/obj/
+*.user
+*.suo
+.vs/
