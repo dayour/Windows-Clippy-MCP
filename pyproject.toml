@@ -19,6 +19,6 @@ dependencies = [
     "psutil>=7.0.0",
     "pyautogui>=0.9.54",
     "python-levenshtein>=0.27.1",
-    "requests>=2.32.3",
+    "requests>=2.33.0",
     "uiautomation>=2.0.24"
 ]
