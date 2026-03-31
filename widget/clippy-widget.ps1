@@ -4448,6 +4448,39 @@ function script:Invoke-SnippingTileAction {
     }
 }
 
+# ── Sysinternals launch helpers ───────────────────────────────────
+function script:Resolve-SysinternalsTool {
+    param([string]$Name)
+    $cmd = Get-Command -Name $Name -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+    $alias = Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps' $Name
+    if (Test-Path -LiteralPath $alias) { return $alias }
+    return $null
+}
+
+function script:Invoke-SysinternalsTool {
+    param(
+        [string]$Name,
+        [string[]]$ArgumentList
+    )
+    try {
+        $resolved = script:Resolve-SysinternalsTool $Name
+        if (-not $resolved) {
+            script:Write-Term "Sysinternals: $Name not found. Install Microsoft.SysinternalsSuite from the Microsoft Store." '#F48771'
+            script:Write-Term ''
+            return
+        }
+        $splat = @{ FilePath = $resolved; ErrorAction = 'Stop' }
+        if ($ArgumentList) { $splat.ArgumentList = $ArgumentList }
+        Start-Process @splat | Out-Null
+        script:Write-Term "Launched: $Name" '#4EC9B0'
+        script:Write-Term ''
+    } catch {
+        script:Write-Term "Failed to launch ${Name}: $($_.Exception.Message)" '#F48771'
+        script:Write-Term ''
+    }
+}
+
 function script:Get-DefaultWidgetSettings {
     return @{
         Mode = 'Agent'
@@ -8656,6 +8689,89 @@ $ctx.Items.Add($miAdaptiveCards) | Out-Null
 
 $ctx.Items.Add([Windows.Controls.Separator]::new()) | Out-Null
 
+# ── Sysinternals submenu ───────────────────────────────────────────
+$miSysinternals = script:New-ToolbarMenuItem -Header 'Sysinternals'
+$script:SysintMenuItems = [System.Collections.Generic.List[object]]::new()
+
+$miSysProc = script:New-ToolbarMenuItem -Header 'Processes && System'
+@(
+    [pscustomobject]@{ H = 'Autoruns';         Exe = 'Autoruns.exe'  }
+    [pscustomobject]@{ H = 'Process Monitor';  Exe = 'Procmon.exe'   }
+    [pscustomobject]@{ H = 'Process Explorer'; Exe = 'procexp.exe'   }
+    [pscustomobject]@{ H = 'PsExec';           Exe = 'PsExec.exe'    }
+    [pscustomobject]@{ H = 'PsList';           Exe = 'pslist.exe'    }
+    [pscustomobject]@{ H = 'PsKill';           Exe = 'pskill.exe'    }
+    [pscustomobject]@{ H = 'Handle';           Exe = 'handle.exe'    }
+    [pscustomobject]@{ H = 'ListDLLs';         Exe = 'Listdlls.exe'  }
+) | ForEach-Object {
+    $it = script:New-ToolbarMenuItem -Header $_.H -Tag $_.Exe
+    $it.Add_Click({ script:Invoke-SysinternalsTool ([string]$this.Tag) })
+    $script:SysintMenuItems.Add($it) | Out-Null
+    $miSysProc.Items.Add($it) | Out-Null
+}
+$miSysinternals.Items.Add($miSysProc) | Out-Null
+
+$miSysNet = script:New-ToolbarMenuItem -Header 'Network'
+@(
+    [pscustomobject]@{ H = 'TCPView'; Exe = 'tcpview.exe' }
+    [pscustomobject]@{ H = 'PsPing';  Exe = 'psping.exe'  }
+    [pscustomobject]@{ H = 'Whois';   Exe = 'whois.exe'   }
+) | ForEach-Object {
+    $it = script:New-ToolbarMenuItem -Header $_.H -Tag $_.Exe
+    $it.Add_Click({ script:Invoke-SysinternalsTool ([string]$this.Tag) })
+    $script:SysintMenuItems.Add($it) | Out-Null
+    $miSysNet.Items.Add($it) | Out-Null
+}
+$miSysinternals.Items.Add($miSysNet) | Out-Null
+
+$miSysDisk = script:New-ToolbarMenuItem -Header 'Disk && Files'
+@(
+    [pscustomobject]@{ H = 'DU (Disk Usage)'; Exe = 'du.exe'        }
+    [pscustomobject]@{ H = 'Streams';         Exe = 'streams.exe'   }
+    [pscustomobject]@{ H = 'Strings';         Exe = 'strings.exe'   }
+    [pscustomobject]@{ H = 'FindLinks';       Exe = 'FindLinks.exe' }
+    [pscustomobject]@{ H = 'Junction';        Exe = 'junction.exe'  }
+    [pscustomobject]@{ H = 'DiskView';        Exe = 'DiskView.exe'  }
+    [pscustomobject]@{ H = 'Contig';          Exe = 'Contig.exe'    }
+) | ForEach-Object {
+    $it = script:New-ToolbarMenuItem -Header $_.H -Tag $_.Exe
+    $it.Add_Click({ script:Invoke-SysinternalsTool ([string]$this.Tag) })
+    $script:SysintMenuItems.Add($it) | Out-Null
+    $miSysDisk.Items.Add($it) | Out-Null
+}
+$miSysinternals.Items.Add($miSysDisk) | Out-Null
+
+$miSysSec = script:New-ToolbarMenuItem -Header 'Security'
+@(
+    [pscustomobject]@{ H = 'Sigcheck';   Exe = 'sigcheck.exe'   }
+    [pscustomobject]@{ H = 'AccessChk';  Exe = 'accesschk.exe'  }
+    [pscustomobject]@{ H = 'AccessEnum'; Exe = 'AccessEnum.exe' }
+    [pscustomobject]@{ H = 'SDelete';    Exe = 'sdelete.exe'    }
+) | ForEach-Object {
+    $it = script:New-ToolbarMenuItem -Header $_.H -Tag $_.Exe
+    $it.Add_Click({ script:Invoke-SysinternalsTool ([string]$this.Tag) })
+    $script:SysintMenuItems.Add($it) | Out-Null
+    $miSysSec.Items.Add($it) | Out-Null
+}
+$miSysinternals.Items.Add($miSysSec) | Out-Null
+
+$miSysDiag = script:New-ToolbarMenuItem -Header 'Memory && Diagnostics'
+@(
+    [pscustomobject]@{ H = 'RAMMap';    Exe = 'RAMMap.exe'   }
+    [pscustomobject]@{ H = 'VMMap';     Exe = 'vmmap.exe'    }
+    [pscustomobject]@{ H = 'Coreinfo';  Exe = 'Coreinfo.exe' }
+    [pscustomobject]@{ H = 'DebugView'; Exe = 'Dbgview.exe'  }
+    [pscustomobject]@{ H = 'ZoomIt';    Exe = 'ZoomIt.exe'   }
+) | ForEach-Object {
+    $it = script:New-ToolbarMenuItem -Header $_.H -Tag $_.Exe
+    $it.Add_Click({ script:Invoke-SysinternalsTool ([string]$this.Tag) })
+    $script:SysintMenuItems.Add($it) | Out-Null
+    $miSysDiag.Items.Add($it) | Out-Null
+}
+$miSysinternals.Items.Add($miSysDiag) | Out-Null
+
+$ctx.Items.Add($miSysinternals) | Out-Null
+
 $miAbout = script:New-ToolbarMenuItem -Header 'About'
 $miAbout.Add_Click({ script:Show-AboutDialog })
 $ctx.Items.Add($miAbout) | Out-Null
@@ -8703,6 +8819,8 @@ $ctx.Add_Opened({
     $miCopyAgentcardSchema.IsEnabled = [bool]$hasAgentcardSchema
     $miCopyAgentcardManifest.IsEnabled = [bool]$hasAgentcardManifest
     $miAbout.InputGestureText = if ([string]::IsNullOrWhiteSpace($widgetVersion)) { '' } else { "v$widgetVersion" }
+    $miSysinternals.IsEnabled = [bool](script:Resolve-SysinternalsTool 'Autoruns.exe')
+    $miSysinternals.InputGestureText = if ($miSysinternals.IsEnabled) { 'installed' } else { 'not found' }
 })
 
 $script:Widget.ContextMenu = $ctx
