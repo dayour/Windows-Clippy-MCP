@@ -13,6 +13,15 @@ const {
 } = require('./widget-service-protocol');
 
 const packageDir = path.resolve(__dirname, '..');
+const nativeWidgetHostPath = path.join(
+  packageDir,
+  'widget',
+  'WidgetHost',
+  'bin',
+  'Debug',
+  'net8.0-windows',
+  'WidgetHost.exe'
+);
 const legacyWidgetScriptPath = path.join(packageDir, 'widget', 'clippy-widget.ps1');
 const dashboardWidgetScriptPath = path.join(packageDir, 'widget', 'start.js');
 const dashboardServerScriptPath = path.join(packageDir, 'widget', 'app', 'server.py');
@@ -32,6 +41,7 @@ const widgetDebugLogPath = path.join(stateDir, 'widget-debug.log');
 const serviceLogPath = path.join(logsDir, 'clippy_widget_service.log');
 const serviceStatePath = path.join(stateDir, 'clippy_widget_service.json');
 const sessionStatePath = path.join(stateDir, 'copilot-session.json');
+const VALID_RUNTIME_SELECTIONS = new Set(['auto', 'native', 'powershell']);
 
 function quoteForPowerShell(value) {
   return `'${String(value).replace(/'/g, "''")}'`;
@@ -114,6 +124,10 @@ function normalizeWidgetArguments(rawArgs) {
   return normalized;
 }
 
+function normalizeNativeWidgetArguments(rawArgs) {
+  return rawArgs.map((arg) => String(arg));
+}
+
 function isProcessRunning(pid) {
   if (!Number.isInteger(pid) || pid <= 0) {
     return false;
@@ -127,7 +141,108 @@ function isProcessRunning(pid) {
   }
 }
 
-function getWidgetEntryPoint() {
+function parseCsvLine(line) {
+  const values = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+
+    if (char === '"') {
+      if (inQuotes && line[index + 1] === '"') {
+        current += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === ',' && !inQuotes) {
+      values.push(current);
+      current = '';
+      continue;
+    }
+
+    current += char;
+  }
+
+  values.push(current);
+  return values;
+}
+
+function listNativeWidgetProcesses() {
+  return listTasklistProcessesByImageName('WidgetHost.exe')
+    .map((processInfo) => ({
+      ...processInfo,
+      commandLine: processInfo.commandLine || 'WidgetHost.exe'
+    }));
+}
+
+function listNativeTerminalHostProcesses() {
+  return listTasklistProcessesByImageName('TerminalHost.exe');
+}
+
+function listTasklistProcessesByImageName(imageName) {
+  const result = spawnSync(
+    'tasklist',
+    ['/FI', `IMAGENAME eq ${imageName}`, '/FO', 'CSV', '/NH', '/V'],
+    {
+      cwd: packageDir,
+      windowsHide: true,
+      encoding: 'utf8'
+    }
+  );
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  if (result.status !== 0) {
+    const detail = (result.stderr || result.stdout || '').trim();
+    throw new Error(detail || 'Failed to inspect running WidgetHost.exe processes.');
+  }
+
+  return String(result.stdout || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !/^INFO:/i.test(line))
+    .map(parseCsvLine)
+    .filter((fields) => String(fields[0] || '').toLowerCase() === imageName.toLowerCase())
+    .map((fields) => ({
+      pid: Number.parseInt(fields[1], 10),
+      parentProcessId: null,
+      creationDate: null,
+      commandLine: fields[0] || imageName,
+      windowTitle: fields[8] || null
+    }))
+    .filter((processInfo) => Number.isInteger(processInfo.pid) && processInfo.pid > 0 && isProcessRunning(processInfo.pid));
+}
+
+function getWidgetEntryPoint(runtimePreference = 'auto') {
+  const normalizedRuntime = VALID_RUNTIME_SELECTIONS.has(runtimePreference)
+    ? runtimePreference
+    : 'auto';
+
+  if (normalizedRuntime === 'powershell') {
+    if (fs.existsSync(legacyWidgetScriptPath)) {
+      return {
+        kind: 'legacy',
+        path: legacyWidgetScriptPath
+      };
+    }
+
+    throw new Error(`PowerShell widget host not found at ${legacyWidgetScriptPath}.`);
+  }
+
+  if (fs.existsSync(nativeWidgetHostPath)) {
+    return {
+      kind: 'native',
+      path: nativeWidgetHostPath
+    };
+  }
+
   if (fs.existsSync(dashboardWidgetScriptPath) && fs.existsSync(dashboardServerScriptPath)) {
     return {
       kind: 'dashboard',
@@ -143,7 +258,7 @@ function getWidgetEntryPoint() {
   }
 
   throw new Error(
-    `Widget entrypoint not found. Checked: ${dashboardWidgetScriptPath}, ${legacyWidgetScriptPath}`
+    `Widget entrypoint not found. Checked: ${nativeWidgetHostPath}, ${dashboardWidgetScriptPath}, ${legacyWidgetScriptPath}`
   );
 }
 
@@ -302,7 +417,11 @@ function hasRunningWidgetHost(sessionState) {
 }
 
 async function waitForWidgetReady(options = {}) {
-  const widgetEntryPoint = getWidgetEntryPoint();
+  const widgetEntryPoint = getWidgetEntryPoint(options.runtime);
+  if (widgetEntryPoint.kind === 'native') {
+    return waitForNativeWidgetReady(options);
+  }
+
   if (widgetEntryPoint.kind === 'dashboard') {
     return waitForDashboardWidgetReady(options);
   }
@@ -339,6 +458,36 @@ async function waitForDashboardWidgetReady(options = {}) {
   }
 
   throw new Error('Widget dashboard did not become ready within 30 seconds.');
+}
+
+async function waitForNativeWidgetReady(options = {}) {
+  const {
+    expectedPid = null,
+    timeoutMs = 20000
+  } = options;
+
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const widgetProcesses = listWidgetProcesses();
+    const terminalHostProcesses = listNativeTerminalHostProcesses();
+    const readyProcess = expectedPid
+      ? widgetProcesses.find((processInfo) => processInfo.pid === expectedPid)
+      : widgetProcesses[0];
+    const title = String(readyProcess?.windowTitle || '');
+    const hasReadyWindowTitle = /Opened |Active tab:/i.test(title);
+
+    if (readyProcess && (hasReadyWindowTitle || terminalHostProcesses.length > 0)) {
+      return {
+        readySource: terminalHostProcesses.length > 0 ? 'native-terminal-host' : 'native-window',
+        widgetProcesses,
+        terminalHostProcesses
+      };
+    }
+
+    await wait(250);
+  }
+
+  throw new Error('Native WidgetHost did not become ready within 20 seconds.');
 }
 
 async function waitForLegacyWidgetReady(options = {}) {
@@ -410,6 +559,7 @@ function wait(milliseconds) {
 
 function normalizeLaunchOptions(options = {}) {
   return {
+    runtime: VALID_RUNTIME_SELECTIONS.has(options.runtime) ? options.runtime : 'auto',
     sessionId: options.sessionId || null,
     openChat: !!options.openChat,
     noWelcome: !!options.noWelcome,
@@ -422,6 +572,7 @@ function mergeLaunchOptions(baseOptions = {}, overrideOptions = {}) {
   const override = normalizeLaunchOptions(overrideOptions);
 
   return {
+    runtime: override.runtime !== 'auto' ? override.runtime : base.runtime,
     sessionId: override.sessionId || base.sessionId || null,
     openChat: base.openChat || override.openChat,
     noWelcome: base.noWelcome || override.noWelcome,
@@ -432,12 +583,50 @@ function mergeLaunchOptions(baseOptions = {}, overrideOptions = {}) {
   };
 }
 
+function buildNativeWidgetArguments(options = {}) {
+  const args = [];
+
+  if (options.noWelcome) {
+    args.push('--no-welcome');
+  }
+
+  if (options.openChat) {
+    args.push('--open-chat');
+  }
+
+  if (options.sessionId) {
+    args.push('--session-id', options.sessionId);
+  }
+
+  args.push(...normalizeNativeWidgetArguments(options.extraArgs || []));
+  return args;
+}
+
+function buildLegacyWidgetArguments(options = {}) {
+  const args = [];
+
+  if (options.noWelcome) {
+    args.push('-NoWelcome');
+  }
+
+  if (options.openChat) {
+    args.push('-OpenChat');
+  }
+
+  if (options.sessionId) {
+    args.push('-SessionId', options.sessionId);
+  }
+
+  args.push(...normalizeWidgetArguments(options.extraArgs || []));
+  return args;
+}
+
 function launchWidget(options = {}) {
   if (process.platform !== 'win32') {
     throw new Error('Windows Clippy widget can only be launched on Windows.');
   }
 
-  const widgetEntryPoint = getWidgetEntryPoint();
+  const widgetEntryPoint = getWidgetEntryPoint(options.runtime);
 
   const {
     debug = false,
@@ -446,6 +635,66 @@ function launchWidget(options = {}) {
     noWelcome = false,
     extraArgs = []
   } = options;
+
+  if (widgetEntryPoint.kind === 'native') {
+    const existingNativeWidgets = listNativeWidgetProcesses();
+    if (existingNativeWidgets.length > 0) {
+      appendLog(
+        widgetLogPath,
+        `Native widget host already running (pid ${existingNativeWidgets[0].pid}).`
+      );
+      return {
+        child: null,
+        pid: existingNativeWidgets[0].pid,
+        logPath: widgetLogPath,
+        reusedExisting: true
+      };
+    }
+
+    ensureStateDirectories();
+    appendLog(widgetLogPath, `Native widget launch requested from ${packageDir}`);
+
+    const widgetArgs = buildNativeWidgetArguments({
+      sessionId,
+      openChat,
+      noWelcome,
+      extraArgs
+    });
+
+    if (debug) {
+      const child = spawn(widgetEntryPoint.path, widgetArgs, {
+        cwd: packageDir,
+        windowsHide: false,
+        detached: false,
+        stdio: 'inherit'
+      });
+
+      return {
+        child,
+        pid: child.pid || null,
+        logPath: widgetLogPath
+      };
+    }
+
+    const child = spawn(widgetEntryPoint.path, widgetArgs, {
+      cwd: packageDir,
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true
+    });
+
+    child.unref();
+
+    if (!Number.isInteger(child.pid) || child.pid <= 0) {
+      throw new Error('Failed to start the native widget host process.');
+    }
+
+    return {
+      child: null,
+      pid: Number.isInteger(child.pid) ? child.pid : null,
+      logPath: widgetLogPath
+    };
+  }
 
   if (widgetEntryPoint.kind === 'dashboard') {
     const existingDashboard = readDashboardLockState();
@@ -505,82 +754,89 @@ function launchWidget(options = {}) {
     };
   }
 
-  const widgetArgs = [];
-  if (noWelcome) {
-    widgetArgs.push('-NoWelcome');
-  }
-  if (openChat) {
-    widgetArgs.push('-OpenChat');
-  }
-  if (sessionId) {
-    widgetArgs.push('-SessionId', sessionId);
-  }
-  widgetArgs.push(...normalizeWidgetArguments(extraArgs));
+  if (widgetEntryPoint.kind === 'legacy') {
+    const existingLegacyWidgets = listWidgetProcesses('powershell');
+    if (existingLegacyWidgets.length > 0) {
+      appendLog(
+        widgetLogPath,
+        `Legacy PowerShell widget host already running (pid ${existingLegacyWidgets[0].pid}).`
+      );
+      return {
+        child: null,
+        pid: existingLegacyWidgets[0].pid,
+        logPath: widgetLogPath,
+        reusedExisting: true
+      };
+    }
 
-  const psArgs = [
-    '-NoProfile',
-    '-Sta',
-    '-ExecutionPolicy',
-    'Bypass',
-    '-File',
-    widgetEntryPoint.path,
-    ...widgetArgs
-  ];
+    ensureStateDirectories();
+    appendLog(widgetLogPath, `Legacy PowerShell widget launch requested from ${packageDir}`);
 
-  const spawnOptions = {
-    cwd: packageDir,
-    windowsHide: !debug
-  };
+    const widgetArgs = buildLegacyWidgetArguments({
+      sessionId,
+      openChat,
+      noWelcome,
+      extraArgs
+    });
 
-  if (debug) {
-    spawnOptions.detached = false;
-    spawnOptions.stdio = 'inherit';
-    const child = spawn('powershell.exe', psArgs, spawnOptions);
+    const psArgs = [
+      '-NoProfile',
+      '-Sta',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      widgetEntryPoint.path,
+      ...widgetArgs
+    ];
+
+    if (debug) {
+      const child = spawn('pwsh.exe', psArgs, {
+        cwd: packageDir,
+        windowsHide: false,
+        detached: false,
+        stdio: 'inherit'
+      });
+
+      return {
+        child,
+        pid: child.pid || null,
+        logPath: widgetLogPath
+      };
+    }
+
+    const child = spawn('pwsh.exe', psArgs, {
+      cwd: packageDir,
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true
+    });
+
+    child.unref();
+
+    if (!Number.isInteger(child.pid) || child.pid <= 0) {
+      throw new Error('Failed to start the legacy PowerShell widget host process.');
+    }
+
     return {
-      child,
+      child: null,
+      pid: Number.isInteger(child.pid) ? child.pid : null,
       logPath: widgetLogPath
     };
   }
 
-  ensureStateDirectories();
-  appendLog(widgetLogPath, `Direct widget launch requested from ${packageDir}`);
-
-  const startCommand = [
-    '$ErrorActionPreference = "Stop"',
-    `$argumentList = @(${psArgs.map(quoteForPowerShell).join(', ')})`,
-    `$process = Start-Process -FilePath ${quoteForPowerShell('powershell.exe')} -ArgumentList $argumentList -WorkingDirectory ${quoteForPowerShell(packageDir)} -WindowStyle Hidden -PassThru`,
-    '$process.Id'
-  ].join('; ');
-
-  const result = spawnSync(
-    'powershell.exe',
-    ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-Command', startCommand],
-    {
-      cwd: packageDir,
-      windowsHide: true,
-      encoding: 'utf8'
-    }
-  );
-
-  if (result.status !== 0) {
-    const detail = (result.stderr || result.stdout || '').trim();
-    throw new Error(detail || 'Failed to start the widget host process.');
-  }
-
-  const widgetHostPid = Number.parseInt((result.stdout || '').trim(), 10);
-  return {
-    child: null,
-    pid: Number.isFinite(widgetHostPid) ? widgetHostPid : null,
-    logPath: widgetLogPath
-  };
+  throw new Error(`Unsupported widget entrypoint kind: ${widgetEntryPoint.kind}`);
 }
 
-function listWidgetProcesses() {
+function listWidgetProcesses(runtimePreference = 'auto') {
   if (process.platform !== 'win32') {
     return [];
   }
 
-  const widgetEntryPoint = getWidgetEntryPoint();
+  const widgetEntryPoint = getWidgetEntryPoint(runtimePreference);
+  if (widgetEntryPoint.kind === 'native') {
+    return listNativeWidgetProcesses();
+  }
+
   if (widgetEntryPoint.kind === 'dashboard') {
     const dashboardState = readDashboardLockState();
     if (!dashboardState) {
@@ -646,13 +902,17 @@ function listEmbeddedTerminalHostProcesses() {
 function parseLaunchOptionsFromCommandLine(commandLine) {
   const normalizedCommandLine = String(commandLine || '');
   const sessionIdMatch = normalizedCommandLine.match(
-    /-SessionId\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))/i
+    /(?:-SessionId|--session-id)\s+(?:"([^"]+)"|'([^']+)'|([^\s]+))/i
+  ) || normalizedCommandLine.match(
+    /--session-id=(?:"([^"]+)"|([^\s]+))/i
   );
 
   return normalizeLaunchOptions({
-    sessionId: sessionIdMatch ? sessionIdMatch[1] || sessionIdMatch[2] || sessionIdMatch[3] : null,
-    openChat: /(^|\s)-OpenChat(?=\s|$)/i.test(normalizedCommandLine),
-    noWelcome: /(^|\s)-NoWelcome(?=\s|$)/i.test(normalizedCommandLine)
+    sessionId: sessionIdMatch
+      ? sessionIdMatch[1] || sessionIdMatch[2] || sessionIdMatch[3] || sessionIdMatch[4]
+      : null,
+    openChat: /(^|\s)(?:-OpenChat|--open-chat)(?=\s|$)/i.test(normalizedCommandLine),
+    noWelcome: /(^|\s)(?:-NoWelcome|--no-welcome)(?=\s|$)/i.test(normalizedCommandLine)
   });
 }
 
@@ -724,6 +984,40 @@ async function stopProcessesById(pids, label) {
 }
 
 async function stopWidgetHosts(widgetPids) {
+  const widgetEntryPoint = getWidgetEntryPoint();
+  if (widgetEntryPoint.kind === 'native') {
+    const runningPids = [...new Set(widgetPids.filter((pid) => Number.isInteger(pid) && pid > 0))]
+      .filter((pid) => isProcessRunning(pid));
+
+    if (runningPids.length === 0) {
+      return [];
+    }
+
+    for (const pid of runningPids) {
+      const result = spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], {
+        cwd: packageDir,
+        windowsHide: true,
+        encoding: 'utf8'
+      });
+
+      if (result.error) {
+        throw result.error;
+      }
+
+      if (result.status !== 0 && isProcessRunning(pid)) {
+        const detail = (result.stderr || result.stdout || '').trim();
+        throw new Error(detail || `Failed to stop ${label} PID ${pid}.`);
+      }
+    }
+
+    const remainingPids = await waitForProcessesToExit(runningPids);
+    if (remainingPids.length > 0) {
+      throw new Error(`Failed to stop ${label} PID(s): ${remainingPids.join(', ')}`);
+    }
+
+    return runningPids;
+  }
+
   return stopProcessesById(widgetPids, 'widget host process');
 }
 
@@ -768,25 +1062,17 @@ function startWidgetService() {
   ensureStateDirectories();
   appendLog(serviceLogPath, 'Starting clippy_widget_service background process.');
 
-  const startupCommand = [
-    '$ErrorActionPreference = "Stop"',
-    `$argumentList = @(${[serviceScriptPath, '--service'].map(quoteForPowerShell).join(', ')})`,
-    `Start-Process -FilePath ${quoteForPowerShell(process.execPath)} -ArgumentList $argumentList -WorkingDirectory ${quoteForPowerShell(packageDir)} -WindowStyle Hidden`
-  ].join('; ');
+  const child = spawn(process.execPath, [serviceScriptPath, '--service'], {
+    cwd: packageDir,
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true
+  });
 
-  const result = spawnSync(
-    'powershell.exe',
-    ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-Command', startupCommand],
-    {
-      cwd: packageDir,
-      windowsHide: true,
-      encoding: 'utf8'
-    }
-  );
+  child.unref();
 
-  if (result.status !== 0) {
-    const detail = (result.stderr || result.stdout || '').trim();
-    throw new Error(detail || 'Failed to start clippy_widget_service.');
+  if (!Number.isInteger(child.pid) || child.pid <= 0) {
+    throw new Error('Failed to start clippy_widget_service.');
   }
 }
 
@@ -849,7 +1135,38 @@ async function requestWidgetLaunch(options = {}) {
 }
 
 async function refreshWidgets(options = {}) {
-  const widgetEntryPoint = getWidgetEntryPoint();
+  const widgetEntryPoint = getWidgetEntryPoint(options.runtime);
+  if (widgetEntryPoint.kind === 'native' || widgetEntryPoint.kind === 'legacy') {
+    const widgetProcesses = listWidgetProcesses(options.runtime);
+    const widgetPids = widgetProcesses.map((processInfo) => processInfo.pid);
+    const launchOptions = mergeLaunchOptions({}, options);
+    const stoppedWidgetPids = await stopWidgetHosts(widgetPids);
+    const launch = launchWidget(launchOptions);
+    const launcherKind = widgetEntryPoint.kind === 'legacy' ? 'powershell' : 'native';
+
+    appendLog(
+      widgetLogPath,
+      launch.reusedExisting
+        ? `${launcherKind === 'native' ? 'Native' : 'Legacy PowerShell'} widget host was already running; refresh request reused the current instance.`
+        : `Launched ${launcherKind === 'native' ? 'native' : 'legacy PowerShell'} widget host${launch.pid ? ` with PID ${launch.pid}` : ''} for refresh request.`
+    );
+
+    return {
+      stoppedWidgetPids,
+      queuedRequests: launch.reusedExisting ? [] : [launch.pid ? String(launch.pid) : 'native-launch'],
+      launchCount: launch.reusedExisting ? 0 : 1,
+      serviceStarted: false,
+      usedFallbackLaunch: widgetPids.length === 0,
+      serviceLogPath,
+      serviceStatePath,
+      reusedExistingWidget: !!launch.reusedExisting,
+      widgetPid: launch.pid || null,
+      widgetUrl: null,
+      logPath: widgetLogPath,
+      launcherKind
+    };
+  }
+
   if (widgetEntryPoint.kind === 'dashboard') {
     const launch = launchWidget(options);
     appendLog(
@@ -907,7 +1224,39 @@ async function refreshWidgets(options = {}) {
 }
 
 async function restartWidgets(options = {}) {
-  const widgetEntryPoint = getWidgetEntryPoint();
+  const widgetEntryPoint = getWidgetEntryPoint(options.runtime);
+  if (widgetEntryPoint.kind === 'native' || widgetEntryPoint.kind === 'legacy') {
+    const widgetProcesses = listWidgetProcesses(options.runtime);
+    const widgetPids = widgetProcesses.map((processInfo) => processInfo.pid);
+    const launchOptions = mergeLaunchOptions({}, options);
+    const stoppedWidgetPids = await stopWidgetHosts(widgetPids);
+    const launch = launchWidget(launchOptions);
+    const launcherKind = widgetEntryPoint.kind === 'legacy' ? 'powershell' : 'native';
+
+    appendLog(
+      widgetLogPath,
+      launch.reusedExisting
+        ? `${launcherKind === 'native' ? 'Native' : 'Legacy PowerShell'} widget host was already running; restart request reused the current instance.`
+        : `Restarted ${launcherKind === 'native' ? 'native' : 'legacy PowerShell'} widget host${launch.pid ? ` with PID ${launch.pid}` : ''}.`
+    );
+
+    return {
+      stoppedWidgetPids,
+      stoppedServicePid: null,
+      queuedRequests: launch.reusedExisting ? [] : [launch.pid ? String(launch.pid) : 'native-launch'],
+      launchCount: launch.reusedExisting ? 0 : 1,
+      serviceStarted: false,
+      usedFallbackLaunch: widgetPids.length === 0,
+      serviceLogPath,
+      serviceStatePath,
+      reusedExistingWidget: !!launch.reusedExisting,
+      widgetPid: launch.pid || null,
+      widgetUrl: null,
+      logPath: widgetLogPath,
+      launcherKind
+    };
+  }
+
   if (widgetEntryPoint.kind === 'dashboard') {
     const launch = launchWidget(options);
     appendLog(
@@ -972,6 +1321,7 @@ function parseCliArguments(rawArgs) {
     debug: false,
     noWelcome: false,
     openChat: false,
+    runtime: 'auto',
     sessionId: null,
     extraArgs: []
   };
@@ -994,6 +1344,23 @@ function parseCliArguments(rawArgs) {
       continue;
     }
 
+    if (arg === '--runtime' && rawArgs[index + 1]) {
+      const candidate = String(rawArgs[index + 1] || '').toLowerCase();
+      if (VALID_RUNTIME_SELECTIONS.has(candidate)) {
+        options.runtime = candidate;
+        index += 1;
+        continue;
+      }
+    }
+
+    if (arg.startsWith('--runtime=')) {
+      const candidate = String(arg.slice('--runtime='.length) || '').toLowerCase();
+      if (VALID_RUNTIME_SELECTIONS.has(candidate)) {
+        options.runtime = candidate;
+        continue;
+      }
+    }
+
     if (arg === '--session-id' && rawArgs[index + 1]) {
       options.sessionId = rawArgs[index + 1];
       index += 1;
@@ -1014,7 +1381,7 @@ function parseCliArguments(rawArgs) {
 async function main() {
   try {
     const options = parseCliArguments(process.argv.slice(2));
-    const widgetEntryPoint = getWidgetEntryPoint();
+    const widgetEntryPoint = getWidgetEntryPoint(options.runtime);
 
     if (!options.openChat) {
       options.openChat = true;
@@ -1025,12 +1392,14 @@ async function main() {
       if (!child) {
         const ready = await waitForWidgetReady({
           requestCreatedAt: Date.now() - 1000,
-          expectedPid: listWidgetProcesses()[0]?.pid || null
+          expectedPid: listWidgetProcesses(options.runtime)[0]?.pid || null,
+          runtime: options.runtime
         });
+        const readyPid = ready.dashboardState?.pid || ready.widgetProcesses?.[0]?.pid || null;
 
         console.log('Windows Clippy widget is already running.');
-        if (ready.dashboardState?.pid) {
-          console.log(`Widget host PID: ${ready.dashboardState.pid}`);
+        if (readyPid) {
+          console.log(`Widget host PID: ${readyPid}`);
         }
         if (ready.dashboardState?.url) {
           console.log(`Dashboard URL: ${ready.dashboardState.url}`);
@@ -1051,11 +1420,12 @@ async function main() {
       return;
     }
 
-    const runningWidgets = listWidgetProcesses();
+    const runningWidgets = listWidgetProcesses(options.runtime);
     if (runningWidgets.length > 0) {
       if (widgetEntryPoint.kind === 'dashboard') {
         const ready = await waitForWidgetReady({
-          requestCreatedAt: Date.now() - 1000
+          requestCreatedAt: Date.now() - 1000,
+          runtime: options.runtime
         });
 
         console.log('Windows Clippy widget dashboard is already running.');
@@ -1072,8 +1442,24 @@ async function main() {
 
       const result = await refreshWidgets(options);
       const ready = await waitForWidgetReady({
-        requestCreatedAt: Date.now() - 1000
+        requestCreatedAt: Date.now() - 1000,
+        runtime: options.runtime
       });
+
+      if (widgetEntryPoint.kind === 'native' || widgetEntryPoint.kind === 'legacy') {
+        const runtimeLabel = result.launcherKind === 'powershell' ? 'legacy PowerShell' : 'native';
+        console.log(`Refreshed ${result.launchCount} ${runtimeLabel} widget instance(s).`);
+        if (result.stoppedWidgetPids.length > 0) {
+          console.log(`Stopped widget host PIDs: ${result.stoppedWidgetPids.join(', ')}`);
+        }
+        if (result.queuedRequests.length > 0) {
+          console.log(`Launched widget host PID(s): ${result.queuedRequests.join(', ')}`);
+        }
+        console.log(`Ready source: ${ready.readySource}`);
+        console.log(`Launch log: ${result.logPath || widgetLogPath}`);
+        return;
+      }
+
       const serviceStatus = result.serviceStarted
         ? 'Started clippy_widget_service in background.'
         : 'clippy_widget_service is already running in background.';
@@ -1093,10 +1479,11 @@ async function main() {
     }
 
     const launch = launchWidget(options);
-    const ready = await waitForWidgetReady({
-      requestCreatedAt: Date.now() - 1000,
-      expectedPid: launch.pid || null
-    });
+      const ready = await waitForWidgetReady({
+        requestCreatedAt: Date.now() - 1000,
+        expectedPid: launch.pid || null,
+        runtime: options.runtime
+      });
 
     console.log('Launched Windows Clippy widget.');
     if (launch.pid) {

@@ -1,0 +1,52 @@
+<Window x:Class="WidgetHost.LauncherWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Clippy"
+        Width="96"
+        Height="108"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="#01000000"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        WindowStartupLocation="Manual">
+    <Grid x:Name="LauncherSurface"
+          Background="#01000000"
+          Cursor="Hand"
+          PreviewMouseLeftButtonDown="OnSurfaceMouseLeftButtonDown"
+          PreviewMouseMove="OnSurfaceMouseMove"
+          PreviewMouseLeftButtonUp="OnSurfaceMouseLeftButtonUp"
+          PreviewMouseRightButtonUp="OnSurfaceMouseRightButtonUp">
+        <Grid.ContextMenu>
+            <ContextMenu x:Name="LauncherContextMenu" />
+        </Grid.ContextMenu>
+
+        <Border x:Name="Ring"
+                Background="#01000000"
+                Cursor="Hand"
+                ToolTip="Click to toggle the Clippy bench" />
+
+        <Image x:Name="IconImage"
+               Margin="2"
+               IsHitTestVisible="False"
+               Stretch="Uniform"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center"
+               RenderTransformOrigin="0.5,0.5"
+               SnapsToDevicePixels="True">
+            <Image.Effect>
+                <DropShadowEffect Color="#000000"
+                                  BlurRadius="18"
+                                  ShadowDepth="4"
+                                  Opacity="0.55" />
+            </Image.Effect>
+            <Image.RenderTransform>
+                <ScaleTransform ScaleX="1.0" ScaleY="1.0" />
+            </Image.RenderTransform>
+        </Image>
+    </Grid>
+</Window>

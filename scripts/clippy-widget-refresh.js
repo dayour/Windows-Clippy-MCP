@@ -12,7 +12,9 @@ async function main() {
     }
 
     if (result.reusedExistingWidget) {
-      console.log('Windows Clippy widget dashboard is already running.');
+      console.log(result.launcherKind === 'native'
+        ? 'Windows Clippy native widget is already running.'
+        : 'Windows Clippy widget dashboard is already running.');
       if (result.widgetPid) {
         console.log(`Widget host PID: ${result.widgetPid}`);
       }
@@ -30,9 +32,11 @@ async function main() {
     }
 
     if (result.queuedRequests.length > 0) {
-      console.log(`Queued widget request(s): ${result.queuedRequests.join(', ')}`);
+      console.log(result.launcherKind === 'native'
+        ? `Launched widget host PID(s): ${result.queuedRequests.join(', ')}`
+        : `Queued widget request(s): ${result.queuedRequests.join(', ')}`);
     }
-    console.log(`Service log: ${result.serviceLogPath}`);
+    console.log(`${result.launcherKind === 'native' ? 'Launch log' : 'Service log'}: ${result.logPath || result.serviceLogPath}`);
   } catch (error) {
     console.error(`ERROR: ${error.message}`);
     process.exit(1);

@@ -5,6 +5,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 
 const colors = {
   green: '\x1b[32m',
@@ -62,6 +63,19 @@ async function validatePackageStructure() {
       'widget/LiveTileHost/App.xaml.cs',
       'widget/LiveTileHost/MainWindow.xaml',
       'widget/LiveTileHost/MainWindow.xaml.cs',
+      'widget/WidgetHost/WidgetHost.csproj',
+      'widget/WidgetHost/App.xaml',
+      'widget/WidgetHost/App.xaml.cs',
+      'widget/WidgetHost/LauncherWindow.xaml',
+      'widget/WidgetHost/LauncherWindow.xaml.cs',
+      'widget/WidgetHost/MainWindow.xaml',
+      'widget/WidgetHost/MainWindow.xaml.cs',
+      'widget/WidgetHost/ConPtyConnection.cs',
+      'widget/WidgetHost/ModelCatalog.cs',
+      'widget/WidgetHost/PseudoConsoleApi.cs',
+      'widget/WidgetHost/AgentCatalog.cs',
+      'widget/WidgetHost/TerminalTabSession.cs',
+      'widget/WidgetHost/WidgetSettings.cs',
       'widget/adaptive-cards/terminal-session.template.json',
       'widget/adaptive-cards/terminal-session.data.schema.json',
       'widget/adaptive-cards/clippy-native-livetile.template.json',
@@ -129,10 +143,17 @@ async function validatePackageStructure() {
       'widget/LiveTileHost/*.csproj',
       'widget/LiveTileHost/*.xaml',
       'widget/LiveTileHost/*.cs',
+      'widget/WidgetHost/*.csproj',
+      'widget/WidgetHost/*.xaml',
+      'widget/WidgetHost/*.cs',
       'widget/TerminalHost/bin/Debug/net8.0-windows/*.dll',
       'widget/TerminalHost/bin/Debug/net8.0-windows/*.exe',
       'widget/TerminalHost/bin/Debug/net8.0-windows/*.json',
-      'widget/TerminalHost/bin/Debug/net8.0-windows/runtimes/**/native/*.dll'
+      'widget/TerminalHost/bin/Debug/net8.0-windows/runtimes/**/native/*.dll',
+      'widget/WidgetHost/bin/Debug/net8.0-windows/*.dll',
+      'widget/WidgetHost/bin/Debug/net8.0-windows/*.exe',
+      'widget/WidgetHost/bin/Debug/net8.0-windows/*.json',
+      'widget/WidgetHost/bin/Debug/net8.0-windows/runtimes/**/native/*.dll'
     ];
 
     for (const packagedPath of requiredPackagedPaths) {
@@ -235,6 +256,36 @@ async function validateScripts() {
   return allValid;
 }
 
+async function validateNativeBuild() {
+  if (process.platform !== 'win32') {
+    return true;
+  }
+
+  log(`${colors.bold}Validating Native Build${colors.reset}`);
+  log('');
+
+  const result = spawnSync(
+    'dotnet',
+    ['build', '.\\Windows-Clippy-MCP.sln', '-nologo'],
+    {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      stdio: 'pipe'
+    }
+  );
+
+  if (result.status === 0) {
+    logSuccess('dotnet build succeeded for Windows-Clippy-MCP.sln');
+    log('');
+    return true;
+  }
+
+  const detail = (result.stderr || result.stdout || 'dotnet build failed without output').trim();
+  logError(`dotnet build failed: ${detail}`);
+  log('');
+  return false;
+}
+
 async function showPlatformInfo() {
   log(`${colors.bold}Platform Information${colors.reset}`);
   log('');
@@ -260,11 +311,12 @@ async function main() {
 
   const structureValid = await validatePackageStructure();
   const scriptsValid = await validateScripts();
+  const nativeBuildValid = await validateNativeBuild();
 
   log(`${colors.bold}Summary${colors.reset}`);
   log('');
 
-  if (structureValid && scriptsValid) {
+  if (structureValid && scriptsValid && nativeBuildValid) {
     logSuccess('All validation checks passed! Package is ready for publication.');
     process.exit(0);
   } else {

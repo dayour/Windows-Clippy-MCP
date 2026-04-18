@@ -58,3 +58,6 @@ widget/TerminalHost/**/*.pdb
 widget/TerminalHost/**/*.cs
 widget/TerminalHost/**/*.xaml
 widget/TerminalHost/**/*.csproj
+
+# MCP Apps source tests (keep the tool sources, drop __tests__)
+src/mcp-apps/__tests__/

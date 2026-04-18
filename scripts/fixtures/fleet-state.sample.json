@@ -1,0 +1,32 @@
+{
+  "principal": "clippy",
+  "sessionId": "cmd-2026-smoke-01",
+  "tabs": {
+    "total": 4,
+    "byState": { "idle": 1, "running": 2, "exited": 1 },
+    "list": [
+      { "id": "tab-1", "state": "running", "title": "Copilot Studio" },
+      { "id": "tab-2", "state": "running", "title": "PowerShell" },
+      { "id": "tab-3", "state": "idle", "title": "Foundry" },
+      { "id": "tab-4", "state": "exited", "title": "Claude Code" }
+    ]
+  },
+  "groups": {
+    "total": 2,
+    "active": "studio-fleet",
+    "list": [
+      { "id": "studio-fleet", "name": "Studio Fleet", "tabIds": ["tab-1", "tab-3"] },
+      { "id": "shell-group", "name": "Shells", "tabIds": ["tab-2"] }
+    ]
+  },
+  "agents": {
+    "catalogSize": 7,
+    "active": "clippy-commander"
+  },
+  "events": {
+    "recent": [
+      { "ts": "2026-01-27T12:00:00Z", "kind": "tab.added", "tabId": "tab-4" },
+      { "ts": "2026-01-27T12:00:05Z", "kind": "tool.call", "tool": "clippy.broadcast" }
+    ]
+  }
+}

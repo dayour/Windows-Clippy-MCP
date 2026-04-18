@@ -81,7 +81,22 @@ async function testPackageIntegrity() {
       'scripts/install-service.js',
       'scripts/uninstall-service.js',
       'widget/Launch-ClippyWidget.cmd',
-      'widget/clippy-widget.ps1'
+      'widget/clippy-widget.ps1',
+      'widget/WidgetHost/WidgetHost.csproj',
+      'widget/WidgetHost/App.xaml',
+      'widget/WidgetHost/App.xaml.cs',
+      'widget/WidgetHost/LauncherWindow.xaml',
+      'widget/WidgetHost/LauncherWindow.xaml.cs',
+      'widget/WidgetHost/MainWindow.xaml',
+      'widget/WidgetHost/MainWindow.xaml.cs',
+      'widget/WidgetHost/ConPtyConnection.cs',
+      'widget/WidgetHost/ModelCatalog.cs',
+      'widget/WidgetHost/PseudoConsoleApi.cs',
+      'widget/WidgetHost/AgentCatalog.cs',
+      'widget/WidgetHost/TerminalTabSession.cs',
+      'widget/WidgetHost/WidgetSettings.cs',
+      'widget/WidgetHost/MainWindow.xaml',
+      'widget/WidgetHost/MainWindow.xaml.cs'
     ];
 
     for (const file of requiredFiles) {

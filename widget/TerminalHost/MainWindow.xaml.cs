@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace TerminalHost;
 
@@ -30,10 +31,12 @@ public partial class MainWindow : Window
     private bool _exitMonitorStarted;
     private bool _shutdownRequested;
     private bool _startupScriptInjected;
+    private bool _loaded;
 
     public MainWindow(SessionLaunchOptions options)
     {
         _options = options;
+        TerminalHostLogger.Log($"MainWindow created. HwndMode={_options.HwndMode}; DisplayName={_options.DisplayName}");
 
         if (!string.IsNullOrWhiteSpace(_options.WorkingDirectory))
         {
@@ -202,18 +205,23 @@ public partial class MainWindow : Window
     private void OnSourceInitialized(object? sender, EventArgs e)
     {
         _windowHandle = new WindowInteropHelper(this).Handle;
-        TryEmitReady();
+        TerminalHostLogger.Log($"SourceInitialized. HWND=0x{_windowHandle.ToInt64():X}; HwndMode={_options.HwndMode}");
         if (_options.HwndMode)
         {
             Hide();
+            TerminalHostLogger.Log("Window hidden for hwnd-mode startup.");
         }
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        _loaded = true;
+        TerminalHostLogger.Log($"Loaded. HWND=0x{_windowHandle.ToInt64():X}; InputRedirected={IsInputRedirected()}");
+        TryEmitReady();
+
         if (IsInputRedirected())
         {
-            _ = RunControlLoopAsync(_controlLoopCancellation.Token);
+            _ = Task.Run(() => RunControlLoopAsync(_controlLoopCancellation.Token));
         }
     }
 
@@ -384,6 +392,7 @@ public partial class MainWindow : Window
         Dispatcher.Invoke(() =>
         {
             _terminalProcessPid ??= TryGetProcessId(Terminal.ConPTYTerm.Process);
+            TerminalHostLogger.Log($"Terminal ready event. Terminal PID={_terminalProcessPid}");
             TryEmitReady();
             TryInjectStartupScript();
 
@@ -436,7 +445,8 @@ public partial class MainWindow : Window
 
     private void TryEmitReady()
     {
-        if (_readySent || _windowHandle == IntPtr.Zero)
+        TerminalHostLogger.Log($"TryEmitReady called. ReadySent={_readySent}; Loaded={_loaded}; HWND=0x{_windowHandle.ToInt64():X}");
+        if (_readySent || _windowHandle == IntPtr.Zero || !_loaded)
         {
             return;
         }
@@ -448,6 +458,7 @@ public partial class MainWindow : Window
             hwnd = $"0x{_windowHandle.ToInt64():X}",
             pid = _terminalProcessPid ?? Process.GetCurrentProcess().Id
         });
+        TerminalHostLogger.Log("Ready payload emitted.");
     }
 
     private void TryInjectStartupScript()
@@ -646,9 +657,10 @@ public sealed class SessionLaunchOptions
         return Shell?.Trim().ToLowerInvariant() switch
         {
             "copilot" => BuildCopilotStartupCommandLine(),
-            "powershell" => BuildCommandLine(["powershell.exe"]),
+            "pwsh" => BuildCommandLine(["pwsh.exe"]),
+            "powershell" => BuildCommandLine(["pwsh.exe"]),
             "cmd" => BuildCommandLine(["cmd.exe"]),
-            _ => throw new ArgumentException($"Unsupported shell shortcut '{Shell}'. Supported values: copilot, powershell, cmd.")
+            _ => throw new ArgumentException($"Unsupported shell shortcut '{Shell}'. Supported values: copilot, pwsh, powershell, cmd.")
         };
     }
 
@@ -699,12 +711,6 @@ public sealed class SessionLaunchOptions
         {
             arguments.Add("--agent");
             arguments.Add(Agent);
-        }
-
-        if (!string.IsNullOrWhiteSpace(Mode))
-        {
-            arguments.Add("--mode");
-            arguments.Add(Mode);
         }
 
         if (AllowAllTools)
@@ -824,9 +830,46 @@ internal static class ProtocolWriter
                 Console.Out.WriteLine(json);
                 Console.Out.Flush();
             }
+            TerminalHostLogger.Log($"Protocol payload written: {json}");
+        }
+        catch (Exception ex)
+        {
+            TerminalHostLogger.Log($"Protocol write failed: {ex}");
+        }
+    }
+}
+
+internal static class TerminalHostLogger
+{
+    private static readonly object SyncRoot = new();
+    private static readonly string LogPath = BuildLogPath();
+
+    public static void Log(string message)
+    {
+        try
+        {
+            var directory = Path.GetDirectoryName(LogPath);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            lock (SyncRoot)
+            {
+                File.AppendAllText(
+                    LogPath,
+                    $"[{DateTime.UtcNow:O}] {message}{Environment.NewLine}",
+                    Encoding.UTF8);
+            }
         }
         catch
         {
         }
+    }
+
+    private static string BuildLogPath()
+    {
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        return Path.Combine(appData, "Windows-Clippy-MCP", "logs", "terminalhost.log");
     }
 }

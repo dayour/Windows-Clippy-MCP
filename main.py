@@ -12,6 +12,11 @@ from src.desktop import Desktop
 from textwrap import dedent
 from fastmcp import FastMCP
 from typing import Literal, List, Optional
+try:
+    import websocket as _ws_client
+    _has_websocket = True
+except ImportError:
+    _has_websocket = False
 import uiautomation as ua
 import pyautogui as pg
 import pyperclip as pc
@@ -22,6 +27,8 @@ import ctypes
 import psutil
 import winreg
 import shutil
+import base64
+import time
 import json
 import os as os_module
 import re
@@ -62,6 +69,43 @@ async def lifespan(app: FastMCP):
             watch_cursor.stop()
 
 mcp=FastMCP(name='windows-clippy-mcp',instructions=instructions,lifespan=lifespan)
+
+# ==================== CDP HELPERS FOR EDGE-BROWSER-TOOL ====================
+
+def _cdp_send(ws_url: str, method: str, params: dict = None, timeout: int = 12) -> dict:
+    """Send a single CDP command over WebSocket and return the result dict."""
+    if not _has_websocket:
+        raise RuntimeError('websocket-client not installed. Run: pip install websocket-client')
+    ws = _ws_client.WebSocket()
+    ws.connect(ws_url, timeout=timeout)
+    ws.send(json.dumps({'id': 1, 'method': method, 'params': params or {}}))
+    deadline = time.time() + timeout
+    try:
+        while time.time() < deadline:
+            ws.settimeout(max(0.5, deadline - time.time()))
+            try:
+                msg = json.loads(ws.recv())
+                if msg.get('id') == 1:
+                    return msg.get('result', {})
+            except Exception:
+                break
+    finally:
+        ws.close()
+    return {}
+
+def _cdp_page_tabs(port: int = 9222) -> list:
+    """Return list of page-type tabs from Edge CDP."""
+    resp = requests.get(f'http://localhost:{port}/json', timeout=5)
+    return [t for t in resp.json() if t.get('type') == 'page']
+
+def _cdp_ws_for_tab(port: int = 9222, tab_index: int = 0) -> str:
+    """Return the WebSocket debugger URL for the given tab index."""
+    tabs = _cdp_page_tabs(port)
+    if not tabs:
+        raise ValueError(f'No page tabs found in Edge CDP on port {port}')
+    return tabs[min(tab_index, len(tabs) - 1)]['webSocketDebuggerUrl']
+
+# ==================== END CDP HELPERS ====================
 
 @mcp.tool(name='Launch-Tool', description='Launch an application from the Windows Start Menu by name (e.g., "notepad", "calculator", "chrome")')
 def launch_tool(name: str) -> str:
@@ -1530,5 +1574,504 @@ def zoom_tool(action: Literal['in', 'out', 'reset'], times: int = 1) -> str:
         return f'Zoom failed: {str(e)}'
 
 
-if __name__ == "__main__":
-    mcp.run()
+
+# ==================== EDGE BROWSER (CDP) + COPILOT CLI TOOLS ====================
+
+_EDGE_BROWSER_DESC = (
+    'Full Microsoft Edge browser control via Chrome DevTools Protocol (CDP). '
+    'Requires Edge launched with action="launch" first (opens CDP on debug_port). '
+    'Actions: launch, status, navigate, back, forward, refresh, get_url, get_title, '
+    'get_source, get_text, screenshot, execute_js, list_tabs, new_tab, switch_tab, '
+    'close_tab, find, type_element, click_element, scroll. '
+    'Parameters: url (navigate/launch/new_tab), script (execute_js), selector (CSS), '
+    'text (type_element/find), tab_index (0-based), scroll_direction (up/down/left/right), '
+    'scroll_amount (pixels), debug_port (default 9222).'
+)
+
+@mcp.tool(name='Edge-Browser-Tool', description=_EDGE_BROWSER_DESC)
+def edge_browser_tool(
+    action: Literal[
+        'launch', 'status', 'navigate', 'back', 'forward', 'refresh',
+        'get_url', 'get_title', 'get_source', 'get_text', 'screenshot',
+        'execute_js', 'list_tabs', 'new_tab', 'switch_tab', 'close_tab',
+        'find', 'type_element', 'click_element', 'scroll',
+    ],
+    url: str = None,
+    script: str = None,
+    selector: str = None,
+    text: str = None,
+    tab_index: int = 0,
+    scroll_direction: Literal['up', 'down', 'left', 'right'] = 'down',
+    scroll_amount: int = 300,
+    debug_port: int = 9222,
+) -> str:
+    try:
+        # ── LAUNCH ──────────────────────────────────────────────────────────
+        if action == 'launch':
+            # Find Edge executable
+            edge_candidates = [
+                r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
+                r'C:\Program Files\Microsoft\Edge\Application\msedge.exe',
+            ]
+            edge_exe = next((p for p in edge_candidates if os_module.path.exists(p)), None)
+            if not edge_exe:
+                try:
+                    with winreg.OpenKey(
+                        winreg.HKEY_LOCAL_MACHINE,
+                        r'SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\msedge.exe',
+                    ) as k:
+                        edge_exe = winreg.QueryValueEx(k, '')[0]
+                except Exception:
+                    pass
+            if not edge_exe:
+                return 'Error: Could not locate Microsoft Edge. Install Edge or check PATH.'
+
+            args = [
+                edge_exe,
+                f'--remote-debugging-port={debug_port}',
+                '--no-first-run',
+                '--no-default-browser-check',
+            ]
+            if url:
+                args.append(url)
+            subprocess.Popen(args)
+
+            # Poll until CDP is ready (up to 15 s)
+            for _ in range(15):
+                time.sleep(1)
+                try:
+                    requests.get(f'http://localhost:{debug_port}/json/version', timeout=2)
+                    return (
+                        f'Edge launched with CDP on port {debug_port}'
+                        + (f', navigating to {url}' if url else '')
+                    )
+                except Exception:
+                    pass
+            return (
+                f'Edge launched but CDP not ready on port {debug_port} after 15 s. '
+                'Try action="status" in a moment.'
+            )
+
+        # ── STATUS ──────────────────────────────────────────────────────────
+        elif action == 'status':
+            try:
+                ver = requests.get(f'http://localhost:{debug_port}/json/version', timeout=3).json()
+                tabs = _cdp_page_tabs(debug_port)
+                lines = [
+                    f'Edge CDP active on port {debug_port}',
+                    f'Browser : {ver.get("Browser", "?")}',
+                    f'Protocol: {ver.get("Protocol-Version", "?")}',
+                    f'Tabs    : {len(tabs)}',
+                ]
+                for i, t in enumerate(tabs):
+                    lines.append(f'  [{i}] {t.get("title", "?")} | {t.get("url", "?")}')
+                return '\n'.join(lines)
+            except Exception:
+                return (
+                    f'Edge CDP not available on port {debug_port}. '
+                    'Use action="launch" first.'
+                )
+
+        # ── LIST TABS ────────────────────────────────────────────────────────
+        elif action == 'list_tabs':
+            tabs = _cdp_page_tabs(debug_port)
+            lines = [f'Open page tabs ({len(tabs)}):']
+            for i, t in enumerate(tabs):
+                marker = ' <-- active' if i == tab_index else ''
+                lines.append(f'  [{i}] {t.get("title", "?")} | {t.get("url", "?")}{marker}')
+            return '\n'.join(lines)
+
+        # ── NEW TAB ──────────────────────────────────────────────────────────
+        elif action == 'new_tab':
+            target_url = url or 'about:blank'
+            resp = requests.get(
+                f'http://localhost:{debug_port}/json/new?{target_url}', timeout=5
+            )
+            data = resp.json()
+            return f'New tab opened: {data.get("title", "?")} | {data.get("url", "?")}'
+
+        # ── CLOSE TAB ────────────────────────────────────────────────────────
+        elif action == 'close_tab':
+            tabs = _cdp_page_tabs(debug_port)
+            if tab_index >= len(tabs):
+                return f'Tab index {tab_index} out of range (only {len(tabs)} tabs open)'
+            tab_id = tabs[tab_index]['id']
+            requests.get(f'http://localhost:{debug_port}/json/close/{tab_id}', timeout=5)
+            return f'Closed tab [{tab_index}]'
+
+        # ── SWITCH TAB ────────────────────────────────────────────────────────
+        elif action == 'switch_tab':
+            tabs = _cdp_page_tabs(debug_port)
+            if tab_index >= len(tabs):
+                return f'Tab index {tab_index} out of range (only {len(tabs)} tabs open)'
+            t = tabs[tab_index]
+            return (
+                f'Use tab_index={tab_index} in subsequent commands.\n'
+                f'Tab: {t.get("title", "?")} | {t.get("url", "?")}'
+            )
+
+        # ── WEBSOCKET ACTIONS ─────────────────────────────────────────────────
+        ws_url = _cdp_ws_for_tab(debug_port, tab_index)
+
+        if action == 'navigate':
+            if not url:
+                return 'Error: url is required for action="navigate"'
+            _cdp_send(ws_url, 'Page.navigate', {'url': url})
+            time.sleep(1)
+            return f'Navigated to {url}'
+
+        elif action == 'back':
+            _cdp_send(ws_url, 'Runtime.evaluate', {'expression': 'history.back()'})
+            return 'Navigated back'
+
+        elif action == 'forward':
+            _cdp_send(ws_url, 'Runtime.evaluate', {'expression': 'history.forward()'})
+            return 'Navigated forward'
+
+        elif action == 'refresh':
+            _cdp_send(ws_url, 'Page.reload', {'ignoreCache': False})
+            return 'Page reloaded'
+
+        elif action == 'get_url':
+            r = _cdp_send(ws_url, 'Runtime.evaluate',
+                          {'expression': 'window.location.href', 'returnByValue': True})
+            return f'Current URL: {r.get("result", {}).get("value", "?")}'
+
+        elif action == 'get_title':
+            r = _cdp_send(ws_url, 'Runtime.evaluate',
+                          {'expression': 'document.title', 'returnByValue': True})
+            return f'Page title: {r.get("result", {}).get("value", "?")}'
+
+        elif action == 'get_source':
+            r = _cdp_send(ws_url, 'Runtime.evaluate',
+                          {'expression': 'document.documentElement.outerHTML',
+                           'returnByValue': True})
+            html = r.get('result', {}).get('value', '')
+            truncated = '...(truncated)' if len(html) > 5000 else ''
+            return f'Page source ({len(html)} chars):\n{html[:5000]}{truncated}'
+
+        elif action == 'get_text':
+            if selector:
+                expr = f'document.querySelector({json.dumps(selector)})?.innerText ?? ""'
+            else:
+                expr = 'document.body.innerText'
+            r = _cdp_send(ws_url, 'Runtime.evaluate', {'expression': expr, 'returnByValue': True})
+            txt = r.get('result', {}).get('value', '')
+            truncated = '...(truncated)' if len(txt) > 3000 else ''
+            return f'Text content:\n{txt[:3000]}{truncated}'
+
+        elif action == 'screenshot':
+            r = _cdp_send(ws_url, 'Page.captureScreenshot', {'format': 'png'}, timeout=15)
+            data = r.get('data', '')
+            if not data:
+                return 'Screenshot failed: no data returned from CDP'
+            return f'Screenshot captured ({len(data)} base64 chars). Preview: {data[:80]}...'
+
+        elif action == 'execute_js':
+            if not script:
+                return 'Error: script is required for action="execute_js"'
+            r = _cdp_send(ws_url, 'Runtime.evaluate',
+                          {'expression': script, 'returnByValue': True, 'awaitPromise': True})
+            if 'exceptionDetails' in r:
+                exc = r['exceptionDetails']
+                return f'JS Error: {exc.get("text", "Unknown error")}'
+            val = r.get('result', {})
+            return f'JS Result: {val.get("value", val.get("description", "undefined"))}'
+
+        elif action == 'find':
+            if not text:
+                return 'Error: text is required for action="find"'
+            safe = json.dumps(text)
+            expr = f'window.find({safe}, false, false, true) ? "Found: {text}" : "Not found: {text}"'
+            r = _cdp_send(ws_url, 'Runtime.evaluate', {'expression': expr, 'returnByValue': True})
+            return r.get('result', {}).get('value', 'Find operation completed')
+
+        elif action == 'type_element':
+            if not text:
+                return 'Error: text is required for action="type_element"'
+            safe_text = json.dumps(text)
+            if selector:
+                safe_sel = json.dumps(selector)
+                expr = f'''(function(){{
+  var el=document.querySelector({safe_sel});
+  if(!el) return "Element not found: {selector}";
+  el.focus(); el.value={safe_text};
+  el.dispatchEvent(new Event("input",{{bubbles:true}}));
+  el.dispatchEvent(new Event("change",{{bubbles:true}}));
+  return "Typed into " + {safe_sel};
+}})()'''
+            else:
+                expr = f'''(function(){{
+  var el=document.activeElement;
+  if(el&&(el.tagName==="INPUT"||el.tagName==="TEXTAREA")){{
+    el.value={safe_text};
+    el.dispatchEvent(new Event("input",{{bubbles:true}}));
+    return "Typed into focused element";
+  }}
+  return "No input element is currently focused";
+}})()'''
+            r = _cdp_send(ws_url, 'Runtime.evaluate', {'expression': expr, 'returnByValue': True})
+            return r.get('result', {}).get('value', 'Type operation completed')
+
+        elif action == 'click_element':
+            if not selector:
+                return 'Error: selector is required for action="click_element"'
+            safe_sel = json.dumps(selector)
+            expr = f'''(function(){{
+  var el=document.querySelector({safe_sel});
+  if(!el) return "Element not found: {selector}";
+  el.click(); return "Clicked: {selector}";
+}})()'''
+            r = _cdp_send(ws_url, 'Runtime.evaluate', {'expression': expr, 'returnByValue': True})
+            return r.get('result', {}).get('value', 'Click completed')
+
+        elif action == 'scroll':
+            delta = scroll_amount if scroll_direction in ('down', 'right') else -scroll_amount
+            if scroll_direction in ('up', 'down'):
+                expr = f'window.scrollBy(0,{delta}); "Scrolled {scroll_direction} {abs(delta)}px"'
+            else:
+                expr = f'window.scrollBy({delta},0); "Scrolled {scroll_direction} {abs(delta)}px"'
+            r = _cdp_send(ws_url, 'Runtime.evaluate', {'expression': expr, 'returnByValue': True})
+            return r.get('result', {}).get('value', f'Scrolled {scroll_direction}')
+
+        return f'Unknown action: {action}'
+
+    except requests.exceptions.ConnectionError:
+        return (
+            f'Cannot connect to Edge CDP on port {debug_port}. '
+            'Use action="launch" to start Edge with CDP enabled.'
+        )
+    except Exception as e:
+        return f'Edge browser operation failed: {str(e)}'
+
+
+_COPILOT_CLI_DESC = (
+    'Run GitHub Copilot CLI (copilot -p) with full flag support. '
+    'Executes prompts non-interactively via subprocess. '
+    'Key flags: model, agent, effort (low/medium/high/xhigh), allow_all, '
+    'allow_tools, deny_tools, allow_urls, deny_urls, add_dirs, '
+    'available_tools, excluded_tools, autopilot, max_autopilot_continues, '
+    'no_ask_user, experimental, resume, continue_session, stream (on/off), '
+    'share/share_gist, enable_reasoning_summaries, additional_mcp_config, '
+    'disable_builtin_mcps, disable_mcp_servers, add_github_mcp_tools, '
+    'add_github_mcp_toolsets, enable_all_github_mcp_tools, plugin_dirs, '
+    'no_custom_instructions, log_level, log_dir, config_dir, no_color, '
+    'no_auto_update, disallow_temp_dir, screen_reader, secret_env_vars, '
+    'timeout (subprocess timeout seconds, default 120). '
+    'Interactive mode slash commands (use with interactive launcher, not this tool): '
+    '/init /agent /skills /mcp /plugin /model /delegate /fleet /tasks '
+    '/ide /diff /pr /review /lsp /terminal-setup '
+    '/allow-all /add-dir /list-dirs /cwd /reset-allowed-tools '
+    '/resume /rename /context /usage /session /compact /share /copy /rewind '
+    '/help /changelog /feedback /theme /update /version /experimental /clear '
+    '/instructions /streamer-mode /exit /quit /login /logout /new /plan '
+    '/research /restart /undo /user'
+)
+
+@mcp.tool(name='Copilot-CLI-Tool', description=_COPILOT_CLI_DESC)
+def copilot_cli_tool(
+    prompt: str,
+    model: str = None,
+    agent: str = None,
+    effort: str = None,
+    allow_all: bool = False,
+    yolo: bool = False,
+    allow_all_tools: bool = False,
+    allow_all_paths: bool = False,
+    allow_all_urls: bool = False,
+    silent: bool = True,
+    output_format: str = 'text',
+    autopilot: bool = False,
+    max_autopilot_continues: int = None,
+    allow_tools: List[str] = None,
+    deny_tools: List[str] = None,
+    allow_urls: List[str] = None,
+    deny_urls: List[str] = None,
+    add_dirs: List[str] = None,
+    available_tools: List[str] = None,
+    excluded_tools: List[str] = None,
+    no_ask_user: bool = False,
+    no_custom_instructions: bool = False,
+    experimental: bool = False,
+    log_level: str = None,
+    log_dir: str = None,
+    config_dir: str = None,
+    resume: str = None,
+    continue_session: bool = False,
+    stream: str = None,
+    share: str = None,
+    share_gist: bool = False,
+    enable_reasoning_summaries: bool = False,
+    additional_mcp_config: str = None,
+    disable_builtin_mcps: bool = False,
+    disable_mcp_servers: List[str] = None,
+    add_github_mcp_tools: List[str] = None,
+    add_github_mcp_toolsets: List[str] = None,
+    enable_all_github_mcp_tools: bool = False,
+    plugin_dirs: List[str] = None,
+    acp: bool = False,
+    no_auto_update: bool = True,
+    no_color: bool = True,
+    plain_diff: bool = False,
+    banner: bool = False,
+    disallow_temp_dir: bool = False,
+    screen_reader: bool = False,
+    secret_env_vars: List[str] = None,
+    timeout: int = 120,
+) -> str:
+    try:
+        cmd = ['copilot', '-p', prompt]
+
+        if model:
+            cmd += ['--model', model]
+        if agent:
+            cmd += ['--agent', agent]
+        if effort:
+            cmd += ['--effort', effort]
+
+        # Permissions
+        if allow_all or yolo:
+            cmd.append('--allow-all')
+        else:
+            if allow_all_tools:
+                cmd.append('--allow-all-tools')
+            if allow_all_paths:
+                cmd.append('--allow-all-paths')
+            if allow_all_urls:
+                cmd.append('--allow-all-urls')
+
+        for t in (allow_tools or []):
+            cmd.append(f'--allow-tool={t}')
+        for t in (deny_tools or []):
+            cmd.append(f'--deny-tool={t}')
+        if available_tools:
+            cmd.append(f'--available-tools={",".join(available_tools)}')
+        if excluded_tools:
+            cmd.append(f'--excluded-tools={",".join(excluded_tools)}')
+        for u in (allow_urls or []):
+            cmd.append(f'--allow-url={u}')
+        for u in (deny_urls or []):
+            cmd.append(f'--deny-url={u}')
+        for d in (add_dirs or []):
+            cmd += ['--add-dir', d]
+
+        # Output
+        if silent:
+            cmd.append('-s')
+        if output_format and output_format != 'text':
+            cmd += ['--output-format', output_format]
+
+        # Autopilot
+        if autopilot:
+            cmd.append('--autopilot')
+        if max_autopilot_continues is not None:
+            cmd += ['--max-autopilot-continues', str(max_autopilot_continues)]
+
+        # Session
+        if continue_session:
+            cmd.append('--continue')
+        if resume:
+            if resume.lower() in ('true', '1', 'yes'):
+                cmd.append('--resume')
+            else:
+                cmd.append(f'--resume={resume}')
+
+        # Behaviour
+        if no_ask_user:
+            cmd.append('--no-ask-user')
+        if no_custom_instructions:
+            cmd.append('--no-custom-instructions')
+        if experimental:
+            cmd.append('--experimental')
+        if disallow_temp_dir:
+            cmd.append('--disallow-temp-dir')
+
+        # Streaming
+        if stream:
+            cmd += ['--stream', stream]
+
+        # Sharing
+        if share_gist:
+            cmd.append('--share-gist')
+        elif share:
+            cmd.append(f'--share={share}')
+
+        # AI
+        if enable_reasoning_summaries:
+            cmd.append('--enable-reasoning-summaries')
+
+        # MCP / GitHub MCP
+        if additional_mcp_config:
+            cmd += ['--additional-mcp-config', additional_mcp_config]
+        if disable_builtin_mcps:
+            cmd.append('--disable-builtin-mcps')
+        for s in (disable_mcp_servers or []):
+            cmd += ['--disable-mcp-server', s]
+        for t in (add_github_mcp_tools or []):
+            cmd += ['--add-github-mcp-tool', t]
+        for ts in (add_github_mcp_toolsets or []):
+            cmd += ['--add-github-mcp-toolset', ts]
+        if enable_all_github_mcp_tools:
+            cmd.append('--enable-all-github-mcp-tools')
+
+        # Plugins
+        for pd in (plugin_dirs or []):
+            cmd += ['--plugin-dir', pd]
+
+        # Logging / config
+        if log_level:
+            cmd += ['--log-level', log_level]
+        if log_dir:
+            cmd += ['--log-dir', log_dir]
+        if config_dir:
+            cmd += ['--config-dir', config_dir]
+
+        # Display
+        if no_color:
+            cmd.append('--no-color')
+        if plain_diff:
+            cmd.append('--plain-diff')
+        if banner:
+            cmd.append('--banner')
+        if screen_reader:
+            cmd.append('--screen-reader')
+        if secret_env_vars:
+            cmd.append(f'--secret-env-vars={",".join(secret_env_vars)}')
+        if no_auto_update:
+            cmd.append('--no-auto-update')
+        if acp:
+            cmd.append('--acp')
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=os_module.getcwd(),
+        )
+
+        out = result.stdout.strip()
+        err = result.stderr.strip()
+
+        if result.returncode != 0 and not out:
+            return f'Copilot CLI failed (exit {result.returncode}):\n{err or "(no error output)"}'
+
+        response = out if out else '(no output)'
+        if err:
+            response += f'\n\nSTDERR:\n{err}'
+        return response
+
+    except subprocess.TimeoutExpired:
+        return f'Copilot CLI timed out after {timeout} s. Increase timeout or break the prompt into smaller tasks.'
+    except FileNotFoundError:
+        return (
+            'copilot command not found. '
+            'Install with: npm install -g @github/copilot-cli  '
+            'or verify it is on PATH.'
+        )
+    except Exception as e:
+        return f'Copilot CLI operation failed: {str(e)}'
+
+# ==================== END NEW TOOLS ====================
+
+

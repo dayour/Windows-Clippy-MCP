@@ -1,6 +1,6 @@
 {
   "name": "@dayour/windows-clippy-mcp",
-  "version": "0.1.75",
+  "version": "0.2.0",
   "description": "Windows Clippy MCP - Your friendly AI assistant for Windows desktop automation and Microsoft 365 integration. One-click setup for VS Code agent mode.",
   "main": "main.py",
   "icon": "assets/WC25.png",
@@ -25,7 +25,24 @@
     "uninstall-service": "node scripts/uninstall-service.js",
     "validate": "node scripts/validate.js",
     "test": "node scripts/validate.js && node scripts/test-terminal-broker.js && node scripts/integration-test.js",
-    "test:integration": "node scripts/integration-test.js"
+    "test:integration": "node scripts/integration-test.js",
+    "test:apps": "vitest run --config vitest.config.mjs",
+    "build:views": "vite build --config src/mcp-apps/views/fleet-status/vite.config.ts",
+    "build": "npm run build:views",
+    "mcp-apps:server": "node src/mcp-apps/server.mjs",
+    "mcp-apps:smoke": "node scripts/smoke-apps-server.mjs",
+    "install:robust": "node scripts/install-robust.mjs"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.28",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.7.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21",
+    "vite-plugin-singlefile": "^2.3.3",
+    "vitest": "^1.6.0"
   },
   "keywords": [
     "windows",
@@ -66,6 +83,8 @@
     "src/desktop/__init__.py",
     "src/desktop/views.py",
     "src/terminal/**",
+    "src/mcp-apps/**",
+    "dist/mcp-apps/**",
     "assets/**",
     "manifest.json",
     "pyproject.toml",
@@ -78,15 +97,24 @@
     "widget/LiveTileHost/*.csproj",
     "widget/LiveTileHost/*.xaml",
     "widget/LiveTileHost/*.cs",
+    "widget/WidgetHost/*.csproj",
+    "widget/WidgetHost/*.xaml",
+    "widget/WidgetHost/*.cs",
     "widget/TerminalHost/bin/Debug/net8.0-windows/*.dll",
     "widget/TerminalHost/bin/Debug/net8.0-windows/*.exe",
     "widget/TerminalHost/bin/Debug/net8.0-windows/*.json",
     "widget/TerminalHost/bin/Debug/net8.0-windows/runtimes/**/native/*.dll",
+    "widget/WidgetHost/bin/Debug/net8.0-windows/*.dll",
+    "widget/WidgetHost/bin/Debug/net8.0-windows/*.exe",
+    "widget/WidgetHost/bin/Debug/net8.0-windows/*.json",
+    "widget/WidgetHost/bin/Debug/net8.0-windows/runtimes/**/native/*.dll",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "preferGlobal": false,
   "dependencies": {
+    "@modelcontextprotocol/ext-apps": "^1.6.0",
     "node-pty": "^1.1.0"
   }
 }

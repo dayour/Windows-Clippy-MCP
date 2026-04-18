@@ -1,0 +1,142 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {
+      "WidgetHost/1.0.0": {
+        "dependencies": {
+          "CI.Microsoft.Terminal.Wpf": "1.22.250204002",
+          "Microsoft.Web.WebView2": "1.0.3240.44",
+          "Microsoft.Web.WebView2.Core": "1.0.3240.44",
+          "Microsoft.Web.WebView2.WinForms": "1.0.3240.44",
+          "Microsoft.Web.WebView2.Wpf": "1.0.3240.44"
+        },
+        "runtime": {
+          "WidgetHost.dll": {}
+        }
+      },
+      "CI.Microsoft.Terminal.Wpf/1.22.250204002": {
+        "runtime": {
+          "lib/net6.0-windows7.0/Microsoft.Terminal.Wpf.dll": {
+            "assemblyVersion": "1.22.0.0",
+            "fileVersion": "1.22.2502.4002"
+          }
+        },
+        "runtimeTargets": {
+          "runtimes/win-arm64/native/Microsoft.Terminal.Control.dll": {
+            "rid": "win-arm64",
+            "assetType": "native",
+            "fileVersion": "1.22.2502.4002"
+          },
+          "runtimes/win-arm64/native/Microsoft.Terminal.Control.pdb": {
+            "rid": "win-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x64/native/Microsoft.Terminal.Control.dll": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "1.22.2502.4002"
+          },
+          "runtimes/win-x64/native/Microsoft.Terminal.Control.pdb": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x86/native/Microsoft.Terminal.Control.dll": {
+            "rid": "win-x86",
+            "assetType": "native",
+            "fileVersion": "1.22.2502.4002"
+          },
+          "runtimes/win-x86/native/Microsoft.Terminal.Control.pdb": {
+            "rid": "win-x86",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "Microsoft.Web.WebView2/1.0.3240.44": {
+        "runtimeTargets": {
+          "runtimes/win-arm64/native/WebView2Loader.dll": {
+            "rid": "win-arm64",
+            "assetType": "native",
+            "fileVersion": "1.0.3240.44"
+          },
+          "runtimes/win-x64/native/WebView2Loader.dll": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "1.0.3240.44"
+          },
+          "runtimes/win-x86/native/WebView2Loader.dll": {
+            "rid": "win-x86",
+            "assetType": "native",
+            "fileVersion": "1.0.3240.44"
+          }
+        }
+      },
+      "Microsoft.Web.WebView2.Core/1.0.3240.44": {
+        "runtime": {
+          "Microsoft.Web.WebView2.Core.dll": {
+            "assemblyVersion": "1.0.3240.44",
+            "fileVersion": "1.0.3240.44"
+          }
+        }
+      },
+      "Microsoft.Web.WebView2.WinForms/1.0.3240.44": {
+        "runtime": {
+          "Microsoft.Web.WebView2.WinForms.dll": {
+            "assemblyVersion": "1.0.3240.44",
+            "fileVersion": "1.0.3240.44"
+          }
+        }
+      },
+      "Microsoft.Web.WebView2.Wpf/1.0.3240.44": {
+        "runtime": {
+          "Microsoft.Web.WebView2.Wpf.dll": {
+            "assemblyVersion": "1.0.3240.44",
+            "fileVersion": "1.0.3240.44"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "WidgetHost/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "CI.Microsoft.Terminal.Wpf/1.22.250204002": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-LKniygRuE6GQkQhyVrRFHqV0P1PeJ0LGScNKRcq0wSsRYhqKeMzzw9A8Qx19rqqAB3H0TMtaJ36VFEnAL9BS3g==",
+      "path": "ci.microsoft.terminal.wpf/1.22.250204002",
+      "hashPath": "ci.microsoft.terminal.wpf.1.22.250204002.nupkg.sha512"
+    },
+    "Microsoft.Web.WebView2/1.0.3240.44": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-5NWh8SVJy8QOdT0p2CkZqmPHPxPdVr2SyiF+RWfNzCOb3oXoK8Y6Ze85Zw849PFMqyknU/gAgJbAiiHG+kVo6A==",
+      "path": "microsoft.web.webview2/1.0.3240.44",
+      "hashPath": "microsoft.web.webview2.1.0.3240.44.nupkg.sha512"
+    },
+    "Microsoft.Web.WebView2.Core/1.0.3240.44": {
+      "type": "reference",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Microsoft.Web.WebView2.WinForms/1.0.3240.44": {
+      "type": "reference",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Microsoft.Web.WebView2.Wpf/1.0.3240.44": {
+      "type": "reference",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

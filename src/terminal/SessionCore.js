@@ -38,8 +38,9 @@ const DEFAULT_COPILOT_EXECUTABLE = 'copilot';
 const DEFAULT_CONFIG_DIR = path.join(os.homedir(), '.copilot');
 
 /**
- * Allowed mode values that map to the --mode flag recognised by the CLI.
- * Extend as new modes ship.
+ * Allowed UI/session mode metadata values.
+ * These are preserved in Clippy state and environment metadata, but are not
+ * emitted as Copilot CLI flags because the current CLI does not accept --mode.
  */
 const VALID_MODES = new Set(['agent', 'plan', 'swarm', 'ask']);
 
@@ -204,7 +205,6 @@ function buildSpawnArgs(config) {
   // Force structured, transcript-friendly output for hidden widget sessions.
   argv.push('--output-format', 'json');
   argv.push('--no-color');
-  argv.push('--no-alt-screen');
 
   // Agent selection.
   if (config.agent) {
@@ -235,13 +235,51 @@ function buildSpawnArgs(config) {
   // Environment block -- inherit the parent process environment and inject
   // any session-specific overrides here.  Nothing sensitive; this is the
   // place to add things like COPILOT_SESSION_ID in future.
-  const env = Object.assign({}, process.env, {
-    CLIPPY_SESSION_ID: config.sessionId,
-    CLIPPY_SESSION_MODE: config.mode || '',
-    CLIPPY_WORKING_DIRECTORY: config.workingDirectory
-  });
+  const env = buildSessionEnvironment(config);
 
   return { argv, env };
+}
+
+/**
+ * Builds the argv array for a PTY-backed interactive terminal session.
+ * Unlike buildSpawnArgs(), this intentionally preserves the normal terminal
+ * surface and does not force JSON transcript mode or disable colors.
+ *
+ * @param {SessionLaunchConfig} config
+ * @returns {{ argv: string[], env: Record<string,string> }}
+ */
+function buildTerminalSpawnArgs(config) {
+  const argv = [];
+
+  argv.push(`--resume=${config.sessionId}`);
+  argv.push('--config-dir', config.configDir);
+
+  if (config.agent) {
+    argv.push('--agent', config.agent);
+  }
+
+  if (config.model) {
+    argv.push('--model', config.model);
+  }
+
+  for (const toolFlag of config.tools) {
+    argv.push(toolFlag);
+  }
+
+  if (config.workingDirectory) {
+    argv.push('--add-dir', config.workingDirectory);
+  }
+
+  for (const ext of config.extensions) {
+    argv.push('--extension', ext);
+  }
+
+  argv.push(...config.extraFlags);
+
+  return {
+    argv,
+    env: buildSessionEnvironment(config)
+  };
 }
 
 /**
@@ -265,6 +303,14 @@ function buildPromptSpawnArgs(config, prompt, options = {}) {
     argv: ['-p', prompt, ...argv, '--stream', streamMode],
     env
   };
+}
+
+function buildSessionEnvironment(config) {
+  return Object.assign({}, process.env, {
+    CLIPPY_SESSION_ID: config.sessionId,
+    CLIPPY_SESSION_MODE: config.mode || '',
+    CLIPPY_WORKING_DIRECTORY: config.workingDirectory
+  });
 }
 
 /**
@@ -326,6 +372,7 @@ module.exports = {
   VALID_MODES,
   createLaunchConfig,
   buildSpawnArgs,
+  buildTerminalSpawnArgs,
   buildPromptSpawnArgs,
   resolveSpawnPlan,
   resolvePromptSpawnPlan,

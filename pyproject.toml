@@ -1,6 +1,6 @@
 [project]
 name = "windows-clippy-mcp"
-version = "0.1.75"
+version = "0.2.0"
 description = "Windows Clippy MCP - Your friendly AI assistant for Windows desktop automation and Microsoft 365 integration."
 authors = [
     { name = "Windows Clippy MCP Contributors", email = "support@windows-clippy-mcp.com" }

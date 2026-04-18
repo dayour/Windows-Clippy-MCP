@@ -1,4 +1,4 @@
-﻿#requires -Version 5.1
+﻿#requires -Version 7.0
 <#
 .SYNOPSIS
     Windows Clippy - Floating desktop widget with an adaptive Clippy bench UI.
@@ -20,8 +20,12 @@ trap {
     if (-not (Test-Path -LiteralPath $crashLogDir)) {
         New-Item -ItemType Directory -Path $crashLogDir -Force | Out-Null
     }
-    $msg = "[$(Get-Date -Format o)] UNHANDLED EXCEPTION: $($_.Exception.Message)`n$($_.Exception.StackTrace)`nAt: $($_.InvocationInfo.PositionMessage)"
-    $msg | Out-File (Join-Path $crashLogDir 'widget-crash.log') -Append
+    $crashLogFile = Join-Path $crashLogDir 'widget-crash.log'
+    $msg = "[$(Get-Date -Format o)] UNHANDLED EXCEPTION: $($_.Exception.GetType().FullName): $($_.Exception.Message)`nStackTrace: $($_.Exception.StackTrace)`nScriptStackTrace: $($_.ScriptStackTrace)`nAt: $($_.InvocationInfo.PositionMessage)"
+    if ($_.Exception.InnerException) {
+        $msg += "`nInner: $($_.Exception.InnerException.GetType().FullName): $($_.Exception.InnerException.Message)"
+    }
+    Add-Content -LiteralPath $crashLogFile -Value $msg
     continue
 }
 
@@ -79,8 +83,72 @@ namespace ClippyWidget {
             IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam,
             uint fuFlags, uint uTimeout, out IntPtr lpdwResult);
     }
+
+    // C# timer wrapper that avoids the fatal CLR crash (0xE0434352)
+    // caused by PS scriptblock-to-.NET EventHandler delegate marshaling.
+    // Uses PowerShell.Create() bound to the original runspace to invoke
+    // the callback safely. Pipeline contention errors are caught and
+    // retried on the next tick rather than crashing the process.
+    public sealed class SafeTimer : IDisposable {
+        private readonly System.Windows.Threading.DispatcherTimer _timer;
+        private readonly System.Management.Automation.ScriptBlock _callback;
+        private readonly System.Management.Automation.Runspaces.Runspace _runspace;
+        private string _tag;
+        private bool _executing;
+
+        public string Tag { get { return _tag; } set { _tag = value; } }
+
+        public TimeSpan Interval {
+            get { return _timer.Interval; }
+            set { _timer.Interval = value; }
+        }
+
+        public SafeTimer(
+            System.Windows.Threading.Dispatcher dispatcher,
+            System.Windows.Threading.DispatcherPriority priority,
+            int intervalMs,
+            System.Management.Automation.ScriptBlock callback) {
+
+            _callback = callback;
+            _runspace = System.Management.Automation.Runspaces.Runspace.DefaultRunspace;
+            _timer = new System.Windows.Threading.DispatcherTimer(priority, dispatcher);
+            _timer.Interval = TimeSpan.FromMilliseconds(intervalMs);
+            _timer.Tick += OnTick;
+        }
+
+        private void OnTick(object sender, EventArgs e) {
+            if (_executing || _runspace == null) return;
+            if (_runspace.RunspaceAvailability != System.Management.Automation.Runspaces.RunspaceAvailability.Available) return;
+            _executing = true;
+            try {
+                using (var ps = System.Management.Automation.PowerShell.Create()) {
+                    ps.Runspace = _runspace;
+                    ps.AddScript("param($t,$tag) & $args[0] $t $tag")
+                      .AddArgument(_timer)
+                      .AddArgument(_tag ?? "")
+                      .AddArgument(_callback);
+                    ps.Invoke();
+                }
+            } catch (Exception ex) {
+                System.Diagnostics.Debug.WriteLine("[SafeTimer] " + ex.GetType().Name + ": " + ex.Message);
+            } finally {
+                _executing = false;
+            }
+        }
+
+        public void Start() { _timer.Start(); }
+        public void Stop() { _timer.Stop(); }
+
+        public void Dispose() {
+            _timer.Stop();
+            _timer.Tick -= OnTick;
+        }
+    }
 }
-'@
+'@ -ReferencedAssemblies @(
+    ([System.Windows.Threading.DispatcherTimer].Assembly.Location),
+    ([System.Management.Automation.ScriptBlock].Assembly.Location)
+)
 $script:User32 = [ClippyWidget.NativeMethods]
 $script:GWL_STYLE = -16
 $script:WS_CHILD = 0x40000000
@@ -200,7 +268,7 @@ $script:ChatWasClosed = $false
 $script:IsApplicationClosing = $false
 $script:History  = [System.Collections.Generic.List[string]]::new()
 $script:HistIdx  = -1
-$script:CopilotConfigDir = Join-Path ([Environment]::GetFolderPath('UserProfile')) '.copilot'
+$script:CopilotConfigDir = Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'Windows-Clippy-MCP\copilot-config'
 $script:WidgetConfigDir = Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'Windows-Clippy-MCP'
 $script:WidgetConfigPath = Join-Path $script:WidgetConfigDir 'widget-settings.json'
 $script:CopilotSessionPath = Join-Path $script:WidgetConfigDir 'copilot-session.json'
@@ -1747,83 +1815,51 @@ function script:Get-ClippyKernelLaunchSpec {
     }
 }
 
-function script:ConvertTo-PowerShellSingleQuotedLiteral {
-    param([string]$Value)
+function script:Add-CopilotTerminalHostLaunchArguments {
+    param(
+        [System.Collections.Generic.List[string]]$Arguments,
+        [hashtable]$Tab
+    )
 
-    return "'" + ([string]$Value).Replace("'", "''") + "'"
-}
-
-function script:ConvertTo-PowerShellArrayLiteral {
-    param([string[]]$Values)
-
-    if (-not $Values -or $Values.Count -eq 0) {
-        return '@()'
+    if (-not $Arguments) {
+        return
     }
 
-    $items = foreach ($item in $Values) {
-        script:ConvertTo-PowerShellSingleQuotedLiteral -Value $item
-    }
-
-    return '@(' + ($items -join ', ') + ')'
-}
-
-function script:New-CopilotTerminalStartupScript {
-    param([hashtable]$Tab)
-
-    $copilotArgs = [System.Collections.Generic.List[string]]::new()
-    $copilotArgs.Add("--resume=$([string]$Tab.SessionId)")
-    $copilotArgs.Add('--config-dir')
-    $copilotArgs.Add($script:CopilotConfigDir)
+    $Arguments.Add('--config-dir')
+    $Arguments.Add($script:CopilotConfigDir)
 
     if (-not [string]::IsNullOrWhiteSpace([string]$Tab.Model)) {
-        $copilotArgs.Add('--model')
-        $copilotArgs.Add([string]$Tab.Model)
-    }
-
-    if (-not [string]::IsNullOrWhiteSpace([string]$Tab.Mode)) {
-        $copilotArgs.Add('--mode')
-        $copilotArgs.Add(([string]$Tab.Mode).ToLowerInvariant())
+        $Arguments.Add('--model')
+        $Arguments.Add([string]$Tab.Model)
     }
 
     $resolvedAgent = script:Get-ResolvedAgentIdForTab -Tab $Tab
     if (-not [string]::IsNullOrWhiteSpace($resolvedAgent)) {
-        $copilotArgs.Add('--agent')
-        $copilotArgs.Add($resolvedAgent)
+        $Arguments.Add('--agent')
+        $Arguments.Add($resolvedAgent)
     }
+
+    $Arguments.Add('--shell')
+    $Arguments.Add('copilot')
 
     if ($script:WidgetSettings.Tools.AllowAllTools) {
-        $copilotArgs.Add('--allow-all-tools')
+        $Arguments.Add('--allow-all-tools')
     }
     if ($script:WidgetSettings.Tools.AllowAllPaths) {
-        $copilotArgs.Add('--allow-all-paths')
+        $Arguments.Add('--allow-all-paths')
     }
     if ($script:WidgetSettings.Tools.AllowAllUrls) {
-        $copilotArgs.Add('--allow-all-urls')
+        $Arguments.Add('--allow-all-urls')
     }
     if ($script:WidgetSettings.Tools.Experimental) {
-        $copilotArgs.Add('--experimental')
+        $Arguments.Add('--experimental')
     }
     if ($script:WidgetSettings.Tools.Autopilot) {
-        $copilotArgs.Add('--autopilot')
+        $Arguments.Add('--autopilot')
     }
     if ($script:WidgetSettings.Tools.EnableAllGitHubMcpTools) {
-        $copilotArgs.Add('--enable-all-github-mcp-tools')
+        $Arguments.Add('--enable-all-github-mcp-tools')
     }
-
-    $copilotArgsLiteral = script:ConvertTo-PowerShellArrayLiteral -Values @($copilotArgs)
-    $workingDirectoryLiteral = script:ConvertTo-PowerShellSingleQuotedLiteral -Value $script:RepoRoot
-    $displayNameLiteral = script:ConvertTo-PowerShellSingleQuotedLiteral -Value ([string]$Tab.DisplayName)
-    $sessionIdLiteral = script:ConvertTo-PowerShellSingleQuotedLiteral -Value ([string]$Tab.SessionId)
-
-    return @(
-        ('$Host.UI.RawUI.WindowTitle = {0}' -f $displayNameLiteral),
-        ('$Global:ClippySessionId = {0}' -f $sessionIdLiteral),
-        ('$Global:ClippyWorkingDirectory = {0}' -f $workingDirectoryLiteral),
-        ('function global:Start-ClippyCopilot { param([string[]]$ExtraArgs) $clippyArgs = {0}; & copilot @clippyArgs @ExtraArgs }' -f $copilotArgsLiteral),
-        'Set-Alias -Name clippyresume -Value Start-ClippyCopilot -Scope Global',
-        ('Set-Location -LiteralPath {0}' -f $workingDirectoryLiteral),
-        'Write-Host ''Clippy terminal ready. Use regular PowerShell commands or run "clippyresume" to attach Copilot.'''
-    ) -join '; '
 }
 
 function script:ConvertTo-NativeIntPtr {
@@ -1907,10 +1943,16 @@ function script:Ensure-ClippyTabTerminalPanel {
         $panel.Tag = [string]$Tab.TabId
         $panel.Add_Resize({
             param($sender, $eventArgs)
-
-            $resizeTab = script:Get-ClippyTab -TabId ([string]$sender.Tag)
-            if ($resizeTab) {
-                script:Resize-ClippyTerminalSurface -Tab $resizeTab
+            if ($script:Chat -and $script:Chat.Dispatcher) {
+                $panelTabId = [string]$sender.Tag
+                [void]$script:Chat.Dispatcher.BeginInvoke(
+                    [Windows.Threading.DispatcherPriority]::Background,
+                    [Action]{
+                        $rt = script:Get-ClippyTab -TabId $panelTabId
+                        if ($rt) {
+                            script:Resize-ClippyTerminalSurface -Tab $rt
+                        }
+                    })
             }
         })
 
@@ -2068,20 +2110,19 @@ function script:Attach-ClippyTerminalWindow {
     [System.Threading.ThreadPool]::QueueUserWorkItem([System.Threading.WaitCallback]{
         param($stateObj)
         try {
-            script:Write-WidgetDebugLog "Attach[bg]: calling SetWindowLongPtr [$tabId]"
+            # Win32 reparenting calls are safe from any thread (native P/Invoke).
+            # Do NOT call script: functions here -- ThreadPool threads lack PS TLS context.
             [void]$u32::SetWindowLongPtr($tHwnd, $gwlStyle, $newStyle)
-            script:Write-WidgetDebugLog "Attach[bg]: calling SetParent [$tabId]"
             [void]$u32::SetParent($tHwnd, $pHwnd)
-            script:Write-WidgetDebugLog "Attach[bg]: calling ShowWindow [$tabId]"
             [void]$u32::ShowWindow($tHwnd, $swShow)
-            script:Write-WidgetDebugLog "Attach[bg]: reparenting done, dispatching resize [$tabId]"
-            # Resize must happen on the UI thread (accesses WPF controls)
+            # Bounce back to the WPF dispatcher thread for PS-safe operations.
             $script:Chat.Dispatcher.Invoke([Action]{
                 script:Resize-ClippyTerminalSurface -Tab $attachTab
                 script:Write-WidgetDebugLog "Attached embedded terminal [$tabId] terminal=0x$('{0:X}' -f $tHwnd.ToInt64()) parent=0x$('{0:X}' -f $pHwnd.ToInt64())"
             })
         } catch {
-            script:Write-WidgetDebugLog "Attach[bg] ERROR: $($_.Exception.Message) [$tabId]"
+            # Cannot safely call Write-WidgetDebugLog from ThreadPool thread.
+            [System.Diagnostics.Debug]::WriteLine("Attach[bg] ERROR: $($_.Exception.Message) [$tabId]")
         }
     }, $null) | Out-Null
     return $true
@@ -2114,35 +2155,18 @@ function script:Queue-ClippyTerminalWindowAttach {
             $Tab.TerminalAttachTimer = $null
         }
 
-        $timer = [Windows.Threading.DispatcherTimer]::new([Windows.Threading.DispatcherPriority]::Normal, $script:Chat.Dispatcher)
-        $timer.Interval = [TimeSpan]::FromMilliseconds(100)
-        # Store closure state at script scope keyed by tabId - EventHandler
-        # scriptblocks cannot capture parent-scope locals in PowerShell and
-        # DispatcherTimer has no Tag property (unlike WinForms Timer).
         if (-not $script:TerminalAttachState) { $script:TerminalAttachState = @{} }
         # Remove stale entry for this tab (from previous timer that was just stopped)
         $script:TerminalAttachState.Remove($tabId)
         $script:TerminalAttachState[$tabId] = @{ TabId = $tabId; Attempts = 0 }
 
-        $handler = [System.EventHandler]{
-            param($sender, $eventArgs)
-
+        $attachCallback = {
+            param($sender, $tag)
+            $tid = [string]$tag
             try {
-                # Find our state - iterate since we cannot capture $tabId directly
                 $st = $null
-                foreach ($k in @($script:TerminalAttachState.Keys)) {
-                    $candidate = $script:TerminalAttachState[$k]
-                    if ($candidate -and $candidate.Timer -eq $sender) {
-                        $st = $candidate
-                        break
-                    }
-                }
-                if (-not $st) {
-                    script:Write-WidgetDebugLog "attach tick: no state found for timer, stopping"
-                    $sender.Stop()
-                    return
-                }
-                $tid = $st.TabId
+                if ($script:TerminalAttachState) { $st = $script:TerminalAttachState[$tid] }
+                if (-not $st) { $sender.Stop(); return }
                 $st.Attempts++
                 if ($st.Attempts -eq 1 -or ($st.Attempts % 10) -eq 0) {
                     script:Write-WidgetDebugLog "attach tick attempt=$($st.Attempts) [$tid]"
@@ -2158,7 +2182,6 @@ function script:Queue-ClippyTerminalWindowAttach {
                     $script:TerminalAttachState.Remove($tid)
                     return
                 }
-
                 script:Write-WidgetDebugLog "attach tick: calling Attach-ClippyTerminalWindow [$tid]"
                 $attachResult = script:Attach-ClippyTerminalWindow -Tab $attachTab
                 script:Write-WidgetDebugLog "attach tick: Attach returned $attachResult [$tid]"
@@ -2168,7 +2191,6 @@ function script:Queue-ClippyTerminalWindowAttach {
                     $script:TerminalAttachState.Remove($tid)
                     return
                 }
-
                 if ($st.Attempts -ge 30) {
                     script:Write-WidgetDebugLog "Embedded terminal attach timed out after $($st.Attempts) attempts [$tid]"
                     $sender.Stop()
@@ -2181,10 +2203,16 @@ function script:Queue-ClippyTerminalWindowAttach {
             }
         }
 
-        $timer.Add_Tick($handler)
-        $script:TerminalAttachState[$tabId].Timer = $timer
-        $Tab.TerminalAttachTimer = $timer
-        $timer.Start()
+        $attachSafeTimer = [ClippyWidget.SafeTimer]::new(
+            $script:Chat.Dispatcher,
+            [Windows.Threading.DispatcherPriority]::Normal,
+            100,
+            $attachCallback
+        )
+        $attachSafeTimer.Tag = $tabId
+        $script:TerminalAttachState[$tabId].Timer = $attachSafeTimer
+        $Tab.TerminalAttachTimer = $attachSafeTimer
+        $attachSafeTimer.Start()
         script:Write-WidgetDebugLog "Terminal attach timer started (priority=Normal, interval=100ms) [$tabId]"
     } -Async
 }
@@ -2207,25 +2235,14 @@ function script:Queue-ClippyActiveTabDocumentRefresh {
             $script:ActiveTabRenderTimer = $null
         }
 
-        $timer = [Windows.Threading.DispatcherTimer]::new([Windows.Threading.DispatcherPriority]::ApplicationIdle, $script:Chat.Dispatcher)
-        $timer.Interval = [TimeSpan]::FromMilliseconds(150)
-        $attempts = 0
-
-        $handler = [System.EventHandler]{
-            param($sender, $eventArgs)
-
-            $attempts++
+        $refreshCallback = {
+            param($sender, $tag)
             if (-not (script:Test-ChatWindowAvailable) -or -not $script:Chat.IsVisible) {
                 $sender.Stop()
                 $script:ActiveTabRenderTimer = $null
                 return
             }
-
-            try {
-                $script:Chat.UpdateLayout()
-            } catch {
-            }
-
+            try { $script:Chat.UpdateLayout() } catch {}
             $refreshTab = script:Get-ActiveClippyTab
             if ($refreshTab) {
                 script:Show-ClippyTabDocument -Tab $refreshTab
@@ -2235,16 +2252,15 @@ function script:Queue-ClippyActiveTabDocumentRefresh {
                     script:Queue-ClippyTerminalWindowAttach -Tab $refreshTab
                 }
             }
-
-            if ($attempts -ge 30) {
-                $sender.Stop()
-                $script:ActiveTabRenderTimer = $null
-            }
         }
-
-        $timer.Add_Tick($handler)
-        $script:ActiveTabRenderTimer = $timer
-        $timer.Start()
+        $refreshSafeTimer = [ClippyWidget.SafeTimer]::new(
+            $script:Chat.Dispatcher,
+            [Windows.Threading.DispatcherPriority]::ApplicationIdle,
+            150,
+            $refreshCallback
+        )
+        $script:ActiveTabRenderTimer = $refreshSafeTimer
+        $refreshSafeTimer.Start()
     } -Async
 }
 
@@ -2698,29 +2714,7 @@ function script:Start-ClippyTerminalHost {
     } else {
         $arguments.Add('--working-directory')
         $arguments.Add($script:RepoRoot)
-        $arguments.Add('--shell')
-        $arguments.Add('powershell')
-        $arguments.Add('--startup-script')
-        $arguments.Add((script:New-CopilotTerminalStartupScript -Tab $Tab))
-
-        if ($script:WidgetSettings.Tools.AllowAllTools) {
-            $arguments.Add('--allow-all-tools')
-        }
-        if ($script:WidgetSettings.Tools.AllowAllPaths) {
-            $arguments.Add('--allow-all-paths')
-        }
-        if ($script:WidgetSettings.Tools.AllowAllUrls) {
-            $arguments.Add('--allow-all-urls')
-        }
-        if ($script:WidgetSettings.Tools.Experimental) {
-            $arguments.Add('--experimental')
-        }
-        if ($script:WidgetSettings.Tools.Autopilot) {
-            $arguments.Add('--autopilot')
-        }
-        if ($script:WidgetSettings.Tools.EnableAllGitHubMcpTools) {
-            $arguments.Add('--enable-all-github-mcp-tools')
-        }
+        script:Add-CopilotTerminalHostLaunchArguments -Arguments $arguments -Tab $Tab
     }
 
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
@@ -3011,10 +3005,7 @@ function script:Start-ClippyTabHost {
         $arguments.Add($script:RepoRoot)
         $arguments.Add('--display-name')
         $arguments.Add([string]$Tab.DisplayName)
-        $arguments.Add('--shell')
-        $arguments.Add('powershell')
-        $arguments.Add('--command')
-        $arguments.Add((script:New-CopilotTerminalStartupScript -Tab $Tab))
+        script:Add-CopilotTerminalHostLaunchArguments -Arguments $arguments -Tab $Tab
 
         $startInfo = New-Object System.Diagnostics.ProcessStartInfo
         $startInfo.FileName = $nodeCommand.Source
@@ -3181,12 +3172,29 @@ function script:Stop-ClippyTabHostPump {
     }
 
     $pump = $Tab.HostPump
+    $Tab.HostPumpActive = $false
     if ($pump) {
         try {
             $pump.Stop()
+            if ($pump -is [ClippyWidget.SafeTimer]) { $pump.Dispose() }
         } catch {
         }
         $Tab.HostPump = $null
+    }
+
+    if ($Tab.HostPumpEventSourceId) {
+        try {
+            Unregister-Event -SourceIdentifier $Tab.HostPumpEventSourceId -ErrorAction SilentlyContinue
+        } catch {
+        }
+        $Tab.HostPumpEventSourceId = $null
+    }
+    if ($Tab.HostPumpJob) {
+        try {
+            Remove-Job -Job $Tab.HostPumpJob -Force -ErrorAction SilentlyContinue
+        } catch {
+        }
+        $Tab.HostPumpJob = $null
     }
 
     if ($Tab.HostUsesEventedRead) {
@@ -3407,23 +3415,17 @@ function script:Start-ClippyTabHostPump {
     }
 
     $tabId = [string]$Tab.TabId
-    $timer = [Windows.Threading.DispatcherTimer]::new([Windows.Threading.DispatcherPriority]::Background, $script:Chat.Dispatcher)
     $baseIntervalMs = if ($Tab.HostUsesEventedRead) { 250 } else { 75 }
-    $timer.Interval = [TimeSpan]::FromMilliseconds($baseIntervalMs)
-    # Store the tab ID on the timer itself. PowerShell 5.1 event handler
-    # scriptblocks do NOT close over local variables -- $tabId would be empty
-    # by the time the timer fires. Reading $sender.Tag is the only reliable
-    # way to recover identity inside a .NET event handler in PS 5.1.
-    $timer.Tag = $tabId
     $Tab.HostPumpIdleCount = 0
     $Tab.HostPumpBaseInterval = $baseIntervalMs
-    $timer.Add_Tick({
-        param($sender, $eventArgs)
+    $Tab.HostPumpActive = $true
+
+    $pumpCallback = {
+        param($sender, $tag)
         try {
-            $id = [string]$sender.Tag
+            $id = [string]$tag
             $pumpTab = script:Get-ClippyTab -TabId $id
             $hadData = script:Poll-ClippyTabHost -TabId $id
-            # Adaptive backoff: slow down when idle, snap back on activity.
             if ($pumpTab) {
                 if ($hadData) {
                     $pumpTab.HostPumpIdleCount = 0
@@ -3437,10 +3439,20 @@ function script:Start-ClippyTabHostPump {
                 }
             }
         } catch {
-            script:Write-WidgetDebugLog "Timer tick error [$($sender.Tag)]: $($_.Exception.Message)"
+            script:Write-WidgetDebugLog "Timer tick error [$tag]: $($_.Exception.Message)"
         }
-    })
+    }
+
+    $timer = [ClippyWidget.SafeTimer]::new(
+        $script:Chat.Dispatcher,
+        [Windows.Threading.DispatcherPriority]::Background,
+        $baseIntervalMs,
+        $pumpCallback
+    )
+    $timer.Tag = $tabId
     $Tab.HostPump = $timer
+    $Tab.HostPumpEventSourceId = $null
+    $Tab.HostPumpJob = $null
     $timer.Start()
     script:Write-WidgetDebugLog "Started host pump [$tabId] intervalMs=$baseIntervalMs adaptive=true"
 }
@@ -4551,6 +4563,9 @@ function script:Ensure-WidgetConfigDirectory {
     if (-not (Test-Path $script:WidgetConfigDir)) {
         New-Item -ItemType Directory -Path $script:WidgetConfigDir -Force | Out-Null
     }
+    if (-not (Test-Path -LiteralPath $script:CopilotConfigDir)) {
+        New-Item -ItemType Directory -Path $script:CopilotConfigDir -Force | Out-Null
+    }
 }
 
 function script:Write-WidgetDebugLog {
@@ -4706,18 +4721,20 @@ function script:Save-CopilotSessionState {
         return
     }
 
-    $timer = [Windows.Threading.DispatcherTimer]::new(
-        [Windows.Threading.DispatcherPriority]::Background,
-        $script:Chat.Dispatcher)
-    $timer.Interval = [TimeSpan]::FromMilliseconds(400)
-    $timer.Add_Tick({
-        param($sender, $eventArgs)
+    $saveCallback = {
+        param($sender, $tag)
         $sender.Stop()
         $script:SessionSaveTimer = $null
         script:Save-CopilotSessionStateImmediate
-    })
-    $script:SessionSaveTimer = $timer
-    $timer.Start()
+    }
+    $saveSafeTimer = [ClippyWidget.SafeTimer]::new(
+        $script:Chat.Dispatcher,
+        [Windows.Threading.DispatcherPriority]::Background,
+        400,
+        $saveCallback
+    )
+    $script:SessionSaveTimer = $saveSafeTimer
+    $saveSafeTimer.Start()
 }
 
 function script:Save-CopilotSessionStateImmediate {
@@ -8242,6 +8259,7 @@ function script:Place-Chat {
 
 # ── Helper: show / hide chat with fade ────────────────────────────
 function script:Toggle-Chat {
+    script:Write-WidgetDebugLog "Toggle-Chat: entry ChatOpen=$($script:ChatOpen)"
     $chatVisible = (script:Test-ChatWindowAvailable) -and $script:Chat.IsVisible
     if ($script:ChatOpen -and $chatVisible) {
         script:Set-SnippingTileOpen $false
@@ -8251,9 +8269,12 @@ function script:Toggle-Chat {
         return
     }
 
+    script:Write-WidgetDebugLog "Toggle-Chat: calling Ensure-ChatWindow"
     if (-not (script:Ensure-ChatWindow)) {
+        script:Write-WidgetDebugLog "Toggle-Chat: Ensure-ChatWindow failed"
         return
     }
+    script:Write-WidgetDebugLog "Toggle-Chat: Ensure-ChatWindow ok"
 
     if ($script:Widget -and $script:Widget.IsVisible -and $script:Chat.Owner -ne $script:Widget) {
         try {
@@ -8303,13 +8324,10 @@ script:Refresh-AgentCatalog
 script:Refresh-VsCodeContext
 script:Refresh-ToolSourceContext
 $script:WidgetSettings = script:Load-WidgetSettings
-"[$(Get-Date -Format o)] DIAG: Calling Initialize-ClippyTabs pid=$PID" | Out-File "$env:APPDATA\Windows-Clippy-MCP\widget-startup-diag.log" -Append
 $_initSw = [System.Diagnostics.Stopwatch]::StartNew()
 try {
     script:Initialize-ClippyTabs -RequestedSessionId $SessionId
-    "[$(Get-Date -Format o)] DIAG: Initialize-ClippyTabs done pid=$PID elapsedMs=$($_initSw.ElapsedMilliseconds)" | Out-File "$env:APPDATA\Windows-Clippy-MCP\widget-startup-diag.log" -Append
 } catch {
-    "[$(Get-Date -Format o)] DIAG: Initialize-ClippyTabs FAILED pid=$PID elapsedMs=$($_initSw.ElapsedMilliseconds) error=$($_.Exception.ToString())" | Out-File "$env:APPDATA\Windows-Clippy-MCP\widget-startup-diag.log" -Append
 }
 
 $cAgent.Items.Clear()
@@ -8535,23 +8553,40 @@ function script:Invoke-Cmd ([string]$Cmd) {
 
 # ── Widget: click vs drag ─────────────────────────────────────────
 $script:Widget.Add_MouseLeftButtonDown({
-    $script:_wSnap = @{ L = $script:Widget.Left; T = $script:Widget.Top }
-    try {
-        $script:Widget.DragMove()
-    } catch {
-        # DragMove can throw if the mouse button was released during the call
+    $script:_wDragStart = [System.Windows.Input.Mouse]::GetPosition($script:Widget)
+    $script:_wDragging = $false
+    $script:Widget.CaptureMouse()
+})
+$script:Widget.Add_MouseMove({
+    if ($script:Widget.IsMouseCaptured -and $script:_wDragStart) {
+        $pos = $script:Widget.PointToScreen([System.Windows.Input.Mouse]::GetPosition($script:Widget))
+        $origin = $script:Widget.PointToScreen($script:_wDragStart)
+        $dx = [Math]::Abs($pos.X - $origin.X)
+        $dy = [Math]::Abs($pos.Y - $origin.Y)
+        if (($dx + $dy) -gt 4) {
+            $script:_wDragging = $true
+            $script:Widget.Left = $pos.X - $script:_wDragStart.X
+            $script:Widget.Top  = $pos.Y - $script:_wDragStart.Y
+        }
     }
-    $dx = [Math]::Abs($script:Widget.Left - $script:_wSnap.L)
-    $dy = [Math]::Abs($script:Widget.Top  - $script:_wSnap.T)
+})
+$script:Widget.Add_MouseLeftButtonUp({
+    if ($script:Widget.IsMouseCaptured) {
+        $script:Widget.ReleaseMouseCapture()
+    }
     try {
-        if (($dx + $dy) -lt 4) {
+        if (-not $script:_wDragging) {
+            script:Write-WidgetDebugLog "LIFECYCLE: Click detected, calling Toggle-Chat"
             script:Toggle-Chat
+            script:Write-WidgetDebugLog "LIFECYCLE: Toggle-Chat returned"
         } elseif ($script:ChatOpen) {
             script:Place-Chat
         }
     } catch {
-        script:Write-WidgetDebugLog "Click handler error: $($_.Exception.Message)"
+        script:Write-WidgetDebugLog "Click handler error: $($_.Exception.GetType().FullName): $($_.Exception.Message)`n$($_.ScriptStackTrace)"
     }
+    $script:_wDragging = $false
+    $script:_wDragStart = $null
 })
 
 # ── Widget: hover glow ───────────────────────────────────────────
@@ -9016,6 +9051,7 @@ if ($OpenChat) {
 
 # ── Cleanup on close ──────────────────────────────────────────────
 $script:Widget.Add_Closing({
+    script:Write-WidgetDebugLog "LIFECYCLE: Widget.Closing fired (IsApplicationClosing was $($script:IsApplicationClosing))"
     $script:IsApplicationClosing = $true
     script:Set-SnippingTileOpen $false
     if ($script:ActiveCopilotProcess -and -not $script:ActiveCopilotProcess.HasExited) {
@@ -9041,14 +9077,35 @@ $script:Widget.Add_Closing({
 })
 
 # ── Run application ───────────────────────────────────────────────
-"[$(Get-Date -Format o)] DIAG: Creating Application" | Out-File "$env:APPDATA\Windows-Clippy-MCP\widget-startup-diag.log" -Append
 $app = [Windows.Application]::new()
 $app.Add_DispatcherUnhandledException({
     param($s, $e)
-    script:Write-WidgetDebugLog "UNHANDLED WPF EXCEPTION: $($e.Exception.Message) | $($e.Exception.StackTrace)"
+    $exDetail = "TYPE=$($e.Exception.GetType().FullName) MSG=$($e.Exception.Message) STACK=$($e.Exception.StackTrace)"
+    if ($e.Exception.InnerException) {
+        $exDetail += " INNER=$($e.Exception.InnerException.GetType().FullName): $($e.Exception.InnerException.Message)"
+    }
+    script:Write-WidgetDebugLog "UNHANDLED WPF EXCEPTION: $exDetail"
     $e.Handled = $true
 })
 $app.ShutdownMode = 'OnMainWindowClose'
 $app.MainWindow   = $script:Widget
+
+$script:Widget.Add_Loaded({
+    script:Write-WidgetDebugLog "LIFECYCLE: Widget.Loaded fired, IsVisible=$($script:Widget.IsVisible) Left=$($script:Widget.Left) Top=$($script:Widget.Top)"
+})
+$script:Widget.Add_Closed({
+    script:Write-WidgetDebugLog "LIFECYCLE: Widget.Closed fired"
+})
+$app.Add_Exit({
+    param($s, $e)
+    script:Write-WidgetDebugLog "LIFECYCLE: Application.Exit fired, ApplicationExitCode=$($e.ApplicationExitCode)"
+})
+$app.Add_SessionEnding({
+    param($s, $e)
+    script:Write-WidgetDebugLog "LIFECYCLE: Application.SessionEnding reason=$($e.ReasonSessionEnding)"
+})
+
+script:Write-WidgetDebugLog "LIFECYCLE: Calling app.Run(widget)"
 $app.Run($script:Widget) | Out-Null
+script:Write-WidgetDebugLog "LIFECYCLE: app.Run returned"
 
