@@ -76,9 +76,11 @@ All eight tools are wrapped through
 `wrapToolWithTelemetry(wrapToolWithPrincipal(handler))`; the principal
 check runs before the handler body, the telemetry wrapper logs start/end.
 
-Note: a `clippy.terminal-tab` tool is reserved for a future release; in
+Note: a `clippy.terminal-tab` tool family is reserved for a future release; in
 v0.2.0 terminal-tab interactions are exposed via `clippy.commander.submit`
-and `clippy.broadcast`.
+and `clippy.broadcast`. See
+[`adr-004-terminal-tab-contract.md`](./adr-004-terminal-tab-contract.md) for
+the execution-ready contract.
 
 ## Widget host bridge
 

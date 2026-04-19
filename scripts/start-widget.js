@@ -13,15 +13,29 @@ const {
 } = require('./widget-service-protocol');
 
 const packageDir = path.resolve(__dirname, '..');
-const nativeWidgetHostPath = path.join(
-  packageDir,
-  'widget',
-  'WidgetHost',
-  'bin',
-  'Debug',
-  'net8.0-windows',
-  'WidgetHost.exe'
-);
+const nativeWidgetHostCandidates = [
+  path.join(
+    packageDir,
+    'widget',
+    'WidgetHost',
+    'bin',
+    'Release',
+    'net8.0-windows',
+    'WidgetHost.exe'
+  ),
+  path.join(
+    packageDir,
+    'widget',
+    'WidgetHost',
+    'bin',
+    'Debug',
+    'net8.0-windows',
+    'WidgetHost.exe'
+  )
+];
+const nativeWidgetHostPath =
+  nativeWidgetHostCandidates.find((candidate) => fs.existsSync(candidate)) ||
+  nativeWidgetHostCandidates[0];
 const legacyWidgetScriptPath = path.join(packageDir, 'widget', 'clippy-widget.ps1');
 const dashboardWidgetScriptPath = path.join(packageDir, 'widget', 'start.js');
 const dashboardServerScriptPath = path.join(packageDir, 'widget', 'app', 'server.py');

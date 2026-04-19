@@ -114,27 +114,39 @@ directly. They append a JSONL record to
 by `id`, and dispatches.
 
 Fields are root-level on the intent object -- **not** nested under
-`payload`.
+`payload`. This intent envelope is authoritative for both the widget
+toolbar path and the Node MCP Apps server path.
 
 ```json
 {
   "id": "<uuid>",
   "kind": "<kind>",
+  "principal": "clippy",
   "session": "<commander-session-id-or-null>",
   "enqueuedAt": "2025-01-15T12:34:56.789Z",
   "...": "kind-specific fields"
 }
 ```
 
+Common-field semantics:
+
+- `principal` is required and must be the literal string `"clippy"`.
+- `session` is the Commander session that authored the intent. It is not a
+  target tab id. Kind-specific identifiers such as `sessionId` stay in
+  their own fields.
+
 ### Kinds in v0.2.0
 
 | Kind                    | Fields (in addition to common)                                        | Source tool                                    |
 |-------------------------|-----------------------------------------------------------------------|------------------------------------------------|
-| `commander.submit`      | `prompt`, `mode` (nullable `"Agent"` or `"Plan"`)                     | `clippy.commander.submit`                      |
+| `commander.submit`      | `prompt`, `mode` (nullable `"Agent"` or `"Plan"` or `"Swarm"`)        | `clippy.commander.submit`                      |
 | `broadcast.send`        | `prompt`, `targets: { mode: "ids"\|"group"\|"all", ids?, label? }`, `force` | `clippy.broadcast`                        |
 | `linkgroup.link`        | `sessionId`, `label`                                                  | `clippy.link-group` (`op="link"`)              |
 | `linkgroup.unlink`      | `sessionId`                                                           | `clippy.link-group` (`op="unlink"`)            |
 | `linkgroup.broadcast`   | `label`, `prompt`, `force`                                            | `clippy.link-group` (`op="broadcast"`)         |
+
+Legacy note: `"code"` is not a valid `commander.submit.mode` alias. Hosts
+must send one of the canonical Commander modes above.
 
 `clippy.link-group` with `op="list"` is read-only and does not emit an
 intent.
@@ -215,6 +227,43 @@ The widget is the authoritative writer; the server is the reader.
   key and re-parses on change. Hostile-input hardening (L3-FW-1) clamps
   list lengths, strips prototype-pollution keys, and coerces
   `principal` to `"clippy"` regardless of file content.
+
+### Canonical `agents` schema
+
+`FleetStateSnapshot.agents` is a structured catalog, not a string list:
+
+```json
+{
+  "agents": {
+    "catalogSize": 2,
+    "active": "clippy-commander",
+    "catalog": [
+      {
+        "id": "clippy-commander",
+        "displayName": "Clippy Commander",
+        "filePath": "C:\\Users\\dayour\\.copilot\\agents\\clippy-commander.md",
+        "source": "bundled",
+        "isActive": true
+      },
+      {
+        "id": "dayour-swe",
+        "displayName": "DAYOURBOT SWE",
+        "filePath": "C:\\Users\\dayour\\.copilot\\agents\\dayour-swe.md",
+        "source": "user",
+        "isActive": false
+      }
+    ]
+  }
+}
+```
+
+Field semantics:
+
+- `id`: stable agent identifier used by slash commands and tooling.
+- `displayName`: human-readable label for views and menus.
+- `filePath`: canonical on-disk markdown definition path.
+- `source`: `"bundled"` or `"user"` from widget-side discovery.
+- `isActive`: whether this entry matches `agents.active` in the snapshot.
 
 ### Known issue: L4-FW-1
 

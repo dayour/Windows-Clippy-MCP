@@ -47,7 +47,7 @@ const EMPTY_FLEET_SNAPSHOT = Object.freeze({
   sessionId: null,
   tabs: { total: 0, byState: { idle: 0, running: 0, exited: 0 } },
   groups: { total: 0, active: null },
-  agents: { catalogSize: 0 },
+  agents: { catalogSize: 0, active: null, catalog: [] },
   events: { recent: [] },
   capturedAt: null,
 });

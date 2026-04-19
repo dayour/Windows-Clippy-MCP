@@ -16,7 +16,10 @@ namespace WidgetHost;
 
 public partial class MainWindow : Window
 {
+    private sealed record MountedViewBinding(string ResourceUri, string ToolName);
+
     private static readonly string[] ValidModes = ["Agent", "Plan", "Swarm"];
+    private const string DefaultMountedResourceUri = "ui://clippy/fleet-status.html";
     private static readonly (string Name, string Header)[] ToolMenuEntries =
     [
         (nameof(WidgetToolSettings.AllowAllTools), "Allow all tools"),
@@ -33,6 +36,13 @@ public partial class MainWindow : Window
         (nameof(WidgetExtensionSettings.IncludeRegularExtensions), "Include regular extensions"),
         (nameof(WidgetExtensionSettings.IncludeInsidersExtensions), "Include insiders extensions"),
     ];
+    private static readonly IReadOnlyDictionary<string, MountedViewBinding> MountedViewBindings =
+        new Dictionary<string, MountedViewBinding>(StringComparer.OrdinalIgnoreCase)
+        {
+            [DefaultMountedResourceUri] = new(DefaultMountedResourceUri, "clippy.fleet-status"),
+            ["ui://clippy/commander.html"] = new("ui://clippy/commander.html", "clippy.commander.state"),
+            ["ui://clippy/agent-catalog.html"] = new("ui://clippy/agent-catalog.html", "clippy.agent-catalog"),
+        };
 
     private readonly WidgetLaunchOptions _options;
     private readonly string _repoRoot;
@@ -52,6 +62,7 @@ public partial class MainWindow : Window
     public MainWindow(WidgetLaunchOptions options)
     {
         _options = options;
+        _resourceUriCurrent = ResolveInitialMountedResourceUri(options);
         _repoRoot = ResolveRepoRoot();
         _copilotConfigDir = ResolveCopilotConfigDirectory();
         _settings = WidgetSettings.Load();
@@ -131,6 +142,9 @@ public partial class MainWindow : Window
                 case "--session-id":
                     options.SessionId = value ?? RequireValue(key, enumerator);
                     break;
+                case "--apps-view":
+                    options.AppsViewUri = NormalizeAppsViewUri(value ?? RequireValue(key, enumerator));
+                    break;
                 default:
                     throw new ArgumentException($"Unsupported argument: {current}");
             }
@@ -147,6 +161,33 @@ public partial class MainWindow : Window
         }
 
         return enumerator.Current;
+    }
+
+    private static string ResolveInitialMountedResourceUri(WidgetLaunchOptions options)
+        => string.IsNullOrWhiteSpace(options.AppsViewUri)
+            ? DefaultMountedResourceUri
+            : NormalizeAppsViewUri(options.AppsViewUri);
+
+    private static string NormalizeAppsViewUri(string resourceUri)
+    {
+        if (string.IsNullOrWhiteSpace(resourceUri))
+        {
+            throw new ArgumentException("--apps-view requires a ui://clippy/ uri.");
+        }
+
+        var normalized = resourceUri.Trim();
+        if (!normalized.StartsWith("ui://clippy/", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException($"--apps-view only accepts ui://clippy/ URIs (got {resourceUri}).");
+        }
+
+        if (ResolveMountedViewBinding(normalized) is null)
+        {
+            var supported = string.Join(", ", MountedViewBindings.Keys.OrderBy(static key => key, StringComparer.OrdinalIgnoreCase));
+            throw new ArgumentException($"--apps-view only supports mounted Clippy views: {supported}");
+        }
+
+        return normalized;
     }
 
     private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -808,9 +849,6 @@ public partial class MainWindow : Window
                 await _appsBridge.PublishIntentAsync(new
                 {
                     kind = "linkgroup.link",
-                    id = Guid.NewGuid().ToString("n"),
-                    ts = DateTime.UtcNow.ToString("O"),
-                    principal = "clippy",
                     sessionId = session.SessionId.ToString(),
                     label = linkLabel
                 }).ConfigureAwait(true);
@@ -846,9 +884,6 @@ public partial class MainWindow : Window
                 await _appsBridge.PublishIntentAsync(new
                 {
                     kind = "linkgroup.unlink",
-                    id = Guid.NewGuid().ToString("n"),
-                    ts = DateTime.UtcNow.ToString("O"),
-                    principal = "clippy",
                     sessionId = session.SessionId.ToString()
                 }).ConfigureAwait(true);
                 SetCommanderNotice($"Unlink intent queued for {session.DisplayName}.");
@@ -906,9 +941,6 @@ public partial class MainWindow : Window
                 await _appsBridge.PublishIntentAsync(new
                 {
                     kind = "broadcast.send",
-                    id = Guid.NewGuid().ToString("n"),
-                    ts = DateTime.UtcNow.ToString("O"),
-                    principal = "clippy",
                     prompt = broadcastText,
                     targets = new { mode = "all" }
                 }).ConfigureAwait(true);
@@ -960,9 +992,6 @@ public partial class MainWindow : Window
                 await _appsBridge.PublishIntentAsync(new
                 {
                     kind = "broadcast.send",
-                    id = Guid.NewGuid().ToString("n"),
-                    ts = DateTime.UtcNow.ToString("O"),
-                    principal = "clippy",
                     prompt = groupText,
                     targets = new { mode = "group", label }
                 }).ConfigureAwait(true);
@@ -1100,6 +1129,7 @@ public partial class MainWindow : Window
         _resourceUriCurrent = uri;
 
         await _appsHost.EnsureReadyAsync().ConfigureAwait(true);
+        PublishMountedViewRefresh("mount");
         SetCommanderNotice($"Mounted MCP App view: {uri}");
         UpdateStatus($"Mounted {uri}.");
     }
@@ -1168,7 +1198,7 @@ public partial class MainWindow : Window
         return Task.FromResult(true);
     }
 
-    private string? _resourceUriCurrent = "ui://clippy/fleet-status.html";
+    private string? _resourceUriCurrent;
 
     private static string SummarizeOutcomes(string scope, IReadOnlyList<CommanderBroadcastOutcome> outcomes)
     {
@@ -1886,23 +1916,22 @@ public partial class MainWindow : Window
             {
                 UpdateSessionMeta();
             }
-            PublishFleetStateToAppsHost();
+            PublishMountedViewRefresh("state-change");
         });
     }
 
-    private void PublishFleetStateToAppsHost()
+    private void PublishMountedViewRefresh(string reason)
     {
         if (_appsBridge is null) return;
         try
         {
             var snapshot = BuildFleetSnapshot();
             _ = _appsBridge.PublishFleetStateAsync(snapshot);
-            _ = _appsHost?.PostResourceListChangedAsync();
-            _ = PushFleetToolResultToViewAsync();
+            _ = RefreshMountedViewAsync(reason);
         }
         catch (Exception ex)
         {
-            WidgetHostLogger.Log($"PublishFleetStateToAppsHost: {ex.Message}");
+            WidgetHostLogger.Log($"PublishMountedViewRefresh({reason}): {ex.Message}");
         }
     }
 
@@ -1915,15 +1944,15 @@ public partial class MainWindow : Window
         {
             if (Dispatcher.CheckAccess())
             {
-                WidgetHostLogger.Log("OnAppsViewInitialized: re-seeding fleet state post-handshake.");
-                PublishFleetStateToAppsHost();
+                WidgetHostLogger.Log("OnAppsViewInitialized: re-seeding mounted view post-handshake.");
+                PublishMountedViewRefresh("handshake");
             }
             else
             {
                 Dispatcher.InvokeAsync(() =>
                 {
-                    WidgetHostLogger.Log("OnAppsViewInitialized: re-seeding fleet state post-handshake (marshalled).");
-                    PublishFleetStateToAppsHost();
+                    WidgetHostLogger.Log("OnAppsViewInitialized: re-seeding mounted view post-handshake (marshalled).");
+                    PublishMountedViewRefresh("handshake");
                 });
             }
 
@@ -1961,32 +1990,66 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task PushFleetToolResultToViewAsync()
+    private async Task RefreshMountedViewAsync(string reason)
     {
         if (_appsBridge is null || !_appsBridge.IsReady || _appsHost is null) return;
         try
         {
+            await _appsHost.PostResourceListChangedAsync().ConfigureAwait(true);
+            await PushMountedViewToolResultToViewAsync(reason).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            WidgetHostLogger.Log($"RefreshMountedViewAsync({reason}): {ex.Message}");
+        }
+    }
+
+    private async Task PushMountedViewToolResultToViewAsync(string reason)
+    {
+        if (_appsBridge is null || !_appsBridge.IsReady || _appsHost is null) return;
+        try
+        {
+            var host = _appsHost;
+            var binding = ResolveMountedViewBinding(_resourceUriCurrent);
+            if (binding is null)
+            {
+                WidgetHostLogger.Log($"PushMountedViewToolResultToViewAsync({reason}): no binding for {_resourceUriCurrent ?? "<null>"}.");
+                return;
+            }
+
             using var envelope = await _appsBridge.CallToolAsync(
-                "clippy.fleet-status",
+                binding.ToolName,
                 default,
                 System.Threading.CancellationToken.None).ConfigureAwait(true);
             if (!envelope.RootElement.TryGetProperty("result", out var result))
             {
-                WidgetHostLogger.Log("PushFleetToolResultToViewAsync: envelope missing 'result'.");
+                WidgetHostLogger.Log($"PushMountedViewToolResultToViewAsync({reason}): envelope missing 'result' for {binding.ToolName}.");
                 return;
             }
             if (!result.TryGetProperty("structuredContent", out var structured))
             {
-                WidgetHostLogger.Log("PushFleetToolResultToViewAsync: result missing 'structuredContent'.");
+                WidgetHostLogger.Log($"PushMountedViewToolResultToViewAsync({reason}): result missing 'structuredContent' for {binding.ToolName}.");
                 return;
             }
-            await _appsHost.PostToolResultAsync("clippy.fleet-status", structured).ConfigureAwait(true);
-            WidgetHostLogger.Log($"PushFleetToolResultToViewAsync: posted tool-result bytes={structured.GetRawText().Length}");
+            await host.PostToolResultAsync(binding.ToolName, structured).ConfigureAwait(true);
+            WidgetHostLogger.Log($"PushMountedViewToolResultToViewAsync({reason}): posted {binding.ToolName} bytes={structured.GetRawText().Length} resource={binding.ResourceUri}");
         }
         catch (Exception ex)
         {
-            WidgetHostLogger.Log($"PushFleetToolResultToViewAsync: {ex.Message}");
+            WidgetHostLogger.Log($"PushMountedViewToolResultToViewAsync({reason}): {ex.Message}");
         }
+    }
+
+    private static MountedViewBinding? ResolveMountedViewBinding(string? resourceUri)
+    {
+        if (string.IsNullOrWhiteSpace(resourceUri))
+        {
+            return null;
+        }
+
+        return MountedViewBindings.TryGetValue(resourceUri, out var binding)
+            ? binding
+            : null;
     }
 
     private FleetStateSnapshot BuildFleetSnapshot()
@@ -2007,7 +2070,16 @@ public partial class MainWindow : Window
             .Select(kvp => new FleetGroup(kvp.Key, kvp.Value.ToArray()))
             .ToArray();
 
-        var agents = _agents.Select(a => a.Id ?? string.Empty).Where(id => !string.IsNullOrEmpty(id)).ToArray();
+        var activeAgentId = _commanderSession.AgentId ?? string.Empty;
+        var agents = _agents
+            .Where(a => !string.IsNullOrWhiteSpace(a.Id))
+            .Select(a => new FleetAgentCatalogEntry(
+                Id: a.Id ?? string.Empty,
+                DisplayName: a.DisplayName ?? a.Id ?? string.Empty,
+                FilePath: a.FilePath ?? string.Empty,
+                Source: a.Source ?? string.Empty,
+                IsActive: !string.IsNullOrEmpty(activeAgentId) && string.Equals(a.Id, activeAgentId, StringComparison.OrdinalIgnoreCase)))
+            .ToArray();
 
         var commanderSnapshot = BuildCommanderSnapshot();
 
@@ -2018,7 +2090,7 @@ public partial class MainWindow : Window
             Fleet: new FleetCounts(_commanderHub.SessionCount, _commanderHub.WaitingCount, _commanderHub.GroupCount),
             Tabs: new FleetTabs(tabs),
             Groups: new FleetGroups(groups),
-            Agents: agents,
+            Agents: new FleetAgents(agents.Length, activeAgentId, agents),
             Commander: commanderSnapshot
         );
     }
@@ -2063,7 +2135,7 @@ public partial class MainWindow : Window
                     }
                     var result = _commanderSession.TrySubmitPrompt(intent.Prompt ?? string.Empty);
                     WidgetHostLogger.Log($"OnCommanderIntentReceived: id={intent.Id} result={result}");
-                    PublishFleetStateToAppsHost();
+                    PublishMountedViewRefresh("commander-intent");
                 }
                 catch (Exception ex)
                 {
@@ -2104,7 +2176,7 @@ public partial class MainWindow : Window
 
                     var outcomes = await _commanderHub.BroadcastAsync(intent.Prompt, targetSessions).ConfigureAwait(true);
                     WidgetHostLogger.Log($"OnBroadcastIntentReceived: id={intent.Id} mode={intent.Mode} outcomes={outcomes.Count}");
-                    PublishFleetStateToAppsHost();
+                    PublishMountedViewRefresh("broadcast-intent");
                 }
                 catch (Exception ex)
                 {
@@ -2154,7 +2226,7 @@ public partial class MainWindow : Window
                             break;
                     }
                     WidgetHostLogger.Log($"OnLinkGroupIntentReceived: id={intent.Id} op={intent.Op}");
-                    PublishFleetStateToAppsHost();
+                    PublishMountedViewRefresh("link-group-intent");
                 }
                 catch (Exception ex)
                 {
@@ -2185,7 +2257,7 @@ public partial class MainWindow : Window
             }
 
             _appsHost = new McpAppsHost(
-                resourceUri: "ui://clippy/fleet-status.html",
+                resourceUri: _resourceUriCurrent ?? DefaultMountedResourceUri,
                 bridge: _appsBridge,
                 commanderSessionId: _commanderSession.SessionId);
             _appsHost.ViewInitialized += OnAppsViewInitialized;
@@ -2193,7 +2265,7 @@ public partial class MainWindow : Window
             await _appsHost.EnsureReadyAsync().ConfigureAwait(true);
 
             // Seed initial state now that the view can receive it.
-            PublishFleetStateToAppsHost();
+            PublishMountedViewRefresh("mount");
         }
         catch (Exception ex)
         {
@@ -2416,6 +2488,8 @@ public sealed class WidgetLaunchOptions
     public bool NoWelcome { get; set; }
 
     public string? SessionId { get; set; }
+
+    public string? AppsViewUri { get; set; }
 }
 
 internal static class WidgetHostLogger

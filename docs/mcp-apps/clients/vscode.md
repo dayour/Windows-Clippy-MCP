@@ -3,6 +3,10 @@
 Status: v0.2.0. Requires VS Code Insiders with MCP Apps support, or VS Code stable
 with the MCP extension installed.
 
+Evidence status: configuration guidance only. The repo currently proves the
+generic UI-capable MCP Apps host contract, but does not yet contain executable
+VS Code product-host validation. See `../host-conformance.md`.
+
 ## Install prerequisite
 
 ```powershell
@@ -45,7 +49,7 @@ Or global `settings.json`:
 }
 ```
 
-## Expected behavior
+## Target behavior (not yet product-verified)
 
 After restarting VS Code, agent mode lists the 8 Clippy tools actually
 registered by v0.2.0 (`clippy.fleet-status`, `clippy.commander.state`,

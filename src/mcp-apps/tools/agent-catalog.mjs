@@ -2,11 +2,13 @@
  * L4-5 — clippy.agent-catalog tool.
  *
  * Enumerate the bundled + user agents available to Clippy's Commander and
- * terminal fleet. View bundle (`ui://clippy/agent-catalog.html`) ships in a
- * follow-up; this module exposes the tool + resource skeleton so any host
- * can list agents and (in future) trigger an agent switch via
- * `clippy.commander.submit` with a /agent slash.
+ * terminal fleet. View bundle (`ui://clippy/agent-catalog.html`) renders the
+ * structured catalog payload as a read-only React surface so hosts can browse
+ * agent metadata and active state without parsing raw JSON.
  */
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
 import { z } from "zod";
 import {
   registerAppTool,
@@ -17,6 +19,24 @@ import { wrapToolWithPrincipal } from "../principal.mjs";
 import { wrapToolWithTelemetry } from "../telemetry.mjs";
 
 const AGENT_CATALOG_VIEW_URI = "ui://clippy/agent-catalog.html";
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const VIEW_BUNDLE_PATH = resolve(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  "dist",
+  "mcp-apps",
+  "views",
+  "agent-catalog.html",
+);
+const VIEW_FALLBACK_PATH = resolve(
+  __dirname,
+  "..",
+  "views",
+  "agent-catalog",
+  "fallback.html",
+);
 
 export function registerAgentCatalog(server, { state } = {}) {
   registerAppTool(
@@ -42,14 +62,16 @@ export function registerAgentCatalog(server, { state } = {}) {
         const active = snapshot?.agents?.active ?? null;
         const filtered = filter
           ? raw.filter((a) => {
-              const hay = `${a.id || ""} ${a.displayName || ""}`.toLowerCase();
+              const hay = `${a.id || ""} ${a.displayName || ""} ${a.filePath || ""} ${a.source || ""}`.toLowerCase();
               return hay.includes(String(filter).toLowerCase());
             })
           : raw;
         const clipped = typeof limit === "number" ? filtered.slice(0, limit) : filtered;
         const payload = {
           active,
-          catalogSize: raw.length,
+          catalogSize: typeof snapshot?.agents?.catalogSize === "number"
+            ? snapshot.agents.catalogSize
+            : raw.length,
           returned: clipped.length,
           agents: clipped,
           capturedAt: new Date().toISOString(),
@@ -67,7 +89,7 @@ export function registerAgentCatalog(server, { state } = {}) {
     "Clippy Agent Catalog View",
     AGENT_CATALOG_VIEW_URI,
     {
-      description: "Browseable list of Clippy agents (stub view; bundle pending).",
+      description: "Browseable list of Clippy agents with active-state metadata.",
       _meta: { ui: { csp: { resourceDomains: [], connectDomains: [] } } },
     },
     async () => ({
@@ -75,11 +97,22 @@ export function registerAgentCatalog(server, { state } = {}) {
         {
           uri: AGENT_CATALOG_VIEW_URI,
           mimeType: RESOURCE_MIME_TYPE,
-          text: CATALOG_FALLBACK_HTML,
+          text: await readViewHtml(),
         },
       ],
     }),
   );
+}
+
+async function readViewHtml() {
+  for (const candidate of [VIEW_BUNDLE_PATH, VIEW_FALLBACK_PATH]) {
+    try {
+      return await readFile(candidate, "utf-8");
+    } catch (err) {
+      if (err?.code !== "ENOENT") throw err;
+    }
+  }
+  return CATALOG_FALLBACK_HTML;
 }
 
 const CATALOG_FALLBACK_HTML = `<!doctype html>
@@ -87,7 +120,7 @@ const CATALOG_FALLBACK_HTML = `<!doctype html>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'"/>
 <style>body{font:13px/1.4 "Segoe UI",sans-serif;margin:12px;color:#111}</style>
 </head><body><h1 style="font-size:14px">Clippy Agents</h1>
-<p style="color:#666;font-size:11px">View bundle pending. Use <code>clippy.agent-catalog</code> tool for data.</p>
+<p style="color:#666;font-size:11px">View bundle unavailable. Use <code>clippy.agent-catalog</code> tool for data.</p>
 </body></html>`;
 
 export { AGENT_CATALOG_VIEW_URI };

@@ -12,21 +12,19 @@
  *   3. Default (no selector): broadcast to every known terminal tab
  *
  * Intent log contract (consumed by widget in L4-9 toolbar retrofit):
- *   { id, kind: "broadcast.send", prompt, targets: { mode, ids|label }, force, enqueuedAt }
+ *   { id, kind: "broadcast.send", principal, session, prompt, targets: { mode, ids|label }, force, enqueuedAt }
  *
  * The widget's CommanderHub.BroadcastAsync is the sink. Tools here validate,
  * stamp a uuid, and queue. No fire-and-hope — every intent is durable until
  * the widget picks it up (append-only JSONL, dedup by id on the widget side).
  */
 import { z } from "zod";
-import { appendFile, mkdir } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
-import { dirname } from "node:path";
 import {
   registerAppTool,
   registerAppResource,
   RESOURCE_MIME_TYPE,
 } from "@modelcontextprotocol/ext-apps/server";
+import { appendIntent, buildIntentEnvelope } from "../intent-envelope.mjs";
 import { wrapToolWithPrincipal } from "../principal.mjs";
 import { wrapToolWithTelemetry } from "../telemetry.mjs";
 
@@ -88,22 +86,20 @@ export function registerBroadcast(server, { state, intentsPath, env = process.en
         const targets = buildTargetSelector(sessionIds, group);
         const resolution = await previewResolution(state, targets);
 
-        const id = randomUUID();
-        const session = readSessionFromExtra(extra);
-        const intent = {
-          id,
-          kind: "broadcast.send",
-          prompt: String(prompt).slice(0, MAX_PROMPT_LEN),
-          targets,
-          force: Boolean(force),
-          session,
-          enqueuedAt: new Date().toISOString(),
-        };
+        const intent = buildIntentEnvelope(
+          "broadcast.send",
+          {
+            prompt: String(prompt).slice(0, MAX_PROMPT_LEN),
+            targets,
+            force: Boolean(force),
+          },
+          extra,
+        );
         await appendIntent(resolvedIntents, intent);
 
         const payload = {
           accepted: true,
-          intentId: id,
+          intentId: intent.id,
           targets,
           resolvedTargetCount: resolution.count,
           resolvedTargetMode: resolution.mode,
@@ -113,7 +109,7 @@ export function registerBroadcast(server, { state, intentsPath, env = process.en
           content: [
             {
               type: "text",
-              text: `Broadcast queued (id=${id}, mode=${resolution.mode}, targets~${resolution.count}).`,
+              text: `Broadcast queued (id=${intent.id}, mode=${resolution.mode}, targets~${resolution.count}).`,
             },
           ],
           structuredContent: payload,
@@ -179,27 +175,6 @@ async function previewResolution(state, targets) {
     return { mode: targets.mode, count: 0 };
   }
   return { mode: targets.mode, count: 0 };
-}
-
-function readSessionFromExtra(extra) {
-  if (!extra || typeof extra !== "object") return null;
-  const meta = extra._meta;
-  if (!meta || typeof meta !== "object") return null;
-  const clippy = meta.clippy;
-  if (!clippy || typeof clippy !== "object") return null;
-  const session = clippy.session;
-  return typeof session === "string" && session.length > 0 && session.length <= 256
-    ? session
-    : null;
-}
-
-async function appendIntent(path, intent) {
-  try {
-    await mkdir(dirname(path), { recursive: true });
-  } catch {
-    /* dir exists or cannot be created; let appendFile surface the error */
-  }
-  await appendFile(path, JSON.stringify(intent) + "\n", "utf8");
 }
 
 function buildToolError(code, message) {

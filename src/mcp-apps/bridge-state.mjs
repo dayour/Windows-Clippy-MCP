@@ -35,6 +35,7 @@ const DEFAULT_SNAPSHOT = Object.freeze({
   agents: {
     catalogSize: 0,
     active: null,
+    catalog: [],
   },
   events: {
     recent: [],
@@ -107,9 +108,7 @@ export class FleetState {
     const recentEvents = Array.isArray(partial.events?.recent)
       ? partial.events.recent.slice(0, MAX_EVENTS).map((v) => safeShallow(v))
       : [];
-    const agentCatalog = Array.isArray(partial.agents?.catalog)
-      ? partial.agents.catalog.slice(0, MAX_AGENTS).map((v) => safeShallow(v))
-      : [];
+    const agentCatalog = normalizeAgentCatalog(partial.agents);
     const commanderSlice = safeShallow(partial.commander);
     return {
       principal: "clippy",
@@ -129,7 +128,7 @@ export class FleetState {
         list: groupList,
       },
       agents: {
-        catalogSize: num(partial.agents?.catalogSize),
+        catalogSize: num(partial.agents?.catalogSize) || agentCatalog.length,
         active: safeString(partial.agents?.active),
         catalog: agentCatalog,
       },
@@ -178,4 +177,51 @@ function safeShallow(obj, depth = 0) {
   return out;
 }
 
-export { DEFAULT_SNAPSHOT, MAX_TABS, MAX_GROUPS, MAX_EVENTS };
+function normalizeAgentCatalog(agentsSlice) {
+  const raw = Array.isArray(agentsSlice?.catalog)
+    ? agentsSlice.catalog
+    : Array.isArray(agentsSlice?.list)
+      ? agentsSlice.list
+      : [];
+  const active = safeString(agentsSlice?.active);
+  return raw
+    .slice(0, MAX_AGENTS)
+    .map((entry) => normalizeAgentEntry(entry, active))
+    .filter(Boolean);
+}
+
+function normalizeAgentEntry(entry, activeAgentId) {
+  if (typeof entry === "string") {
+    const id = safeString(entry);
+    if (!id) return null;
+    return {
+      id,
+      displayName: id,
+      filePath: "",
+      source: "unknown",
+      isActive: activeAgentId === id,
+    };
+  }
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+    return null;
+  }
+
+  const id = safeString(entry.id) ?? safeString(entry.agentId);
+  if (!id) return null;
+
+  const source = safeString(entry.source);
+  const normalizedSource =
+    source === "user" || source === "bundled" ? source : "unknown";
+  const isActive =
+    entry.isActive === true || (activeAgentId !== null && activeAgentId === id);
+
+  return {
+    id,
+    displayName: safeString(entry.displayName) ?? id,
+    filePath: safeString(entry.filePath) ?? "",
+    source: normalizedSource,
+    isActive,
+  };
+}
+
+export { DEFAULT_SNAPSHOT, MAX_TABS, MAX_GROUPS, MAX_EVENTS, MAX_AGENTS };

@@ -20,7 +20,7 @@ internal sealed record FleetStateSnapshot(
     FleetCounts Fleet,
     FleetTabs Tabs,
     FleetGroups Groups,
-    IReadOnlyList<string> Agents,
+    FleetAgents Agents,
     CommanderSnapshot? Commander = null
 );
 
@@ -61,12 +61,27 @@ internal sealed record FleetGroup(string Label, IReadOnlyList<string> Members);
 
 internal sealed record FleetGroups(IReadOnlyList<FleetGroup> List);
 
+internal sealed record FleetAgentCatalogEntry(
+    string Id,
+    string DisplayName,
+    string FilePath,
+    string Source,
+    bool IsActive
+);
+
+internal sealed record FleetAgents(
+    int CatalogSize,
+    string Active,
+    IReadOnlyList<FleetAgentCatalogEntry> Catalog
+);
+
 internal static class FleetStateSerializer
 {
     // Mirror caps from bridge-state.mjs. See L3-FW-1 carry-forward.
     public const int MaxTabs = 256;
     public const int MaxGroups = 64;
     public const int MaxGroupMembers = 256;
+    public const int MaxAgents = 500;
     public const int MaxStringLength = 1024;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -115,9 +130,16 @@ internal static class FleetStateSerializer
             },
             agents = new
             {
-                catalogSize = snapshot.Agents.Count,
-                active = (string?)null,
-                list = snapshot.Agents.Take(MaxTabs).Select(Clamp).ToArray(),
+                catalogSize = snapshot.Agents.CatalogSize,
+                active = NullIfEmpty(snapshot.Agents.Active),
+                catalog = snapshot.Agents.Catalog.Take(MaxAgents).Select(agent => new
+                {
+                    id = Clamp(agent.Id),
+                    displayName = Clamp(agent.DisplayName),
+                    filePath = Clamp(agent.FilePath),
+                    source = Clamp(agent.Source),
+                    isActive = agent.IsActive,
+                }).ToArray(),
             },
             commander = snapshot.Commander is null ? null : (object)new
             {
@@ -151,5 +173,11 @@ internal static class FleetStateSerializer
     {
         if (string.IsNullOrEmpty(value)) return string.Empty;
         return value.Length <= MaxStringLength ? value : value[..MaxStringLength];
+    }
+
+    private static string? NullIfEmpty(string? value)
+    {
+        var clamped = Clamp(value);
+        return string.IsNullOrEmpty(clamped) ? null : clamped;
     }
 }

@@ -134,7 +134,14 @@ async function validatePackageStructure() {
     }
 
     const requiredPackagedPaths = [
-      'assets/**',
+      'assets/WC25.png',
+      'assets/agentcard_32.png',
+      'assets/agentcard_192.png',
+      'assets/agentcard_focused_32.png',
+      'assets/clippy25_32.png',
+      'assets/clippy25_96.png',
+      'assets/clippy25_128.png',
+      'assets/clippy25_256.png',
       'scripts/**',
       'widget/clippy-widget.ps1',
       'widget/Launch-ClippyWidget.cmd',
@@ -150,10 +157,12 @@ async function validatePackageStructure() {
       'widget/TerminalHost/bin/Debug/net8.0-windows/*.exe',
       'widget/TerminalHost/bin/Debug/net8.0-windows/*.json',
       'widget/TerminalHost/bin/Debug/net8.0-windows/runtimes/**/native/*.dll',
-      'widget/WidgetHost/bin/Debug/net8.0-windows/*.dll',
-      'widget/WidgetHost/bin/Debug/net8.0-windows/*.exe',
-      'widget/WidgetHost/bin/Debug/net8.0-windows/*.json',
-      'widget/WidgetHost/bin/Debug/net8.0-windows/runtimes/**/native/*.dll'
+      'widget/WidgetHost/bin/Release/net8.0-windows/*.dll',
+      'widget/WidgetHost/bin/Release/net8.0-windows/*.exe',
+      'widget/WidgetHost/bin/Release/net8.0-windows/*.json',
+      'widget/WidgetHost/bin/Release/net8.0-windows/agents/**',
+      'widget/WidgetHost/bin/Release/net8.0-windows/mcp-apps/views/*.html',
+      'widget/WidgetHost/bin/Release/net8.0-windows/runtimes/**/native/*.dll'
     ];
 
     for (const packagedPath of requiredPackagedPaths) {

@@ -13,19 +13,17 @@
  * FleetState snapshot.
  *
  * Intent kinds:
- *   { id, kind: "linkgroup.link", sessionId, label, enqueuedAt }
- *   { id, kind: "linkgroup.unlink", sessionId, enqueuedAt }
- *   { id, kind: "linkgroup.broadcast", label, prompt, force, enqueuedAt }
+ *   { id, kind: "linkgroup.link", principal, session, sessionId, label, enqueuedAt }
+ *   { id, kind: "linkgroup.unlink", principal, session, sessionId, enqueuedAt }
+ *   { id, kind: "linkgroup.broadcast", principal, session, label, prompt, force, enqueuedAt }
  */
 import { z } from "zod";
-import { appendFile, mkdir } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
-import { dirname } from "node:path";
 import {
   registerAppTool,
   registerAppResource,
   RESOURCE_MIME_TYPE,
 } from "@modelcontextprotocol/ext-apps/server";
+import { appendIntent, buildIntentEnvelope } from "../intent-envelope.mjs";
 import { wrapToolWithPrincipal } from "../principal.mjs";
 import { wrapToolWithTelemetry } from "../telemetry.mjs";
 
@@ -88,37 +86,32 @@ export function registerLinkGroup(server, { state, intentsPath, env = process.en
           );
         }
 
-        const session = readSessionFromExtra(extra);
-
         if (op === "link") {
           requireArg(sessionId, "sessionId", "link");
           requireArg(label, "label", "link");
-          return queueIntent(resolvedIntents, {
+          return queueIntent(resolvedIntents, extra, {
             kind: "linkgroup.link",
             sessionId,
             label: label.trim(),
-            session,
           });
         }
 
         if (op === "unlink") {
           requireArg(sessionId, "sessionId", "unlink");
-          return queueIntent(resolvedIntents, {
+          return queueIntent(resolvedIntents, extra, {
             kind: "linkgroup.unlink",
             sessionId,
-            session,
           });
         }
 
         if (op === "broadcast") {
           requireArg(label, "label", "broadcast");
           requireArg(prompt, "prompt", "broadcast");
-          return queueIntent(resolvedIntents, {
+          return queueIntent(resolvedIntents, extra, {
             kind: "linkgroup.broadcast",
             label: label.trim(),
             prompt: String(prompt).slice(0, MAX_PROMPT_LEN),
             force: Boolean(force),
-            session,
           });
         }
 
@@ -172,36 +165,14 @@ async function handleList(state) {
   };
 }
 
-async function queueIntent(path, intent) {
-  const id = randomUUID();
-  const entry = {
-    id,
-    ...intent,
-    enqueuedAt: new Date().toISOString(),
-  };
-  try {
-    await mkdir(dirname(path), { recursive: true });
-  } catch {
-    /* dir exists or cannot be created; let appendFile surface */
-  }
-  await appendFile(path, JSON.stringify(entry) + "\n", "utf8");
-  const payload = { accepted: true, intentId: id, kind: intent.kind, intentsPath: path };
+async function queueIntent(path, extra, intent) {
+  const entry = buildIntentEnvelope(intent.kind, intent, extra);
+  await appendIntent(path, entry);
+  const payload = { accepted: true, intentId: entry.id, kind: intent.kind, intentsPath: path };
   return {
-    content: [{ type: "text", text: `Link-group intent queued (id=${id}, kind=${intent.kind}).` }],
+    content: [{ type: "text", text: `Link-group intent queued (id=${entry.id}, kind=${intent.kind}).` }],
     structuredContent: payload,
   };
-}
-
-function readSessionFromExtra(extra) {
-  if (!extra || typeof extra !== "object") return null;
-  const meta = extra._meta;
-  if (!meta || typeof meta !== "object") return null;
-  const clippy = meta.clippy;
-  if (!clippy || typeof clippy !== "object") return null;
-  const session = clippy.session;
-  return typeof session === "string" && session.length > 0 && session.length <= 256
-    ? session
-    : null;
 }
 
 function requireArg(value, name, op) {

@@ -16,6 +16,13 @@ type FleetSnapshot = {
   agents?: {
     catalogSize?: number;
     active?: string | null;
+    catalog?: Array<{
+      id?: string;
+      displayName?: string;
+      filePath?: string;
+      source?: string;
+      isActive?: boolean;
+    }>;
   };
   events?: { recent?: unknown[] };
   capturedAt?: string | null;

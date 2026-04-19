@@ -239,7 +239,16 @@ function script:Invoke-SafeSetWindowLongPtr {
 $ScriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
 $script:RepoRoot = Split-Path $ScriptDir
 $AssetsDir = Join-Path $script:RepoRoot "assets"
-$script:TerminalHostExe = Join-Path $script:RepoRoot 'widget\TerminalHost\bin\Debug\net8.0-windows\TerminalHost.exe'
+$terminalHostCandidates = @(
+    (Join-Path $script:RepoRoot 'widget\TerminalHost\bin\Release\net8.0-windows\TerminalHost.exe'),
+    (Join-Path $script:RepoRoot 'widget\TerminalHost\bin\Debug\net8.0-windows\TerminalHost.exe')
+)
+$script:TerminalHostExe = $terminalHostCandidates |
+    Where-Object { Test-Path $_ -PathType Leaf } |
+    Select-Object -First 1
+if (-not $script:TerminalHostExe) {
+    $script:TerminalHostExe = $terminalHostCandidates[-1]
+}
 $script:TerminalAdaptiveCardTemplatePath = Join-Path $script:RepoRoot 'widget\adaptive-cards\terminal-session.template.json'
 $script:TerminalAdaptiveCardSchemaPath = Join-Path $script:RepoRoot 'widget\adaptive-cards\terminal-session.data.schema.json'
 $script:AgentcardAdaptiveCardTemplatePath = Join-Path $script:RepoRoot 'widget\adaptive-cards\agentcard-icon.template.json'

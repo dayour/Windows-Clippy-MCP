@@ -106,7 +106,7 @@ internal sealed class McpAppsBridge : IAsyncDisposable
         await File.AppendAllTextAsync(_commanderIntentsPath, normalized + "\n", Encoding.UTF8, ct).ConfigureAwait(false);
     }
 
-    private static string NormalizeIntentJson(string json)
+    private string NormalizeIntentJson(string json)
     {
         try
         {
@@ -128,19 +128,16 @@ internal sealed class McpAppsBridge : IAsyncDisposable
                 WriteStringOrDefault(writer, "kind", dict, () => "unknown");
                 WriteStringOrDefault(writer, "principal", dict, () => "clippy");
 
-                // session: accept `session` or legacy `sessionId`
+                // session is the Commander session that authored the intent.
+                // It is NOT the target tab id for linkgroup.link/unlink.
                 string sessionValue;
                 if (dict.TryGetValue("session", out var sessEl) && sessEl.ValueKind == JsonValueKind.String)
                 {
                     sessionValue = sessEl.GetString() ?? string.Empty;
                 }
-                else if (dict.TryGetValue("sessionId", out var legacyEl) && legacyEl.ValueKind == JsonValueKind.String)
-                {
-                    sessionValue = legacyEl.GetString() ?? string.Empty;
-                }
                 else
                 {
-                    sessionValue = string.Empty;
+                    sessionValue = _commanderSessionId;
                 }
                 writer.WriteString("session", sessionValue);
 
@@ -161,9 +158,9 @@ internal sealed class McpAppsBridge : IAsyncDisposable
                 writer.WriteString("enqueuedAt", enqueuedValue);
 
                 // Pass through any additional kind-specific properties.
-                // NOTE: `sessionId` is preserved (not stripped) because kind-specific
-                // dispatchers (linkgroup.*, commander.*) still read it. The common
-                // `session` field is set above in addition for protocol conformance.
+                // NOTE: `sessionId` is preserved (not stripped) because linkgroup.*
+                // dispatchers read it as the target tab session id. Root-level
+                // `session` remains the Commander author session for every intent.
                 var reserved = new HashSet<string>(StringComparer.Ordinal)
                 {
                     "id", "kind", "principal", "session", "enqueuedAt", "ts"
@@ -173,12 +170,6 @@ internal sealed class McpAppsBridge : IAsyncDisposable
                     if (reserved.Contains(kv.Key)) continue;
                     writer.WritePropertyName(kv.Key);
                     kv.Value.WriteTo(writer);
-                }
-                // If caller only supplied `session` (common), backfill `sessionId`
-                // so kind-specific dispatchers keep working without per-call changes.
-                if (!dict.ContainsKey("sessionId") && !string.IsNullOrEmpty(sessionValue))
-                {
-                    writer.WriteString("sessionId", sessionValue);
                 }
 
                 writer.WriteEndObject();

@@ -43,3 +43,5 @@ E:\Windows-Clippy-MCP\widget\WidgetHost\obj\Debug\net8.0-windows\refint\WidgetHo
 E:\Windows-Clippy-MCP\widget\WidgetHost\obj\Debug\net8.0-windows\WidgetHost.pdb
 E:\Windows-Clippy-MCP\widget\WidgetHost\obj\Debug\net8.0-windows\WidgetHost.genruntimeconfig.cache
 E:\Windows-Clippy-MCP\widget\WidgetHost\obj\Debug\net8.0-windows\ref\WidgetHost.dll
+E:\Windows-Clippy-MCP\widget\WidgetHost\bin\Debug\net8.0-windows\mcp-apps\views\agent-catalog.html
+E:\Windows-Clippy-MCP\widget\WidgetHost\bin\Debug\net8.0-windows\mcp-apps\views\commander.html

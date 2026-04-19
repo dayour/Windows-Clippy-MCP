@@ -5,12 +5,14 @@ using System.Linq;
 
 namespace WidgetHost;
 
-internal sealed record AgentDefinition(string Id, string DisplayName, string FilePath);
+internal sealed record AgentDefinition(string Id, string DisplayName, string FilePath, string Source);
 
 internal static class AgentCatalog
 {
     private static readonly string[] IgnoredFileNames = ["README", "readme", "index"];
     private static readonly string[] PreferredDefaults = ["clippy-swe", "dayour-swe", "dayour", "dayswarm"];
+    internal const string UserSource = "user";
+    internal const string BundledSource = "bundled";
 
     public static AgentDefinition[] DiscoverAgents()
     {
@@ -23,12 +25,19 @@ internal static class AgentCatalog
 
         var bundledAgentsDir = GetBundledAgentsDir();
 
-        var seen = new Dictionary<string, AgentDefinition>(StringComparer.OrdinalIgnoreCase);
+        var userAgents = ReadAgentFiles(userAgentsDir);
+        var bundledAgents = ReadAgentFiles(bundledAgentsDir);
+        var allIds = userAgents.Keys
+            .Union(bundledAgents.Keys, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(id => id, StringComparer.OrdinalIgnoreCase);
 
-        AppendFrom(userAgentsDir, seen);
-        AppendFrom(bundledAgentsDir, seen);
-
-        return seen.Values
+        return allIds
+            .Select(id => CreateDefinition(
+                id,
+                userAgents.TryGetValue(id, out var userPath) ? userPath : null,
+                bundledAgents.TryGetValue(id, out var bundledPath) ? bundledPath : null))
+            .Where(static definition => definition is not null)
+            .Select(static definition => definition!)
             .OrderBy(a => a.Id, StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }
@@ -51,11 +60,12 @@ internal static class AgentCatalog
         return agents[0].Id;
     }
 
-    private static void AppendFrom(string? directory, IDictionary<string, AgentDefinition> accumulator)
+    private static Dictionary<string, string> ReadAgentFiles(string? directory)
     {
+        var agents = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
         {
-            return;
+            return agents;
         }
 
         try
@@ -68,9 +78,9 @@ internal static class AgentCatalog
                     continue;
                 }
 
-                if (!accumulator.ContainsKey(name))
+                if (!agents.ContainsKey(name))
                 {
-                    accumulator[name] = new AgentDefinition(name, name, file);
+                    agents[name] = file;
                 }
             }
         }
@@ -78,6 +88,23 @@ internal static class AgentCatalog
         {
             WidgetHostLogger.Log($"Agent discovery failed for {directory}: {ex.Message}");
         }
+
+        return agents;
+    }
+
+    private static AgentDefinition? CreateDefinition(string id, string? userPath, string? bundledPath)
+    {
+        var filePath = userPath ?? bundledPath;
+        if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(filePath))
+        {
+            return null;
+        }
+
+        var source = bundledPath is not null && (userPath is null || FileContentsMatch(userPath, bundledPath))
+            ? BundledSource
+            : UserSource;
+
+        return new AgentDefinition(id, id, filePath, source);
     }
 
     private static string? GetBundledAgentsDir()

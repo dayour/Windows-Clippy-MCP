@@ -18,25 +18,51 @@
  *   CommanderSession.TrySubmitPrompt. Append-only log so the widget can
  *   replay and de-duplicate via intent id.
  *
+ * Contract:
+ *   { id, kind: "commander.submit", principal, session, prompt, mode, enqueuedAt }
+ *
  * The view (`ui://clippy/commander.html`) is wired in L4-commander-view; this
  * module ships the tool + resource skeleton so conformance tests can already
  * verify the shape. The view currently returns the fleet-status fallback
  * until the dedicated view bundle lands.
  */
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
 import { z } from "zod";
-import { readFile, appendFile, mkdir } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
-import { dirname } from "node:path";
 import {
   registerAppTool,
   registerAppResource,
   RESOURCE_MIME_TYPE,
 } from "@modelcontextprotocol/ext-apps/server";
+import {
+  appendIntent,
+  buildIntentEnvelope,
+  COMMANDER_MODES,
+} from "../intent-envelope.mjs";
 import { wrapToolWithPrincipal } from "../principal.mjs";
 import { wrapToolWithTelemetry } from "../telemetry.mjs";
 
 const COMMANDER_VIEW_URI = "ui://clippy/commander.html";
 const MAX_PROMPT_LEN = 16_384;
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const VIEW_BUNDLE_PATH = resolve(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  "dist",
+  "mcp-apps",
+  "views",
+  "commander.html",
+);
+const VIEW_FALLBACK_PATH = resolve(
+  __dirname,
+  "..",
+  "views",
+  "commander",
+  "fallback.html",
+);
 
 const EMPTY_COMMANDER_SLICE = Object.freeze({
   sessionId: null,
@@ -116,7 +142,7 @@ export function registerCommander(server, { state, intentsPath, env = process.en
           .max(MAX_PROMPT_LEN)
           .describe("Natural-language instruction for Clippy."),
         mode: z
-          .enum(["Agent", "Plan"])
+          .enum(COMMANDER_MODES)
           .optional()
           .describe("Override Commander mode for this one prompt (default: current session mode)."),
       },
@@ -131,27 +157,25 @@ export function registerCommander(server, { state, intentsPath, env = process.en
             "Commander intents path is not configured. Set CLIPPY_COMMANDER_INTENTS_PATH or pass intentsPath when constructing the server.",
           );
         }
-        const id = randomUUID();
-        const session = readSessionFromExtra(extra);
-        const intent = {
-          id,
-          kind: "commander.submit",
-          prompt: String(prompt).slice(0, MAX_PROMPT_LEN),
-          mode: mode ?? null,
-          session,
-          enqueuedAt: new Date().toISOString(),
-        };
+        const intent = buildIntentEnvelope(
+          "commander.submit",
+          {
+            prompt: String(prompt).slice(0, MAX_PROMPT_LEN),
+            mode: mode ?? null,
+          },
+          extra,
+        );
         await appendIntent(resolvedIntents, intent);
         const payload = {
           accepted: true,
-          intentId: id,
+          intentId: intent.id,
           intentsPath: resolvedIntents,
         };
         return {
           content: [
             {
               type: "text",
-              text: `Commander intent queued (id=${id}).`,
+              text: `Commander intent queued (id=${intent.id}).`,
             },
           ],
           structuredContent: payload,
@@ -172,12 +196,13 @@ export function registerCommander(server, { state, intentsPath, env = process.en
       },
     },
     async () => {
+      const html = await readViewHtml();
       return {
         contents: [
           {
             uri: COMMANDER_VIEW_URI,
             mimeType: RESOURCE_MIME_TYPE,
-            text: COMMANDER_FALLBACK_HTML,
+            text: html,
           },
         ],
       };
@@ -203,31 +228,21 @@ async function readCommanderSlice(state) {
   }
 }
 
-function readSessionFromExtra(extra) {
-  if (!extra || typeof extra !== "object") return null;
-  const meta = extra._meta;
-  if (!meta || typeof meta !== "object") return null;
-  const clippy = meta.clippy;
-  if (!clippy || typeof clippy !== "object") return null;
-  const session = clippy.session;
-  return typeof session === "string" && session.length > 0 && session.length <= 256
-    ? session
-    : null;
-}
-
-async function appendIntent(path, intent) {
-  try {
-    await mkdir(dirname(path), { recursive: true });
-  } catch {
-    /* dir exists or cannot be created; let appendFile surface the error below */
-  }
-  await appendFile(path, JSON.stringify(intent) + "\n", "utf8");
-}
-
 function buildToolError(code, message) {
   const err = new Error(`[${code}] ${message}`);
   err.code = code;
   return err;
+}
+
+async function readViewHtml() {
+  for (const candidate of [VIEW_BUNDLE_PATH, VIEW_FALLBACK_PATH]) {
+    try {
+      return await readFile(candidate, "utf-8");
+    } catch (err) {
+      if (err?.code !== "ENOENT") throw err;
+    }
+  }
+  return COMMANDER_FALLBACK_HTML;
 }
 
 const COMMANDER_FALLBACK_HTML = `<!doctype html>

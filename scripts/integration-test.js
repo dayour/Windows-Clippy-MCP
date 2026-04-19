@@ -312,7 +312,7 @@ async function testNPMCommands() {
 
     // Test that NPM pack would work
     try {
-      await execAsync('npm pack --dry-run > /dev/null 2>&1');
+      await execAsync('npm pack --dry-run --json');
       logSuccess('NPM pack test passed');
     } catch (error) {
       logWarning('NPM pack test had issues (may work in real environment)');
