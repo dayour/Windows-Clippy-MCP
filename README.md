@@ -19,11 +19,11 @@
 
 ---
 
-Windows Clippy MCP is your friendly AI assistant that brings the helpful spirit of the classic Microsoft Office assistant to modern desktop automation. This lightweight, open-source **Model Context Protocol (MCP)** server enables any MCP-aware client (VS Code agent-mode, Claude Desktop, Gemini CLI, custom LLM agents, etc.) to control Windows and interact with Microsoft 365 services, just like a human would.
+Windows Clippy MCP is a Windows 11-first **Model Context Protocol (MCP)** server and native Clippy widget host. It combines desktop automation, Microsoft 365 integration, and bundled MCP Apps surfaces so Clippy can operate through the same tool and view contracts it exposes to external hosts.
 
-It exposes **49 tools total: 42 Desktop Automation tools + 7 M365/Power Platform tools** that cover everyday desktop automation--launching apps, clicking, typing, scrolling, getting UI state, managing windows, controlling volume, taking screenshots, and more--while hiding all the Windows Accessibility and input-synthesis complexity behind a simple HTTP/stdio interface.
+It exposes **49 tools total: 42 Desktop Automation tools + 7 M365/Power Platform tools** that cover everyday desktop automation--launching apps, clicking, typing, scrolling, getting UI state, managing windows, controlling volume, taking screenshots, and more--while hiding the Windows Accessibility, input-synthesis, and widget-host plumbing behind a simple stdio interface.
 
-**All tools have been validated and are working in VS Code agent mode!**
+**Current evidence bar:** the in-repo widget host is end-to-end proven for Fleet Status, Commander, and Agent Catalog. Generic UI-capable and headless host classes are covered by `npm run mcp-apps:host-conformance`. Product-specific configs remain documented guidance unless separately proven; see [`docs/mcp-apps/host-conformance.md`](docs/mcp-apps/host-conformance.md).
 
 ---
 
@@ -33,7 +33,7 @@ It exposes **49 tools total: 42 Desktop Automation tools + 7 M365/Power Platform
 • **Microsoft 365 integration** – Built-in tools for Graph API, Power Platform, and Copilot Studio.
 • **Zero CV / Vision optional** – Works with *any* LLM; screenshot attachment is optional.
 • **Fast** – Typical end-to-end latency 1.5 – 2.3 s per action.
-• **MCP-compliant** – Validates against the official JSON schema; ready for VS Code, Claude, Gemini CLI.
+• **MCP-compliant** – Validates against the official JSON schema and ships with MCP Apps host-conformance checks.
 • **Extensible** – Add your own Python tools in `main.py`.
 • **MIT-licensed** – Fork, embed, or commercialize freely.
 
@@ -324,11 +324,49 @@ uv sync --reinstall
 
 ---
 
+## Clippy Widget and MCP Apps
+
+The package ships a native WPF/WebView2 widget host plus three bundled MCP Apps views that are backed by the same Clippy tool surface used by external hosts.
+
+| View | Resource URI | Backing tool(s) | Status |
+|------|--------------|-----------------|--------|
+| Fleet Status | `ui://clippy/fleet-status.html` | `clippy.fleet-status` | Proven in the widget host and protocol-class conformance harness |
+| Commander | `ui://clippy/commander.html` | `clippy.commander.state`, `clippy.commander.submit` | Proven in the widget host |
+| Agent Catalog | `ui://clippy/agent-catalog.html` | `clippy.agent-catalog` | Proven in the widget host |
+
+### Launch a specific bundled view
+
+Use the packaged widget host to boot directly into a specific Clippy view:
+
+```shell
+clippy-widget --no-welcome --apps-view ui://clippy/fleet-status.html
+clippy-widget --no-welcome --apps-view ui://clippy/commander.html
+clippy-widget --no-welcome --apps-view ui://clippy/agent-catalog.html
+```
+
+### Rebuild and verify the MCP Apps surfaces
+
+```shell
+npm run build:views
+npm run mcp-apps:host-conformance
+```
+
+The host-conformance command currently proves:
+
+- a generic UI-capable MCP Apps host profile
+- a generic headless MCP host profile
+- the real in-repo widget host rendering Fleet Status, Commander, and Agent Catalog
+
+For the full proof matrix and the distinction between protocol-class evidence and product-host evidence, see [`docs/mcp-apps/host-conformance.md`](docs/mcp-apps/host-conformance.md).
+
+---
+
 ## Other Clients
 
-• **Claude Desktop** – Build `.dxt` then load in *Settings → Extensions*.
-• **Gemini CLI** – Add `windows-clippy-mcp` entry in `%USERPROFILE%/.gemini/settings.json`.
-• Any HTTP or stdio MCP client.
+• **VS Code Agent Mode** – See [`docs/mcp-apps/clients/vscode.md`](docs/mcp-apps/clients/vscode.md).
+• **Claude Desktop** – See [`docs/mcp-apps/clients/claude.md`](docs/mcp-apps/clients/claude.md).
+• **Goose** – See [`docs/mcp-apps/clients/goose.md`](docs/mcp-apps/clients/goose.md).
+• Any HTTP or stdio MCP client can still use the server directly.
 
 ---
 
