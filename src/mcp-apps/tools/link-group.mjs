@@ -13,8 +13,8 @@
  * FleetState snapshot.
  *
  * Intent kinds:
- *   { id, kind: "linkgroup.link", principal, session, sessionId, label, enqueuedAt }
- *   { id, kind: "linkgroup.unlink", principal, session, sessionId, enqueuedAt }
+ *   { id, kind: "linkgroup.link", principal, session, tabKey, sessionId, label, enqueuedAt }
+ *   { id, kind: "linkgroup.unlink", principal, session, tabKey, sessionId, enqueuedAt }
  *   { id, kind: "linkgroup.broadcast", principal, session, label, prompt, force, enqueuedAt }
  */
 import { z } from "zod";
@@ -45,12 +45,18 @@ export function registerLinkGroup(server, { state, intentsPath, env = process.en
         op: z
           .enum(["list", "link", "unlink", "broadcast"])
           .describe("Operation to perform."),
+        tabKey: z
+          .string()
+          .min(1)
+          .max(128)
+          .optional()
+          .describe("Canonical target widget tabKey (required for link/unlink unless legacy sessionId is supplied)."),
         sessionId: z
           .string()
           .min(1)
           .max(256)
           .optional()
-          .describe("Target terminal tab sessionId (required for link/unlink)."),
+          .describe("Legacy target terminal sessionId (accepted for compatibility; tabKey is preferred)."),
         label: z
           .string()
           .min(1)
@@ -73,7 +79,7 @@ export function registerLinkGroup(server, { state, intentsPath, env = process.en
     wrapToolWithTelemetry(
       "clippy.link-group",
       wrapToolWithPrincipal(async (args, extra) => {
-        const { op, sessionId, label, prompt, force = false } = args ?? {};
+        const { op, tabKey, sessionId, label, prompt, force = false } = args ?? {};
 
         if (op === "list") {
           return handleList(state);
@@ -87,19 +93,21 @@ export function registerLinkGroup(server, { state, intentsPath, env = process.en
         }
 
         if (op === "link") {
-          requireArg(sessionId, "sessionId", "link");
+          requireTarget(tabKey, sessionId, "link");
           requireArg(label, "label", "link");
           return queueIntent(resolvedIntents, extra, {
             kind: "linkgroup.link",
+            tabKey,
             sessionId,
             label: label.trim(),
           });
         }
 
         if (op === "unlink") {
-          requireArg(sessionId, "sessionId", "unlink");
+          requireTarget(tabKey, sessionId, "unlink");
           return queueIntent(resolvedIntents, extra, {
             kind: "linkgroup.unlink",
+            tabKey,
             sessionId,
           });
         }
@@ -182,6 +190,20 @@ function requireArg(value, name, op) {
       `Operation ${op} requires argument ${name}.`,
     );
   }
+}
+
+function requireTarget(tabKey, sessionId, op) {
+  if (
+    (typeof tabKey === "string" && tabKey.trim().length > 0) ||
+    (typeof sessionId === "string" && sessionId.trim().length > 0)
+  ) {
+    return;
+  }
+
+  throw buildToolError(
+    "clippy.link-group.arg.missing",
+    `Operation ${op} requires tabKey (preferred) or legacy sessionId.`,
+  );
 }
 
 function buildToolError(code, message) {

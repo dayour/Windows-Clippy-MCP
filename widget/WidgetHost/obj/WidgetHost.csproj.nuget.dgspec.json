@@ -60,6 +60,10 @@
             "Microsoft.Web.WebView2": {
               "target": "Package",
               "version": "[1.0.3240.44, )"
+            },
+            "NAudio": {
+              "target": "Package",
+              "version": "[2.2.1, )"
             }
           },
           "imports": [

@@ -20,6 +20,7 @@ import { readFile } from "node:fs/promises";
 import { statSync } from "node:fs";
 
 const DEFAULT_SNAPSHOT = Object.freeze({
+  schemaVersion: "fleet-state/v1",
   principal: "clippy",
   sessionId: null,
   tabs: {
@@ -39,6 +40,10 @@ const DEFAULT_SNAPSHOT = Object.freeze({
   },
   events: {
     recent: [],
+  },
+  adaptiveManifestProtocol: {
+    schemaVersion: "adaptive-manifest/v1",
+    manifests: [],
   },
 });
 
@@ -112,6 +117,7 @@ export class FleetState {
     const commanderSlice = safeShallow(partial.commander);
     return {
       principal: "clippy",
+      schemaVersion: safeString(partial.schemaVersion) ?? "fleet-state/v1",
       sessionId: safeString(partial.sessionId),
       tabs: {
         total: num(partial.tabs?.total),
@@ -136,6 +142,9 @@ export class FleetState {
       events: {
         recent: recentEvents,
       },
+      adaptiveManifestProtocol: normalizeAdaptiveManifestProtocol(
+        partial.adaptiveManifestProtocol,
+      ),
     };
   }
 }
@@ -215,12 +224,36 @@ function normalizeAgentEntry(entry, activeAgentId) {
   const isActive =
     entry.isActive === true || (activeAgentId !== null && activeAgentId === id);
 
-  return {
+  const out = {
     id,
     displayName: safeString(entry.displayName) ?? id,
     filePath: safeString(entry.filePath) ?? "",
     source: normalizedSource,
     isActive,
+  };
+
+  const relativePath = safeString(entry.relativePath);
+  if (relativePath) out.relativePath = relativePath;
+
+  const contentHash = safeString(entry.contentHash);
+  if (contentHash) out.contentHash = contentHash;
+
+  if (Array.isArray(entry.pathPatterns)) {
+    const pathPatterns = entry.pathPatterns.slice(0, 16).map(safeString).filter(Boolean);
+    if (pathPatterns.length > 0) out.pathPatterns = pathPatterns;
+  }
+
+  return out;
+}
+
+function normalizeAdaptiveManifestProtocol(slice) {
+  const manifests = Array.isArray(slice?.manifests)
+    ? slice.manifests.slice(0, MAX_TABS + MAX_AGENTS + 1).map((v) => safeShallow(v))
+    : [];
+  return {
+    schemaVersion:
+      safeString(slice?.schemaVersion) ?? DEFAULT_SNAPSHOT.adaptiveManifestProtocol.schemaVersion,
+    manifests: manifests.filter(Boolean),
   };
 }
 

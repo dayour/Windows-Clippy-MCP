@@ -525,9 +525,14 @@ internal sealed class McpAppsBridge : IAsyncDisposable
             Directory.CreateDirectory(dir);
         }
         var json = FleetStateSerializer.Serialize(snapshot);
-        var tmp = _fleetStatePath + ".tmp";
-        File.WriteAllText(tmp, json, new UTF8Encoding(false));
-        File.Move(tmp, _fleetStatePath, overwrite: true);
+        WriteTextAllowingReaders(_fleetStatePath, json);
+    }
+
+    private static void WriteTextAllowingReaders(string path, string contents)
+    {
+        using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
+        using var writer = new StreamWriter(stream, new UTF8Encoding(false));
+        writer.Write(contents);
     }
 
     private static string BuildFleetStatePath()
@@ -623,6 +628,12 @@ internal sealed class McpAppsBridge : IAsyncDisposable
         var root = doc.RootElement;
         if (root.ValueKind != JsonValueKind.Object) return;
 
+        if (!IsTrustedIntent(root))
+        {
+            WidgetHostLogger.Log("McpAppsBridge: rejected untrusted commander intent.");
+            return;
+        }
+
         var id = root.TryGetProperty("id", out var idEl) && idEl.ValueKind == JsonValueKind.String
             ? idEl.GetString() ?? string.Empty
             : string.Empty;
@@ -684,6 +695,8 @@ internal sealed class McpAppsBridge : IAsyncDisposable
         string mode = "all";
         string? label = null;
         string[]? ids = null;
+        string[]? tabKeys = null;
+        string[]? sessionIds = null;
         if (root.TryGetProperty("targets", out var tEl) && tEl.ValueKind == JsonValueKind.Object)
         {
             if (tEl.TryGetProperty("mode", out var tmEl) && tmEl.ValueKind == JsonValueKind.String)
@@ -696,20 +709,19 @@ internal sealed class McpAppsBridge : IAsyncDisposable
             }
             if (tEl.TryGetProperty("ids", out var tiEl) && tiEl.ValueKind == JsonValueKind.Array)
             {
-                var list = new List<string>(tiEl.GetArrayLength());
-                foreach (var item in tiEl.EnumerateArray())
-                {
-                    if (item.ValueKind == JsonValueKind.String)
-                    {
-                        var v = item.GetString();
-                        if (!string.IsNullOrWhiteSpace(v)) list.Add(v!);
-                    }
-                }
-                ids = list.ToArray();
+                ids = ReadStringArray(tiEl);
+            }
+            if (tEl.TryGetProperty("tabKeys", out var tkEl) && tkEl.ValueKind == JsonValueKind.Array)
+            {
+                tabKeys = ReadStringArray(tkEl);
+            }
+            if (tEl.TryGetProperty("sessionIds", out var siEl) && siEl.ValueKind == JsonValueKind.Array)
+            {
+                sessionIds = ReadStringArray(siEl);
             }
         }
 
-        var evt = new BroadcastIntent(id, prompt, mode, label, ids);
+        var evt = new BroadcastIntent(id, prompt, mode, label, ids, tabKeys, sessionIds);
         try
         {
             BroadcastIntentReceived?.Invoke(this, evt);
@@ -726,6 +738,9 @@ internal sealed class McpAppsBridge : IAsyncDisposable
         var sessionId = root.TryGetProperty("sessionId", out var sEl) && sEl.ValueKind == JsonValueKind.String
             ? sEl.GetString()
             : null;
+        var tabKey = root.TryGetProperty("tabKey", out var tkEl) && tkEl.ValueKind == JsonValueKind.String
+            ? tkEl.GetString()
+            : null;
         var label = root.TryGetProperty("label", out var lEl) && lEl.ValueKind == JsonValueKind.String
             ? lEl.GetString()
             : null;
@@ -733,7 +748,7 @@ internal sealed class McpAppsBridge : IAsyncDisposable
             ? pEl.GetString()
             : null;
 
-        var evt = new LinkGroupIntent(id, op, sessionId, label, prompt);
+        var evt = new LinkGroupIntent(id, op, tabKey, sessionId, label, prompt);
         try
         {
             LinkGroupIntentReceived?.Invoke(this, evt);
@@ -742,6 +757,40 @@ internal sealed class McpAppsBridge : IAsyncDisposable
         {
             WidgetHostLogger.Log($"McpAppsBridge: LinkGroupIntentReceived handler threw: {ex.Message}");
         }
+    }
+
+    private bool IsTrustedIntent(JsonElement root)
+    {
+        var principal = root.TryGetProperty("principal", out var pEl) && pEl.ValueKind == JsonValueKind.String
+            ? pEl.GetString()
+            : null;
+        if (!string.Equals(principal, "clippy", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var session = root.TryGetProperty("session", out var sEl) && sEl.ValueKind == JsonValueKind.String
+            ? sEl.GetString()
+            : null;
+        return string.IsNullOrWhiteSpace(session) ||
+            string.Equals(session, _commanderSessionId, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string[] ReadStringArray(JsonElement array)
+    {
+        var list = new List<string>(array.GetArrayLength());
+        foreach (var item in array.EnumerateArray())
+        {
+            if (item.ValueKind == JsonValueKind.String)
+            {
+                var value = item.GetString();
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    list.Add(value);
+                }
+            }
+        }
+        return list.ToArray();
     }
 
     private void EnsureStarted()
@@ -806,9 +855,22 @@ internal sealed class McpAppsBridge : IAsyncDisposable
 
 internal sealed record CommanderIntent(string Id, string Prompt, string? Mode, string? Session);
 
-internal sealed record BroadcastIntent(string Id, string Prompt, string Mode, string? Label, string[]? Ids);
+internal sealed record BroadcastIntent(
+    string Id,
+    string Prompt,
+    string Mode,
+    string? Label,
+    string[]? Ids,
+    string[]? TabKeys,
+    string[]? SessionIds);
 
-internal sealed record LinkGroupIntent(string Id, string Op, string? SessionId, string? Label, string? Prompt);
+internal sealed record LinkGroupIntent(
+    string Id,
+    string Op,
+    string? TabKey,
+    string? SessionId,
+    string? Label,
+    string? Prompt);
 
 internal sealed class McpAppsRpcException : Exception
 {

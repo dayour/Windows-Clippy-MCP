@@ -21,7 +21,8 @@ internal sealed record FleetStateSnapshot(
     FleetTabs Tabs,
     FleetGroups Groups,
     FleetAgents Agents,
-    CommanderSnapshot? Commander = null
+    CommanderSnapshot? Commander = null,
+    IReadOnlyList<AdaptiveManifestEnvelope>? Manifests = null
 );
 
 internal sealed record CommanderSnapshot(
@@ -57,7 +58,12 @@ internal sealed record FleetTab(
 
 internal sealed record FleetTabs(IReadOnlyList<FleetTab> List);
 
-internal sealed record FleetGroup(string Label, IReadOnlyList<string> Members);
+internal sealed record FleetGroup(string Label, IReadOnlyList<FleetGroupMember> Members);
+
+internal sealed record FleetGroupMember(
+    string TabKey,
+    string SessionId,
+    string DisplayName);
 
 internal sealed record FleetGroups(IReadOnlyList<FleetGroup> List);
 
@@ -66,6 +72,9 @@ internal sealed record FleetAgentCatalogEntry(
     string DisplayName,
     string FilePath,
     string Source,
+    string RelativePath,
+    string ContentHash,
+    IReadOnlyList<string> PathPatterns,
     bool IsActive
 );
 
@@ -95,6 +104,7 @@ internal static class FleetStateSerializer
         // Principal is never configurable — coerce to literal "clippy".
         var normalized = new
         {
+            schemaVersion = AdaptiveManifestProtocol.FleetStateSchemaVersion,
             principal = "clippy",
             sessionId = Clamp(snapshot.Session),
             tabs = new
@@ -125,7 +135,12 @@ internal static class FleetStateSerializer
                 list = snapshot.Groups.List.Take(MaxGroups).Select(g => new
                 {
                     label = Clamp(g.Label),
-                    members = g.Members.Take(MaxGroupMembers).Select(Clamp).ToArray(),
+                    members = g.Members.Take(MaxGroupMembers).Select(m => new
+                    {
+                        tabKey = Clamp(m.TabKey),
+                        sessionId = Clamp(m.SessionId),
+                        displayName = Clamp(m.DisplayName),
+                    }).ToArray(),
                 }).ToArray(),
             },
             agents = new
@@ -138,6 +153,9 @@ internal static class FleetStateSerializer
                     displayName = Clamp(agent.DisplayName),
                     filePath = Clamp(agent.FilePath),
                     source = Clamp(agent.Source),
+                    relativePath = Clamp(agent.RelativePath),
+                    contentHash = Clamp(agent.ContentHash),
+                    pathPatterns = agent.PathPatterns.Take(16).Select(Clamp).ToArray(),
                     isActive = agent.IsActive,
                 }).ToArray(),
             },
@@ -162,6 +180,14 @@ internal static class FleetStateSerializer
                     at = Clamp(h.At),
                 }).ToArray(),
             },
+            adaptiveManifestProtocol = new
+            {
+                schemaVersion = AdaptiveManifestProtocol.SchemaVersion,
+                manifests = (snapshot.Manifests ?? Array.Empty<AdaptiveManifestEnvelope>())
+                    .Take(MaxTabs + MaxAgents + 1)
+                    .Select(ToManifest)
+                    .ToArray(),
+            },
             events = new { recent = Array.Empty<object>() },
             capturedAt = Clamp(snapshot.CapturedAt),
         };
@@ -179,5 +205,59 @@ internal static class FleetStateSerializer
     {
         var clamped = Clamp(value);
         return string.IsNullOrEmpty(clamped) ? null : clamped;
+    }
+
+    private static object ToManifest(AdaptiveManifestEnvelope manifest)
+    {
+        return new
+        {
+            schemaVersion = Clamp(manifest.SchemaVersion),
+            manifestType = Clamp(manifest.ManifestType),
+            entityId = Clamp(manifest.EntityId),
+            source = Clamp(manifest.Source),
+            capturedAt = Clamp(manifest.CapturedAt),
+            state = new
+            {
+                lifecycle = Clamp(manifest.State.Lifecycle),
+                mode = Clamp(manifest.State.Mode),
+                agentId = Clamp(manifest.State.AgentId),
+                modelId = Clamp(manifest.State.ModelId),
+                isBusy = manifest.State.IsBusy,
+                error = Clamp(manifest.State.Error),
+                latestPrompt = Clamp(manifest.State.LatestPrompt),
+                latestReply = Clamp(manifest.State.LatestReply),
+                latestToolSummary = Clamp(manifest.State.LatestToolSummary),
+            },
+            card = new
+            {
+                cardId = Clamp(manifest.Card.CardId),
+                cardType = Clamp(manifest.Card.CardType),
+                defaultFace = Clamp(manifest.Card.DefaultFace),
+                front = manifest.Card.Front.Take(32).Select(ToField).ToArray(),
+                back = manifest.Card.Back.Take(32).Select(ToField).ToArray(),
+            },
+            refs = manifest.Refs.Take(32).Select(r => new
+            {
+                kind = Clamp(r.Kind),
+                value = Clamp(r.Value),
+            }).ToArray(),
+            attachments = manifest.Attachments.Take(32).Select(a => new
+            {
+                kind = Clamp(a.Kind),
+                name = Clamp(a.Name),
+                relativePath = Clamp(a.RelativePath),
+                contentHash = Clamp(a.ContentHash),
+                pathPatterns = a.PathPatterns.Take(16).Select(Clamp).ToArray(),
+            }).ToArray(),
+        };
+    }
+
+    private static object ToField(AdaptiveFlipCardField field)
+    {
+        return new
+        {
+            label = Clamp(field.Label),
+            value = Clamp(field.Value),
+        };
     }
 }

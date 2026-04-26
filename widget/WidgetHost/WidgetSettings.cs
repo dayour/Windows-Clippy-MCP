@@ -139,6 +139,9 @@ internal sealed class WidgetSettings
     [JsonPropertyName("Mode")]
     public string Mode { get; set; } = "Agent";
 
+    [JsonPropertyName("SchemaVersion")]
+    public string SchemaVersion { get; set; } = "widget-settings/v1";
+
     [JsonPropertyName("Model")]
     public string Model { get; set; } = ModelCatalog.DefaultModelId;
 
@@ -157,6 +160,9 @@ internal sealed class WidgetSettings
     [JsonPropertyName("LauncherTop")]
     public double? LauncherTop { get; set; }
 
+    [JsonPropertyName("VoiceLive")]
+    public WidgetVoiceLiveSettings VoiceLive { get; set; } = new();
+
     public static WidgetSettings Load()
     {
         var settings = new WidgetSettings();
@@ -170,6 +176,9 @@ internal sealed class WidgetSettings
 
             var json = File.ReadAllText(SettingsPath);
             var loaded = JsonSerializer.Deserialize<WidgetSettings>(json, SerializerOptions) ?? new WidgetSettings();
+            settings.SchemaVersion = string.IsNullOrWhiteSpace(loaded.SchemaVersion)
+                ? "widget-settings/v1"
+                : loaded.SchemaVersion;
 
             if (loaded.Mode is "Agent" or "Plan" or "Swarm")
             {
@@ -186,6 +195,7 @@ internal sealed class WidgetSettings
             settings.Extensions = loaded.Extensions ?? new WidgetExtensionSettings();
             settings.LauncherLeft = loaded.LauncherLeft;
             settings.LauncherTop = loaded.LauncherTop;
+            settings.VoiceLive = loaded.VoiceLive ?? new WidgetVoiceLiveSettings();
 
             WidgetHostLogger.Log(
                 $"Settings loaded: Mode={settings.Mode}; Model={settings.Model}; Agent={settings.Agent ?? "(none)"}; " +
@@ -222,3 +232,54 @@ internal sealed class WidgetSettings
         }
     }
 }
+
+internal sealed class WidgetVoiceLiveSettings
+{
+    [JsonPropertyName("Enabled")]
+    public bool Enabled { get; set; } = false;
+
+    [JsonPropertyName("WssEndpoint")]
+    public string WssEndpoint { get; set; } = "wss://eastus2.api.cognitive.microsoft.com";
+
+    [JsonPropertyName("Model")]
+    public string Model { get; set; } = "phi4-mm-realtime";
+
+    [JsonPropertyName("TtsVoiceName")]
+    public string TtsVoiceName { get; set; } = "en-US-AvaMultilingualNeural";
+
+    /// <summary>
+    /// Resolved at runtime from environment variables. Check registry scopes
+    /// directly so a running shell does not need to be restarted after setting
+    /// the User-scoped key.
+    /// Never persisted to disk.
+    /// </summary>
+    [JsonIgnore]
+    public string? ApiKey => ResolveApiKey();
+
+    private static string? ResolveApiKey()
+    {
+        foreach (var name in new[] { "VOICELIVE_API_KEY", "COPILOT_DY_FOUNDRY_KEY" })
+        {
+            var value = Environment.GetEnvironmentVariable(name, EnvironmentVariableTarget.Process);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+
+            value = Environment.GetEnvironmentVariable(name, EnvironmentVariableTarget.User);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+
+            value = Environment.GetEnvironmentVariable(name, EnvironmentVariableTarget.Machine);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+        }
+
+        return null;
+    }
+}
+

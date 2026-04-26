@@ -64,6 +64,7 @@ internal sealed class BridgeTerminalConnection : IWidgetTerminalConnection
     private readonly string _repoRoot;
     private readonly string _launchSummary;
     private readonly ProcessStartInfo _startInfo;
+    private readonly BridgeRuntime _runtime;
 
     private Process? _hostProcess;
     private StreamWriter? _stdinWriter;
@@ -109,6 +110,7 @@ internal sealed class BridgeTerminalConnection : IWidgetTerminalConnection
         BridgeRuntime runtime)
     {
         _repoRoot = repoRoot;
+        _runtime = runtime;
         _startInfo = BuildStartInfo(
             repoRoot,
             sessionId,
@@ -478,7 +480,14 @@ internal sealed class BridgeTerminalConnection : IWidgetTerminalConnection
                     break;
 
                 case "session.exit":
-                    RaiseExited(TryGetInt(payload, "exitCode"), $"Bridge terminal session exited. ExitCode={TryGetInt(payload, "exitCode")?.ToString() ?? "(unknown)"}");
+                    if (_runtime == BridgeRuntime.Copilot)
+                    {
+                        WidgetHostLogger.Log($"Bridge prompt child exited. ExitCode={TryGetInt(payload, "exitCode")?.ToString() ?? "(unknown)"}");
+                    }
+                    else
+                    {
+                        RaiseExited(TryGetInt(payload, "exitCode"), $"Bridge terminal session exited. ExitCode={TryGetInt(payload, "exitCode")?.ToString() ?? "(unknown)"}");
+                    }
                     break;
 
                 case "session.error":

@@ -54,6 +54,8 @@ public partial class MainWindow : Window
     private readonly AgentDefinition[] _agents;
     private McpAppsBridge? _appsBridge;
     private McpAppsHost? _appsHost;
+    private McpAppsHost? _secondaryAppsHost;
+    private FleetStatusWindow? _fleetStatusWindow;
     private bool _allowClose;
     private bool _isShuttingDown;
     private bool _isSyncingUi;
@@ -92,6 +94,7 @@ public partial class MainWindow : Window
         _commanderHub.SessionUnregistered += OnCommanderHubSessionChanged;
         RefreshToolbarButtonLabels();
         UpdateSessionMeta();
+        UpdateFleetStatusBadge();
         WidgetHostLogger.Log($"BenchWindow created. RepoRoot={_repoRoot}; ConfigDir={_copilotConfigDir}; Agents={_agents.Length}");
         Closing += OnClosing;
         InitializeMcpAppsHost();
@@ -210,11 +213,19 @@ public partial class MainWindow : Window
 
         try { _appsHost?.Dispose(); }
         catch (Exception ex) { WidgetHostLogger.Log($"McpAppsHost dispose warn: {ex.Message}"); }
+        try { _fleetStatusWindow?.Close(); }
+        catch (Exception ex) { WidgetHostLogger.Log($"FleetStatusWindow close warn: {ex.Message}"); }
         if (_appsBridge is not null)
         {
             try { _appsBridge.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(3)); }
             catch (Exception ex) { WidgetHostLogger.Log($"McpAppsBridge dispose warn: {ex.Message}"); }
         }
+
+        try { StopVoiceAsync().Wait(TimeSpan.FromSeconds(2)); }
+        catch (Exception ex) { WidgetHostLogger.Log($"VoiceLive dispose warn: {ex.Message}"); }
+
+        try { StopLiveAiAsync().Wait(TimeSpan.FromSeconds(2)); }
+        catch (Exception ex) { WidgetHostLogger.Log($"LiveAI dispose warn: {ex.Message}"); }
 
         foreach (var session in _sessions.ToArray())
         {
@@ -254,7 +265,7 @@ public partial class MainWindow : Window
                     {
                         Content = agent.DisplayName,
                         Tag = agent.Id,
-                        ToolTip = agent.FilePath
+                        ToolTip = AgentCatalog.BuildPortableTooltip(agent)
                     });
                 }
             }
@@ -420,7 +431,8 @@ public partial class MainWindow : Window
             details.Add($"Tab error: {session.LastErrorMessage}");
         }
 
-        details.Add("Files: none attached");
+        details.Add("Files: no user files attached");
+        details.Add("Adaptive manifest: v1 flipcards include agent schema refs and path patterns");
         details.Add($"Tools: {_settings.Tools.EnabledCount} enabled");
         details.Add($"Extensions: {_settings.Extensions.EnabledCount} enabled");
         return string.Join("  ", details);
@@ -1124,6 +1136,7 @@ public partial class MainWindow : Window
             commanderSessionId: _commanderSession.SessionId);
         _appsHost.ViewInitialized += OnAppsViewInitialized;
         AppsHostSlot.Child = _appsHost;
+        AppsHostSlot.Height = 140;
         AppsHostSlot.Visibility = Visibility.Visible;
         SessionMeta.Visibility = Visibility.Collapsed;
         _resourceUriCurrent = uri;
@@ -1144,6 +1157,7 @@ public partial class MainWindow : Window
         }
 
         AppsHostSlot.Visibility = Visibility.Collapsed;
+        AppsHostSlot.Height = 0;
         SessionMeta.Visibility = Visibility.Visible;
         _resourceUriCurrent = null;
         SetCommanderNotice("Unmounted MCP App view; session meta text fallback restored.");
@@ -1739,7 +1753,13 @@ public partial class MainWindow : Window
         var displayName = tabIndex == 1 ? "Clippy" : $"Clippy {tabIndex}";
         var sessionId = string.IsNullOrWhiteSpace(preferredSessionId)
             ? Guid.NewGuid().ToString()
-            : preferredSessionId;
+            : preferredSessionId.Trim();
+        if (_sessions.Any(s => string.Equals(s.SessionId, sessionId, StringComparison.OrdinalIgnoreCase)))
+        {
+            var originalSessionId = sessionId;
+            sessionId = Guid.NewGuid().ToString();
+            WidgetHostLogger.Log($"Preferred sessionId collision ignored: {originalSessionId}; generated {sessionId}.");
+        }
 
         var terminal = new TerminalControl
         {
@@ -1916,8 +1936,15 @@ public partial class MainWindow : Window
             {
                 UpdateSessionMeta();
             }
+            UpdateFleetStatusBadge();
             PublishMountedViewRefresh("state-change");
         });
+    }
+
+    private void UpdateFleetStatusBadge()
+    {
+        if (FleetStatusBadge is null) return;
+        FleetStatusBadge.Text = $"{_commanderHub.SessionCount} tabs / {_commanderHub.WaitingCount} working / {_commanderHub.GroupCount} groups";
     }
 
     private void PublishMountedViewRefresh(string reason)
@@ -1992,11 +2019,19 @@ public partial class MainWindow : Window
 
     private async Task RefreshMountedViewAsync(string reason)
     {
-        if (_appsBridge is null || !_appsBridge.IsReady || _appsHost is null) return;
+        if (_appsBridge is null || !_appsBridge.IsReady) return;
         try
         {
-            await _appsHost.PostResourceListChangedAsync().ConfigureAwait(true);
-            await PushMountedViewToolResultToViewAsync(reason).ConfigureAwait(true);
+            if (_appsHost is not null)
+            {
+                await _appsHost.PostResourceListChangedAsync().ConfigureAwait(true);
+                await PushMcpAppsToolResultToViewAsync(_appsHost, _resourceUriCurrent, reason, "primary").ConfigureAwait(true);
+            }
+            if (_secondaryAppsHost is not null)
+            {
+                await _secondaryAppsHost.PostResourceListChangedAsync().ConfigureAwait(true);
+                await PushMcpAppsToolResultToViewAsync(_secondaryAppsHost, DefaultMountedResourceUri, reason, "fleet-status").ConfigureAwait(true);
+            }
         }
         catch (Exception ex)
         {
@@ -2006,14 +2041,29 @@ public partial class MainWindow : Window
 
     private async Task PushMountedViewToolResultToViewAsync(string reason)
     {
-        if (_appsBridge is null || !_appsBridge.IsReady || _appsHost is null) return;
+        if (_appsBridge is null || !_appsBridge.IsReady) return;
+        if (_appsHost is null && _secondaryAppsHost is null) return;
+
+        if (_appsHost is not null)
+        {
+            await PushMcpAppsToolResultToViewAsync(_appsHost, _resourceUriCurrent, reason, "primary").ConfigureAwait(true);
+        }
+
+        if (_secondaryAppsHost is not null)
+        {
+            await PushMcpAppsToolResultToViewAsync(_secondaryAppsHost, DefaultMountedResourceUri, reason, "fleet-status").ConfigureAwait(true);
+        }
+    }
+
+    private async Task PushMcpAppsToolResultToViewAsync(McpAppsHost host, string? resourceUri, string reason, string surface)
+    {
+        if (_appsBridge is null || !_appsBridge.IsReady) return;
         try
         {
-            var host = _appsHost;
-            var binding = ResolveMountedViewBinding(_resourceUriCurrent);
+            var binding = ResolveMountedViewBinding(resourceUri);
             if (binding is null)
             {
-                WidgetHostLogger.Log($"PushMountedViewToolResultToViewAsync({reason}): no binding for {_resourceUriCurrent ?? "<null>"}.");
+                WidgetHostLogger.Log($"PushMcpAppsToolResultToViewAsync({reason}, {surface}): no binding for {resourceUri ?? "<null>"}.");
                 return;
             }
 
@@ -2028,15 +2078,75 @@ public partial class MainWindow : Window
             }
             if (!result.TryGetProperty("structuredContent", out var structured))
             {
-                WidgetHostLogger.Log($"PushMountedViewToolResultToViewAsync({reason}): result missing 'structuredContent' for {binding.ToolName}.");
+                WidgetHostLogger.Log($"PushMcpAppsToolResultToViewAsync({reason}, {surface}): result missing 'structuredContent' for {binding.ToolName}.");
                 return;
             }
+
             await host.PostToolResultAsync(binding.ToolName, structured).ConfigureAwait(true);
-            WidgetHostLogger.Log($"PushMountedViewToolResultToViewAsync({reason}): posted {binding.ToolName} bytes={structured.GetRawText().Length} resource={binding.ResourceUri}");
+            WidgetHostLogger.Log($"PushMcpAppsToolResultToViewAsync({reason}, {surface}): posted {binding.ToolName} bytes={structured.GetRawText().Length} resource={binding.ResourceUri}");
         }
         catch (Exception ex)
         {
-            WidgetHostLogger.Log($"PushMountedViewToolResultToViewAsync({reason}): {ex.Message}");
+            WidgetHostLogger.Log($"PushMcpAppsToolResultToViewAsync({reason}, {surface}): {ex.Message}");
+        }
+    }
+
+    private void OnFleetStatusBtnClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (_appsBridge is null || !_appsBridge.IsReady)
+            {
+                SetCommanderNotice("Fleet Status: MCP Apps bridge is not ready yet.");
+                UpdateStatus("Fleet Status bridge is not ready.");
+                return;
+            }
+
+            if (_fleetStatusWindow is not null)
+            {
+                if (_fleetStatusWindow.WindowState == WindowState.Minimized)
+                {
+                    _fleetStatusWindow.WindowState = WindowState.Normal;
+                }
+                _fleetStatusWindow.Activate();
+                _fleetStatusWindow.Focus();
+                PublishMountedViewRefresh("fleet-status-popup-focus");
+                return;
+            }
+
+            _fleetStatusWindow = new FleetStatusWindow(
+                _appsBridge,
+                DefaultMountedResourceUri,
+                _commanderSession.SessionId,
+                onHostChanged: host =>
+                {
+                    _secondaryAppsHost = host;
+                    if (host is not null)
+                    {
+                        host.ViewInitialized += OnAppsViewInitialized;
+                        _ = Dispatcher.InvokeAsync(async () =>
+                        {
+                            try { await PushMountedViewToolResultToViewAsync("fleet-status-popup-open").ConfigureAwait(true); }
+                            catch (Exception ex) { WidgetHostLogger.Log($"FleetStatusWindow seed: {ex.Message}"); }
+                        });
+                    }
+                })
+            {
+                Owner = this
+            };
+            _fleetStatusWindow.Closed += (_, _) =>
+            {
+                _fleetStatusWindow = null;
+                _secondaryAppsHost = null;
+                UpdateFleetStatusBadge();
+            };
+            _fleetStatusWindow.Show();
+            UpdateStatus("Fleet Status opened.");
+        }
+        catch (Exception ex)
+        {
+            WidgetHostLogger.Log($"OnFleetStatusBtnClick: {ex.Message}");
+            SetCommanderNotice($"Fleet Status open failed: {ex.Message}");
         }
     }
 
@@ -2067,7 +2177,12 @@ public partial class MainWindow : Window
         )).ToArray();
 
         var groups = _commanderHub.DescribeGroups()
-            .Select(kvp => new FleetGroup(kvp.Key, kvp.Value.ToArray()))
+            .Select(kvp => new FleetGroup(
+                kvp.Key,
+                kvp.Value.Select(m => new FleetGroupMember(
+                    TabKey: m.TabKey.ToString(),
+                    SessionId: m.SessionId,
+                    DisplayName: m.DisplayName)).ToArray()))
             .ToArray();
 
         var activeAgentId = _commanderSession.AgentId ?? string.Empty;
@@ -2076,12 +2191,16 @@ public partial class MainWindow : Window
             .Select(a => new FleetAgentCatalogEntry(
                 Id: a.Id ?? string.Empty,
                 DisplayName: a.DisplayName ?? a.Id ?? string.Empty,
-                FilePath: a.FilePath ?? string.Empty,
+                FilePath: a.RelativePath ?? string.Empty,
                 Source: a.Source ?? string.Empty,
+                RelativePath: a.RelativePath ?? string.Empty,
+                ContentHash: a.ContentHash ?? string.Empty,
+                PathPatterns: a.PathPatterns ?? Array.Empty<string>(),
                 IsActive: !string.IsNullOrEmpty(activeAgentId) && string.Equals(a.Id, activeAgentId, StringComparison.OrdinalIgnoreCase)))
             .ToArray();
 
         var commanderSnapshot = BuildCommanderSnapshot();
+        var manifests = AdaptiveManifestProtocol.BuildFleetManifests(commanderSnapshot, tabs, agents);
 
         return new FleetStateSnapshot(
             Principal: "clippy",
@@ -2091,7 +2210,8 @@ public partial class MainWindow : Window
             Tabs: new FleetTabs(tabs),
             Groups: new FleetGroups(groups),
             Agents: new FleetAgents(agents.Length, activeAgentId, agents),
-            Commander: commanderSnapshot
+            Commander: commanderSnapshot,
+            Manifests: manifests
         );
     }
 
@@ -2129,6 +2249,7 @@ public partial class MainWindow : Window
                 try
                 {
                     if (!string.IsNullOrWhiteSpace(intent.Mode)
+                        && ValidModes.Contains(intent.Mode)
                         && !string.Equals(_commanderSession.Mode, intent.Mode, StringComparison.OrdinalIgnoreCase))
                     {
                         _commanderSession.Mode = intent.Mode!;
@@ -2159,12 +2280,32 @@ public partial class MainWindow : Window
                 {
                     if (string.IsNullOrWhiteSpace(intent.Prompt)) return;
                     IReadOnlyCollection<TerminalTabSession>? targetSessions = null;
-                    if (string.Equals(intent.Mode, "ids", StringComparison.OrdinalIgnoreCase) && intent.Ids is { Length: > 0 })
+                    if (string.Equals(intent.Mode, "tabKeys", StringComparison.OrdinalIgnoreCase) && intent.TabKeys is { Length: > 0 })
+                    {
+                        var resolved = new List<TerminalTabSession>(intent.TabKeys.Length);
+                        foreach (var tabKey in intent.TabKeys)
+                        {
+                            var match = _commanderHub.FindByTabKey(tabKey);
+                            if (match is not null) resolved.Add(match);
+                        }
+                        targetSessions = resolved;
+                    }
+                    else if (string.Equals(intent.Mode, "ids", StringComparison.OrdinalIgnoreCase) && intent.Ids is { Length: > 0 })
                     {
                         var resolved = new List<TerminalTabSession>(intent.Ids.Length);
-                        foreach (var sid in intent.Ids)
+                        foreach (var id in intent.Ids)
                         {
-                            var match = _commanderHub.Sessions.FirstOrDefault(s => string.Equals(s.SessionId, sid, StringComparison.OrdinalIgnoreCase));
+                            var match = _commanderHub.ResolveTarget(id, id);
+                            if (match is not null) resolved.Add(match);
+                        }
+                        targetSessions = resolved;
+                    }
+                    else if (string.Equals(intent.Mode, "sessionIds", StringComparison.OrdinalIgnoreCase) && intent.SessionIds is { Length: > 0 })
+                    {
+                        var resolved = new List<TerminalTabSession>(intent.SessionIds.Length);
+                        foreach (var sessionId in intent.SessionIds)
+                        {
+                            var match = _commanderHub.FindBySessionId(sessionId);
                             if (match is not null) resolved.Add(match);
                         }
                         targetSessions = resolved;
@@ -2201,16 +2342,17 @@ public partial class MainWindow : Window
                     switch (intent.Op)
                     {
                         case "link":
-                            if (!string.IsNullOrWhiteSpace(intent.SessionId) && !string.IsNullOrWhiteSpace(intent.Label))
+                            if ((!string.IsNullOrWhiteSpace(intent.TabKey) || !string.IsNullOrWhiteSpace(intent.SessionId)) &&
+                                !string.IsNullOrWhiteSpace(intent.Label))
                             {
-                                var match = _commanderHub.Sessions.FirstOrDefault(s => string.Equals(s.SessionId, intent.SessionId, StringComparison.OrdinalIgnoreCase));
+                                var match = _commanderHub.ResolveTarget(intent.TabKey, intent.SessionId);
                                 if (match is not null) _commanderHub.Link(match, intent.Label!);
                             }
                             break;
                         case "unlink":
-                            if (!string.IsNullOrWhiteSpace(intent.SessionId))
+                            if (!string.IsNullOrWhiteSpace(intent.TabKey) || !string.IsNullOrWhiteSpace(intent.SessionId))
                             {
-                                var match = _commanderHub.Sessions.FirstOrDefault(s => string.Equals(s.SessionId, intent.SessionId, StringComparison.OrdinalIgnoreCase));
+                                var match = _commanderHub.ResolveTarget(intent.TabKey, intent.SessionId);
                                 if (match is not null) _commanderHub.Unlink(match);
                             }
                             break;
@@ -2256,16 +2398,28 @@ public partial class MainWindow : Window
                 return;
             }
 
-            _appsHost = new McpAppsHost(
-                resourceUri: _resourceUriCurrent ?? DefaultMountedResourceUri,
-                bridge: _appsBridge,
-                commanderSessionId: _commanderSession.SessionId);
-            _appsHost.ViewInitialized += OnAppsViewInitialized;
-            AppsHostSlot.Child = _appsHost;
-            await _appsHost.EnsureReadyAsync().ConfigureAwait(true);
-
-            // Seed initial state now that the view can receive it.
-            PublishMountedViewRefresh("mount");
+            if (!string.IsNullOrWhiteSpace(_resourceUriCurrent)
+                && !string.Equals(_resourceUriCurrent, DefaultMountedResourceUri, StringComparison.OrdinalIgnoreCase))
+            {
+                _appsHost = new McpAppsHost(
+                    resourceUri: _resourceUriCurrent,
+                    bridge: _appsBridge,
+                    commanderSessionId: _commanderSession.SessionId);
+                _appsHost.ViewInitialized += OnAppsViewInitialized;
+                AppsHostSlot.Child = _appsHost;
+                AppsHostSlot.Height = 140;
+                AppsHostSlot.Visibility = Visibility.Visible;
+                await _appsHost.EnsureReadyAsync().ConfigureAwait(true);
+                PublishMountedViewRefresh("mount");
+            }
+            else
+            {
+                _resourceUriCurrent = null;
+                AppsHostSlot.Child = null;
+                AppsHostSlot.Height = 0;
+                AppsHostSlot.Visibility = Visibility.Collapsed;
+                PublishMountedViewRefresh("bridge-start");
+            }
         }
         catch (Exception ex)
         {

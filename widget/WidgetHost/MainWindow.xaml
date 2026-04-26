@@ -519,7 +519,7 @@
                                   Margin="0,0,6,0"
                                   Style="{StaticResource ToolbarComboBoxStyle}"
                                   SelectionChanged="OnAgentSelectionChanged"
-                                  ToolTip="Choose the active Copilot agent for this tab" />
+                                  ToolTip="Set the Commander agent and default agent for newly opened tabs" />
 
                         <ComboBox x:Name="ModelSelector"
                                   Grid.Column="1"
@@ -527,7 +527,7 @@
                                   Margin="0,0,6,0"
                                   Style="{StaticResource ToolbarComboBoxStyle}"
                                   SelectionChanged="OnModelSelectionChanged"
-                                  ToolTip="Choose the active Copilot model for this tab" />
+                                  ToolTip="Set the Commander model and default model for newly opened tabs" />
 
                         <Button x:Name="ToolsBtn"
                                 Grid.Column="2"
@@ -551,28 +551,67 @@
                                       Style="{StaticResource ModeToggleStyle}"
                                       Checked="OnModeToggleChecked"
                                       Tag="Agent"
-                                      ToolTip="Agent mode" />
+                                      ToolTip="Agent mode for Commander and new-tab defaults" />
                         <ToggleButton x:Name="ModePlanToggle"
                                       Grid.Column="6"
                                       Content="P"
                                       Style="{StaticResource ModeToggleStyle}"
                                       Checked="OnModeToggleChecked"
                                       Tag="Plan"
-                                      ToolTip="Plan mode" />
+                                      ToolTip="Plan mode for Commander and new-tab defaults" />
                         <ToggleButton x:Name="ModeSwarmToggle"
                                       Grid.Column="7"
                                       Content="S"
                                       Style="{StaticResource ModeToggleStyle}"
                                       Checked="OnModeToggleChecked"
                                       Tag="Swarm"
-                                      ToolTip="Swarm mode" />
+                                      ToolTip="Swarm mode for Commander and new-tab defaults" />
                     </Grid>
 
-                    <!-- Session metadata: collapsed by default; live fleet renders in the MCP Apps WebView2 slot below. -->
+                    <!-- Fleet Status: button opens FleetStatusWindow with the full live MCP App view. -->
                     <Grid Margin="0,0,0,4">
-                        <Border x:Name="AppsHostSlot"
-                                Height="140"
+                        <Button x:Name="FleetStatusBtn"
+                                Height="32"
                                 Margin="2,0,0,0"
+                                HorizontalContentAlignment="Left"
+                                Padding="10,0"
+                                Background="#FF161634"
+                                Foreground="#FFE8E8E8"
+                                BorderBrush="#FF2A2A44"
+                                BorderThickness="1"
+                                Cursor="Hand"
+                                Click="OnFleetStatusBtnClick"
+                                ToolTip="Open the live Clippy Fleet Status card in a larger window">
+                            <Button.Resources>
+                                <Style TargetType="Border">
+                                    <Setter Property="CornerRadius" Value="6" />
+                                </Style>
+                            </Button.Resources>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE789;"
+                                           FontFamily="Segoe MDL2 Assets"
+                                           FontSize="13"
+                                           Foreground="#FF5B5FC7"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,8,0" />
+                                <TextBlock Text="Fleet Status"
+                                           FontFamily="Segoe UI Semibold"
+                                           FontSize="12"
+                                           Foreground="#FFE8E8E8"
+                                           VerticalAlignment="Center" />
+                                <TextBlock x:Name="FleetStatusBadge"
+                                           Text=""
+                                           FontFamily="Segoe UI"
+                                           FontSize="11"
+                                           Foreground="#FF8F8FAF"
+                                           VerticalAlignment="Center"
+                                           Margin="8,0,0,0" />
+                            </StackPanel>
+                        </Button>
+                        <!-- Hidden inline host kept for compat with /apps mount text-fallback path; popup is primary surface. -->
+                        <Border x:Name="AppsHostSlot"
+                                Visibility="Collapsed"
+                                Height="0"
                                 Background="#110E0E28"
                                 BorderBrush="#FF2A2A44"
                                 BorderThickness="1"
@@ -597,6 +636,8 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock x:Name="PromptLabel"
@@ -683,8 +724,102 @@
                                 </ListBox>
                             </Border>
                         </Popup>
-                        <Button x:Name="SendBtn"
-                                Grid.Column="2"
+                        <ToggleButton x:Name="MicToggle"
+                                      Grid.Column="2"
+                                      Content="&#xE720;"
+                                      FontFamily="Segoe MDL2 Assets"
+                                      FontSize="15"
+                                      Width="38"
+                                      Height="34"
+                                      Background="#FF222244"
+                                      Foreground="#FFB0B0D0"
+                                      BorderThickness="0"
+                                      Cursor="Hand"
+                                      Margin="8,0,0,0"
+                                      Checked="OnMicToggleChecked"
+                                      Unchecked="OnMicToggleUnchecked"
+                                      ToolTip="Transcribe speech to the input box (manual review). Click Send to dispatch. Requires VOICELIVE_API_KEY.">
+                            <ToggleButton.Resources>
+                                <Style TargetType="Border">
+                                    <Setter Property="CornerRadius" Value="6" />
+                                </Style>
+                            </ToggleButton.Resources>
+                            <ToggleButton.Style>
+                                <Style TargetType="ToggleButton">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ToggleButton">
+                                                <Border Background="{TemplateBinding Background}"
+                                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                                        CornerRadius="6">
+                                                    <ContentPresenter HorizontalAlignment="Center"
+                                                                      VerticalAlignment="Center" />
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter Property="Background" Value="#FFD24747" />
+                                            <Setter Property="Foreground" Value="White" />
+                                        </Trigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#FF333366" />
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ToggleButton.Style>
+                        </ToggleButton>
+                         <ToggleButton x:Name="LiveAICommanderToggle"
+                                      Grid.Column="4"
+                                      Content="LiveAI"
+                                      FontFamily="Segoe UI Semibold"
+                                      FontSize="11.5"
+                                      Width="58"
+                                      Height="34"
+                                      Background="#FF222244"
+                                      Foreground="#FFB0B0D0"
+                                      BorderThickness="0"
+                                      Cursor="Hand"
+                                      Margin="10,0,0,0"
+                                      Checked="OnLiveAiToggleChecked"
+                                      Unchecked="OnLiveAiToggleUnchecked"
+                                      ToolTip="LiveAI Commander: two-way Voice Live audio wired to the full Windows-Clippy-MCP tool suite. Speak to Commander; replies are spoken back. Requires VOICELIVE_API_KEY. Headphones recommended.">
+                            <ToggleButton.Resources>
+                                <Style TargetType="Border">
+                                    <Setter Property="CornerRadius" Value="6" />
+                                </Style>
+                            </ToggleButton.Resources>
+                            <ToggleButton.Style>
+                                <Style TargetType="ToggleButton">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ToggleButton">
+                                                <Border Background="{TemplateBinding Background}"
+                                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                                        CornerRadius="6">
+                                                    <ContentPresenter HorizontalAlignment="Center"
+                                                                      VerticalAlignment="Center" />
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter Property="Background" Value="#FF8B5CF6" />
+                                            <Setter Property="Foreground" Value="White" />
+                                        </Trigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#FF333366" />
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ToggleButton.Style>
+                        </ToggleButton>
+                         <Button x:Name="SendBtn"
+                                Grid.Column="3"
                                 Content="&#xE768;"
                                 FontFamily="Segoe MDL2 Assets"
                                 FontSize="15"

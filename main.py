@@ -4,7 +4,15 @@ try:
 except ImportError:
     _has_watch_cursor = False
 from contextlib import asynccontextmanager
-from fastmcp.utilities.types import Image
+from fastmcp import Context
+from fastmcp.utilities.types import Image, Audio
+from src.voice import (
+    VoiceLiveClient,
+    VoiceLiveError,
+    pcm16_to_wav,
+    decode_audio_input,
+    resolve_voice_live_config,
+)
 from humancursor import SystemCursor
 from platform import system, release
 from markdownify import markdownify
@@ -2073,5 +2081,191 @@ def copilot_cli_tool(
         return f'Copilot CLI operation failed: {str(e)}'
 
 # ==================== END NEW TOOLS ====================
+
+
+# ==================== VOICE LIVE TOOLS ====================
+# Real-time TTS / STT through Azure Voice Live (phi4-mm-realtime).
+# Same auth + endpoint as the Clippy widget: VOICELIVE_API_KEY env var,
+# default endpoint wss://eastus2.api.cognitive.microsoft.com.
+
+@mcp.tool(
+    name='VoiceLive-Status-Tool',
+    description=(
+        'Diagnostic for the Voice Live integration. Returns whether the '
+        'API key is set, the resolved endpoint, model, default voice, and '
+        'the realtime URI used for STT/TTS connections. Always cheap and '
+        'safe to call.'
+    ),
+)
+def voicelive_status_tool(
+    wss_endpoint: Optional[str] = None,
+    model: Optional[str] = None,
+    voice_name: Optional[str] = None,
+) -> dict:
+    config = resolve_voice_live_config(
+        wss_endpoint=wss_endpoint, model=model, voice_name=voice_name
+    )
+    return {
+        'api_key_set': config.has_api_key(),
+        'wss_endpoint': config.wss_endpoint,
+        'model': config.model,
+        'api_version': config.api_version,
+        'voice_name': config.voice_name,
+        'voice_type': config.voice_type,
+        'transcription_model': config.transcription_model,
+        'sample_rate_hz': config.sample_rate,
+        'realtime_uri': config.realtime_uri(),
+        'env_var_names': ['VOICELIVE_API_KEY', 'COPILOT_DY_FOUNDRY_KEY'],
+    }
+
+
+@mcp.tool(
+    name='VoiceLive-Speak-Tool',
+    description=(
+        'Synthesize speech with Azure Voice Live (phi4-mm-realtime) and '
+        'return the audio as a 24 kHz mono 16-bit WAV. Optional voice_name '
+        '(e.g. en-US-AvaMultilingualNeural, en-US-JennyNeural). When '
+        'stream=True, intermediate audio chunks are forwarded to the MCP '
+        'client via progress notifications while the final WAV is still '
+        'returned in the tool response.'
+    ),
+)
+async def voicelive_speak_tool(
+    text: str,
+    voice_name: Optional[str] = None,
+    wss_endpoint: Optional[str] = None,
+    model: Optional[str] = None,
+    timeout: float = 30.0,
+    stream: bool = True,
+    ctx: Context = None,
+) -> Audio:
+    config = resolve_voice_live_config(
+        wss_endpoint=wss_endpoint, model=model, voice_name=voice_name
+    )
+    if not config.has_api_key():
+        raise RuntimeError(
+            'VoiceLive API key not set. Set VOICELIVE_API_KEY (User scope) '
+            'and restart the MCP host, or pass api_key via env.'
+        )
+
+    chunk_total = {'count': 0, 'bytes': 0}
+
+    async def on_chunk(idx: int, pcm: bytes) -> None:
+        chunk_total['count'] += 1
+        chunk_total['bytes'] += len(pcm)
+        if stream and ctx is not None:
+            try:
+                await ctx.report_progress(
+                    progress=chunk_total['bytes'],
+                    total=None,
+                    message=f'audio chunk {idx} ({len(pcm)} bytes)',
+                )
+            except Exception:
+                pass
+
+    client = VoiceLiveClient(config)
+    try:
+        pcm = await client.speak(
+            text=text,
+            timeout=timeout,
+            on_chunk=on_chunk if stream else None,
+        )
+    except VoiceLiveError as exc:
+        raise RuntimeError(f'VoiceLive speak failed: {exc}') from exc
+    if not pcm:
+        raise RuntimeError('VoiceLive returned no audio')
+    wav_bytes = pcm16_to_wav(pcm, sample_rate=config.sample_rate, channels=1)
+    return Audio(data=wav_bytes, format='wav')
+
+
+@mcp.tool(
+    name='VoiceLive-Transcribe-Tool',
+    description=(
+        'Transcribe spoken audio with Azure Voice Live (whisper-1). Accepts '
+        'base64-encoded audio in one of two formats: "wav" (any 16-bit PCM '
+        'WAV; auto-resampled to 24 kHz mono) or "pcm16" (raw little-endian '
+        '16-bit PCM at 24 kHz mono). Returns the recognized text.'
+    ),
+)
+async def voicelive_transcribe_tool(
+    audio_b64: str,
+    audio_format: Literal['wav', 'pcm16'] = 'wav',
+    wss_endpoint: Optional[str] = None,
+    model: Optional[str] = None,
+    timeout: float = 30.0,
+) -> str:
+    if not audio_b64 or not audio_b64.strip():
+        raise RuntimeError('audio_b64 is required')
+    config = resolve_voice_live_config(wss_endpoint=wss_endpoint, model=model)
+    if not config.has_api_key():
+        raise RuntimeError(
+            'VoiceLive API key not set. Set VOICELIVE_API_KEY (User scope) '
+            'and restart the MCP host.'
+        )
+    try:
+        pcm = decode_audio_input(audio_b64, audio_format)
+    except VoiceLiveError as exc:
+        raise RuntimeError(str(exc)) from exc
+
+    client = VoiceLiveClient(config)
+    try:
+        text = await client.transcribe(pcm, timeout=timeout)
+    except VoiceLiveError as exc:
+        raise RuntimeError(f'VoiceLive transcribe failed: {exc}') from exc
+    return text or ''
+
+
+@mcp.tool(
+    name='VoiceLive-Speak-To-File-Tool',
+    description=(
+        'Convenience wrapper around VoiceLive-Speak-Tool. Synthesizes the '
+        'given text and writes a 24 kHz mono 16-bit WAV file to the '
+        'specified absolute output_path. Returns the path and byte count '
+        'rather than embedding the audio in the response (useful for long '
+        'narration where the client just wants a file on disk).'
+    ),
+)
+async def voicelive_speak_to_file_tool(
+    text: str,
+    output_path: str,
+    voice_name: Optional[str] = None,
+    wss_endpoint: Optional[str] = None,
+    model: Optional[str] = None,
+    timeout: float = 60.0,
+) -> dict:
+    if not output_path or not output_path.strip():
+        raise RuntimeError('output_path is required')
+    config = resolve_voice_live_config(
+        wss_endpoint=wss_endpoint, model=model, voice_name=voice_name
+    )
+    if not config.has_api_key():
+        raise RuntimeError(
+            'VoiceLive API key not set. Set VOICELIVE_API_KEY (User scope) '
+            'and restart the MCP host.'
+        )
+    client = VoiceLiveClient(config)
+    try:
+        pcm = await client.speak(text=text, timeout=timeout)
+    except VoiceLiveError as exc:
+        raise RuntimeError(f'VoiceLive speak failed: {exc}') from exc
+    wav_bytes = pcm16_to_wav(pcm, sample_rate=config.sample_rate, channels=1)
+    out_dir = os_module.path.dirname(os_module.path.abspath(output_path))
+    if out_dir:
+        os_module.makedirs(out_dir, exist_ok=True)
+    with open(output_path, 'wb') as f:
+        f.write(wav_bytes)
+    return {
+        'path': os_module.path.abspath(output_path),
+        'bytes': len(wav_bytes),
+        'sample_rate_hz': config.sample_rate,
+        'channels': 1,
+        'format': 'wav',
+    }
+
+# ==================== END VOICE LIVE TOOLS ====================
+
+
+if __name__ == "__main__":
+    mcp.run()
 
 
