@@ -83,6 +83,7 @@ Windows Clippy MCP provides **40+ tools** across these categories:
 
 - Python 3.13+
 - [UV](https://github.com/astral-sh/uv) (`pip install uv`)
+- [.NET 10 SDK](https://aka.ms/dotnet/download) (required to build the embedded WPF hosts used by widget kernel/browser tabs)
 - English Windows locale (for consistent UI Automation tree)
 - Windows 11 (tested; Windows 10 may work but is not officially supported)
 

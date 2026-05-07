@@ -201,4 +201,5 @@ uv sync --reinstall
 - Windows 11 (tested; Windows 10 may work but is not officially supported)
 - Node.js 16+ for the one-click `npm install` flow
 - Python 3.13+ and [UV](https://github.com/astral-sh/uv) (`pip install uv`) for manual setup, or let the npm setup bootstrap them automatically
+- [.NET 10 SDK](https://aka.ms/dotnet/download) — required to build the embedded WPF hosts (`TerminalHost`, `BrowserHost`, `LiveTileHost`) used by kernel/browser tabs and the native live tile. The widget auto-builds `TerminalHost.exe` on first launch when the SDK is installed; build output is logged to `%APPDATA%\Windows-Clippy-MCP\embedded-host-TerminalHost-build.log`.
 - English Windows locale (for consistent UI Automation tree)

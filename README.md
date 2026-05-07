@@ -338,6 +338,7 @@ uv sync --reinstall
 • Windows 10/11
 • Node.js 16+ for the one-click `npm install` flow
 • Python 3.13+ and [UV](https://github.com/astral-sh/uv) `pip install uv` for manual setup, or let `npm install` provision them automatically
+• [.NET 10 SDK](https://aka.ms/dotnet/download) — required to build the embedded WPF hosts (`TerminalHost`, `BrowserHost`, `LiveTileHost`). The widget will auto-build `TerminalHost.exe` on first launch if the SDK is installed.
 • English Windows locale (for consistent UI Automation tree)
 
 ### Microsoft 365 & Power Platform Tools (Optional)

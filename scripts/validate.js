@@ -129,10 +129,10 @@ async function validatePackageStructure() {
       'widget/LiveTileHost/*.csproj',
       'widget/LiveTileHost/*.xaml',
       'widget/LiveTileHost/*.cs',
-      'widget/TerminalHost/bin/Debug/net8.0-windows/*.dll',
-      'widget/TerminalHost/bin/Debug/net8.0-windows/*.exe',
-      'widget/TerminalHost/bin/Debug/net8.0-windows/*.json',
-      'widget/TerminalHost/bin/Debug/net8.0-windows/runtimes/**/native/*.dll'
+      'widget/TerminalHost/bin/Debug/net10.0-windows/*.dll',
+      'widget/TerminalHost/bin/Debug/net10.0-windows/*.exe',
+      'widget/TerminalHost/bin/Debug/net10.0-windows/*.json',
+      'widget/TerminalHost/bin/Debug/net10.0-windows/runtimes/**/native/*.dll'
     ];
 
     for (const packagedPath of requiredPackagedPaths) {

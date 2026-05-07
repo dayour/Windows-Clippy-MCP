@@ -171,7 +171,7 @@ function script:Invoke-SafeSetWindowLongPtr {
 $ScriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
 $script:RepoRoot = Split-Path $ScriptDir
 $AssetsDir = Join-Path $script:RepoRoot "assets"
-$script:TerminalHostExe = Join-Path $script:RepoRoot 'widget\TerminalHost\bin\Debug\net8.0-windows\TerminalHost.exe'
+$script:TerminalHostExe = Join-Path $script:RepoRoot 'widget\TerminalHost\bin\Debug\net10.0-windows\TerminalHost.exe'
 $script:TerminalAdaptiveCardTemplatePath = Join-Path $script:RepoRoot 'widget\adaptive-cards\terminal-session.template.json'
 $script:TerminalAdaptiveCardSchemaPath = Join-Path $script:RepoRoot 'widget\adaptive-cards\terminal-session.data.schema.json'
 $script:AgentcardAdaptiveCardTemplatePath = Join-Path $script:RepoRoot 'widget\adaptive-cards\agentcard-icon.template.json'
@@ -193,6 +193,83 @@ $script:ClippyHostTransportNone = 'none'
 $script:ClippyKernelRoot = 'E:\clippy-kernel'
 $script:ClippyKernelSweExe = Join-Path $script:ClippyKernelRoot '.venv\Scripts\clippy-swe.exe'
 $script:ClippyKernelPythonExe = Join-Path $script:ClippyKernelRoot '.venv\Scripts\python.exe'
+
+# ── Embedded host auto-build ──────────────────────────────────────
+# Ensure native WPF host executables (TerminalHost) exist before the
+# widget tries to spawn them. If missing, invoke `dotnet build` once
+# at startup so a fresh clone or version bump (e.g. .NET upgrade)
+# does not surface as a "host was not found" error in kernel tabs.
+function script:Resolve-DotnetCli {
+    $cli = Get-Command dotnet -ErrorAction SilentlyContinue
+    if ($cli) { return $cli.Source }
+
+    $candidates = @(
+        (Join-Path $env:ProgramFiles 'dotnet\dotnet.exe'),
+        (Join-Path ${env:ProgramFiles(x86)} 'dotnet\dotnet.exe'),
+        (Join-Path $env:LOCALAPPDATA 'Microsoft\dotnet\dotnet.exe')
+    )
+    foreach ($candidate in $candidates) {
+        if ($candidate -and (Test-Path $candidate -PathType Leaf)) { return $candidate }
+    }
+    return $null
+}
+
+function script:Invoke-EmbeddedHostBuild {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][string]$ProjectPath,
+        [Parameter(Mandatory = $true)][string]$ExpectedExe
+    )
+
+    $diagLog = Join-Path $env:APPDATA 'Windows-Clippy-MCP\widget-startup-diag.log'
+    $diagDir = Split-Path -Parent $diagLog
+    if (-not (Test-Path -LiteralPath $diagDir)) {
+        New-Item -ItemType Directory -Path $diagDir -Force | Out-Null
+    }
+
+    if (Test-Path -LiteralPath $ExpectedExe -PathType Leaf) { return $true }
+
+    if (-not (Test-Path -LiteralPath $ProjectPath -PathType Leaf)) {
+        "[$(Get-Date -Format o)] DIAG: Embedded host '$Name' project missing at $ProjectPath" | Out-File $diagLog -Append
+        return $false
+    }
+
+    $dotnet = script:Resolve-DotnetCli
+    if (-not $dotnet) {
+        "[$(Get-Date -Format o)] DIAG: dotnet CLI not found; cannot build embedded host '$Name'. Install the .NET 10 SDK from https://aka.ms/dotnet/download." | Out-File $diagLog -Append
+        return $false
+    }
+
+    "[$(Get-Date -Format o)] DIAG: Building embedded host '$Name' via $dotnet build $ProjectPath" | Out-File $diagLog -Append
+    $buildLog = Join-Path $diagDir "embedded-host-$Name-build.log"
+    try {
+        $proc = Start-Process -FilePath $dotnet `
+            -ArgumentList @('build', $ProjectPath, '-c', 'Debug', '-nologo', '--verbosity', 'minimal') `
+            -NoNewWindow -Wait -PassThru `
+            -RedirectStandardOutput $buildLog `
+            -RedirectStandardError "$buildLog.err"
+    } catch {
+        "[$(Get-Date -Format o)] DIAG: dotnet build for '$Name' threw: $($_.Exception.Message)" | Out-File $diagLog -Append
+        return $false
+    }
+
+    if ($proc.ExitCode -ne 0) {
+        "[$(Get-Date -Format o)] DIAG: dotnet build for '$Name' exited $($proc.ExitCode); see $buildLog" | Out-File $diagLog -Append
+        return $false
+    }
+
+    if (-not (Test-Path -LiteralPath $ExpectedExe -PathType Leaf)) {
+        "[$(Get-Date -Format o)] DIAG: dotnet build for '$Name' succeeded but $ExpectedExe still missing" | Out-File $diagLog -Append
+        return $false
+    }
+
+    "[$(Get-Date -Format o)] DIAG: Embedded host '$Name' built at $ExpectedExe" | Out-File $diagLog -Append
+    return $true
+}
+
+$script:TerminalHostProject = Join-Path $script:RepoRoot 'widget\TerminalHost\TerminalHost.csproj'
+[void](script:Invoke-EmbeddedHostBuild -Name 'TerminalHost' -ProjectPath $script:TerminalHostProject -ExpectedExe $script:TerminalHostExe)
+
 
 # ── Shared state ──────────────────────────────────────────────────
 $script:ChatOpen = $false
