@@ -361,6 +361,24 @@ For the full proof matrix and the distinction between protocol-class evidence an
 
 ---
 
+## Documentation
+
+### Windows Surface &amp; Agent Extensibility — Reference Wiki
+
+A single-file, fully portable HTML reference covering every surface this project sits on top of:
+
+- **Ch.1 – Widgets (C#)** – End-to-end `IWidgetProvider` walkthrough, Adaptive Cards templates, MSIX packaging, COM CLSID registration, customization mode.
+- **Ch.2 – Live Tiles** – History, Adaptive Tile XML, notification pipelines (Local / Scheduled / Periodic / WNS push), Win11 deprecation, Tiles vs Widgets contrast.
+- **Ch.3 – Clippy &amp; Microsoft Agent** – 1995–2025 lineage, MS Agent COM interfaces, ACS/ACD format, Copilot lineage, modern equivalents.
+- **Ch.4 – Windows Terminal** – conhost-to-Terminal history, ConPTY, `settings.json`, fragment extensions, hosting AI agents.
+- **Ch.5 – NT Kernel &amp; COM** – User/kernel architecture, Object Manager, syscall path, COM activation flavors, MSIX/AppContainer, the `windows.appExtension` contract.
+- **Ch.6 – Windows Clippy MCP** – What MCP is, server architecture, tool catalogue, install, VS Code wiring, tool-authoring template, security notes.
+- **Ch.7 – Comparison Matrix** – All five surfaces read sideways against eight dimensions.
+
+> [`docs/widget_wiki.html`](docs/widget_wiki.html) — open directly in any browser. No build step, no external dependencies (all CSS and JS inline).
+
+---
+
 ## Other Clients
 
 • **VS Code Agent Mode** – See [`docs/mcp-apps/clients/vscode.md`](docs/mcp-apps/clients/vscode.md).
