@@ -1,6 +1,6 @@
 {
   "name": "@dayour/windows-clippy-mcp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Windows Clippy MCP - Your friendly AI assistant for Windows desktop automation and Microsoft 365 integration. One-click setup for VS Code agent mode.",
   "main": "main.py",
   "icon": "assets/WC25.png",
@@ -99,8 +99,10 @@
     "uv.lock",
     "scripts/**",
     "widget/clippy-widget.ps1",
+    "widget/clippy-cursor.ps1",
     "widget/Launch-ClippyWidget.cmd",
     "widget/Launch-ClippyLiveTile.cmd",
+    "widget/Launch-ClippyCursor.cmd",
     "widget/adaptive-cards/**",
     "widget/LiveTileHost/*.csproj",
     "widget/LiveTileHost/*.xaml",

@@ -256,6 +256,9 @@ $script:AgentcardAdaptiveCardSchemaPath = Join-Path $script:RepoRoot 'widget\ada
 $script:AgentcardAdaptiveCardDataPath = Join-Path $script:RepoRoot 'widget\adaptive-cards\agentcard-icon.data.json'
 $script:AgentcardPackageManifestPath = Join-Path $script:RepoRoot 'widget\adaptive-cards\agentcard-icon.package-manifest.json'
 $script:AgentcardSpecPath = Join-Path $script:RepoRoot 'widget\adaptive-cards\agentcard-icon.spec.json'
+$script:CursorAnalysisTemplatePath = Join-Path $script:RepoRoot 'widget\adaptive-cards\cursor-analysis.template.json'
+$script:CursorAnalysisSchemaPath = Join-Path $script:RepoRoot 'widget\adaptive-cards\cursor-analysis.data.schema.json'
+$script:ClippyCursorScriptPath = Join-Path $script:RepoRoot 'widget\clippy-cursor.ps1'
 $script:AgentcardHeroAssetPath = Join-Path $AssetsDir 'agentcard_192.png'
 $script:AgentcardDefaultAssetPath = Join-Path $AssetsDir 'agentcard_32.png'
 $script:AgentcardFocusedAssetPath = Join-Path $AssetsDir 'agentcard_focused_32.png'
@@ -6198,6 +6201,10 @@ function script:Handle-CopilotEvent {
                 $State.HadAssistantOutput = $true
                 $State.StreamedAssistantText = [string]$State.StreamedAssistantText + $delta
                 script:Append-TermStream -Text $delta -Color "#4EC9B0" -TabId $State.TabId
+                # Mirror delta to the cursor analysis floating widget if active
+                if (Get-Command 'script:Intercept-CursorAnalysisStream' -ErrorAction SilentlyContinue) {
+                    script:Intercept-CursorAnalysisStream -Text $delta -Color "#4EC9B0" | Out-Null
+                }
             }
             return
         }
@@ -6425,6 +6432,10 @@ function script:Complete-CopilotPromptStream {
     }
 
     script:Write-Term "" -TabId $targetTabId
+    # Signal cursor analysis completion if active
+    if (Get-Command 'script:Complete-CursorAnalysis' -ErrorAction SilentlyContinue) {
+        script:Complete-CursorAnalysis
+    }
     if ($tab) {
         $tab.ActiveAssistantStream = $null
         $tab.ActiveThoughtStream = $null
@@ -8816,6 +8827,33 @@ $miSysinternals.Items.Add($miSysDiag) | Out-Null
 
 $ctx.Items.Add($miSysinternals) | Out-Null
 
+# ── Cursor Mode submenu ────────────────────────────────────────────
+$miCursorMode = script:New-ToolbarMenuItem -Header 'Cursor Mode'
+$miCursorActivate = script:New-ToolbarMenuItem -Header 'Activate Clippy Cursor'
+$miCursorActivate.Add_Click({
+    if (Get-Command 'script:Start-ClippyCursorMode' -ErrorAction SilentlyContinue) {
+        script:Start-ClippyCursorMode
+        script:Write-Term 'Clippy cursor mode activated. Ctrl+Right-Click for AI context menu.' '#4EC9B0'
+        script:Write-Term ''
+    } else {
+        script:Write-Term 'Cursor module not loaded.' '#F48771'
+        script:Write-Term ''
+    }
+})
+$miCursorMode.Items.Add($miCursorActivate) | Out-Null
+$miCursorDeactivate = script:New-ToolbarMenuItem -Header 'Restore Default Cursor'
+$miCursorDeactivate.Add_Click({
+    if (Get-Command 'script:Stop-ClippyCursorMode' -ErrorAction SilentlyContinue) {
+        script:Stop-ClippyCursorMode
+        script:Write-Term 'Default cursor restored.' '#4EC9B0'
+        script:Write-Term ''
+    }
+})
+$miCursorMode.Items.Add($miCursorDeactivate) | Out-Null
+$ctx.Items.Add($miCursorMode) | Out-Null
+
+$ctx.Items.Add([Windows.Controls.Separator]::new()) | Out-Null
+
 $miAbout = script:New-ToolbarMenuItem -Header 'About'
 $miAbout.Add_Click({ script:Show-AboutDialog })
 $ctx.Items.Add($miAbout) | Out-Null
@@ -8865,6 +8903,11 @@ $ctx.Add_Opened({
     $miAbout.InputGestureText = if ([string]::IsNullOrWhiteSpace($widgetVersion)) { '' } else { "v$widgetVersion" }
     $miSysinternals.IsEnabled = [bool](script:Resolve-SysinternalsTool 'Autoruns.exe')
     $miSysinternals.InputGestureText = if ($miSysinternals.IsEnabled) { 'installed' } else { 'not found' }
+    $cursorLoaded = [bool](Get-Command 'script:Start-ClippyCursorMode' -ErrorAction SilentlyContinue)
+    $miCursorMode.IsEnabled = $cursorLoaded
+    $miCursorMode.InputGestureText = if (-not $cursorLoaded) { 'not loaded' } elseif ($script:ClippyCursorActive) { 'active' } else { 'off' }
+    $miCursorActivate.IsEnabled = $cursorLoaded -and (-not $script:ClippyCursorActive)
+    $miCursorDeactivate.IsEnabled = $cursorLoaded -and $script:ClippyCursorActive
 })
 
 $script:Widget.ContextMenu = $ctx
@@ -9063,6 +9106,9 @@ $script:Widget.Add_Closing({
     script:Write-WidgetDebugLog "LIFECYCLE: Widget.Closing fired (IsApplicationClosing was $($script:IsApplicationClosing))"
     $script:IsApplicationClosing = $true
     script:Set-SnippingTileOpen $false
+    if (Get-Command 'script:Stop-ClippyCursorMode' -ErrorAction SilentlyContinue) {
+        try { script:Stop-ClippyCursorMode } catch {}
+    }
     if ($script:ActiveCopilotProcess -and -not $script:ActiveCopilotProcess.HasExited) {
         try {
             $script:ActiveCopilotProcess.Kill()
@@ -9084,6 +9130,16 @@ $script:Widget.Add_Closing({
     try { $_widgetMutex.ReleaseMutex() } catch { }
     try { $_widgetMutex.Dispose() } catch { }
 })
+
+# ── Cursor module (dot-sourced for integration) ──────────────────
+if (Test-Path $script:ClippyCursorScriptPath) {
+    try {
+        . $script:ClippyCursorScriptPath -AssetsDir $AssetsDir
+        script:Write-WidgetDebugLog "CURSOR: clippy-cursor.ps1 loaded"
+    } catch {
+        script:Write-WidgetDebugLog "CURSOR: Failed to load clippy-cursor.ps1: $($_.Exception.Message)"
+    }
+}
 
 # ── Run application ───────────────────────────────────────────────
 $app = [Windows.Application]::new()

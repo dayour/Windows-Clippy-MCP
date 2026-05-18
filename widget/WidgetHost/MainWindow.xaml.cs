@@ -61,6 +61,50 @@ public partial class MainWindow : Window
     private bool _isSyncingUi;
     private string? _commanderNotice;
 
+    public sealed record FleetTileViewModel(
+        string Summary,
+        string Connection,
+        string Subtitle,
+        string TabsTotal,
+        string TabsIdle,
+        string TabsRunning,
+        string TabsExited,
+        string Groups,
+        string Agent,
+        string Model,
+        string Commander,
+        string Captured,
+        string Activity)
+    {
+        public static FleetTileViewModel Empty { get; } = new(
+            Summary: "0 tabs | 0 busy",
+            Connection: "STARTING",
+            Subtitle: "Starting Commander fleet bridge",
+            TabsTotal: "0",
+            TabsIdle: "0",
+            TabsRunning: "0",
+            TabsExited: "0",
+            Groups: "0",
+            Agent: "(none)",
+            Model: ModelCatalog.DefaultModelId,
+            Commander: "Starting",
+            Captured: "pending",
+            Activity: "No recent fleet activity");
+    }
+
+    public static readonly DependencyProperty FleetTileProperty =
+        DependencyProperty.Register(
+            nameof(FleetTile),
+            typeof(FleetTileViewModel),
+            typeof(MainWindow),
+            new PropertyMetadata(FleetTileViewModel.Empty));
+
+    public FleetTileViewModel FleetTile
+    {
+        get => (FleetTileViewModel)GetValue(FleetTileProperty);
+        private set => SetValue(FleetTileProperty, value);
+    }
+
     public MainWindow(WidgetLaunchOptions options)
     {
         _options = options;
@@ -444,6 +488,7 @@ public partial class MainWindow : Window
             ? null
             : notice.Trim();
         UpdateSessionMeta();
+        UpdateFleetStatusBadge();
     }
 
     private void SaveSettingsFromActiveTab()
@@ -1707,6 +1752,7 @@ public partial class MainWindow : Window
 
         await _commanderSession.EnsureStartedAsync();
         UpdateSessionMeta();
+        UpdateFleetStatusBadge();
     }
 
     private async void RestartCommanderSessionInBackground(string reason)
@@ -1943,8 +1989,83 @@ public partial class MainWindow : Window
 
     private void UpdateFleetStatusBadge()
     {
-        if (FleetStatusBadge is null) return;
-        FleetStatusBadge.Text = $"{_commanderHub.SessionCount} tabs / {_commanderHub.WaitingCount} working / {_commanderHub.GroupCount} groups";
+        if (!Dispatcher.CheckAccess())
+        {
+            _ = Dispatcher.InvokeAsync(UpdateFleetStatusBadge);
+            return;
+        }
+
+        var total = Math.Max(0, _commanderHub.SessionCount);
+        var running = Math.Max(0, _commanderHub.WaitingCount);
+        var idle = Math.Max(0, total - running);
+        var exited = 0;
+        var groups = Math.Max(0, _commanderHub.GroupCount);
+        var connection = _appsBridge is null
+            ? "STARTING"
+            : _appsBridge.IsReady ? "CONNECTED" : "OFFLINE";
+        var commanderStatus = !_commanderSession.IsReady
+            ? "Starting"
+            : _commanderSession.IsWaitingForResponse ? "Working" : "Idle";
+
+        FleetTile = new FleetTileViewModel(
+            Summary: $"{FormatCount(total, "tab")} | {running} busy",
+            Connection: connection,
+            Subtitle: $"{connection} - {FormatCount(total, "tab")} - {FormatCount(groups, "group")}",
+            TabsTotal: total.ToString(),
+            TabsIdle: idle.ToString(),
+            TabsRunning: running.ToString(),
+            TabsExited: exited.ToString(),
+            Groups: groups.ToString(),
+            Agent: ResolveAgentDisplayName(_commanderSession.AgentId ?? _settings.Agent),
+            Model: ResolveModelDisplayName(_commanderSession.ModelId ?? _settings.Model),
+            Commander: commanderStatus,
+            Captured: DateTime.Now.ToString("HH:mm:ss"),
+            Activity: BuildFleetLatestActivity());
+    }
+
+    private string BuildFleetLatestActivity()
+    {
+        if (!string.IsNullOrWhiteSpace(_commanderNotice))
+        {
+            return TruncateForDisplay(_commanderNotice);
+        }
+
+        if (!string.IsNullOrWhiteSpace(_commanderSession.LatestToolSummary))
+        {
+            return TruncateForDisplay($"Commander tool: {_commanderSession.LatestToolSummary}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(_commanderSession.LatestPromptPreview))
+        {
+            return TruncateForDisplay($"Commander prompt: {_commanderSession.LatestPromptPreview}");
+        }
+
+        var selected = ResolveSelectedSession();
+        if (selected is not null && !string.IsNullOrWhiteSpace(selected.LatestToolSummary))
+        {
+            return TruncateForDisplay($"{selected.DisplayName} tool: {selected.LatestToolSummary}");
+        }
+
+        if (selected is not null && !string.IsNullOrWhiteSpace(selected.LatestTranscriptPreview))
+        {
+            return TruncateForDisplay($"{selected.DisplayName} reply: {selected.LatestTranscriptPreview}");
+        }
+
+        return "No recent fleet activity";
+    }
+
+    private static string FormatCount(int count, string noun)
+        => $"{count} {noun}{(count == 1 ? string.Empty : "s")}";
+
+    private static string TruncateForDisplay(string value, int maxLength = 140)
+    {
+        var trimmed = (value ?? string.Empty).Trim();
+        if (trimmed.Length <= maxLength)
+        {
+            return trimmed;
+        }
+
+        return trimmed[..Math.Max(0, maxLength - 3)] + "...";
     }
 
     private void PublishMountedViewRefresh(string reason)
@@ -2391,6 +2512,7 @@ public partial class MainWindow : Window
             _appsBridge.BroadcastIntentReceived += OnBroadcastIntentReceived;
             _appsBridge.LinkGroupIntentReceived += OnLinkGroupIntentReceived;
             await _appsBridge.StartAsync(System.Threading.CancellationToken.None).ConfigureAwait(true);
+            UpdateFleetStatusBadge();
 
             if (!_appsBridge.IsReady)
             {
@@ -2424,6 +2546,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             WidgetHostLogger.Log($"InitializeMcpAppsHost failed: {ex.Message}");
+            UpdateFleetStatusBadge();
         }
     }
 
@@ -2470,6 +2593,7 @@ public partial class MainWindow : Window
         _commanderSession.Mode = mode;
         _settings.Save();
         UpdateSessionMeta();
+        UpdateFleetStatusBadge();
         WidgetHostLogger.Log($"Commander mode changed to {mode}");
         if (_commanderSession.IsReady)
         {
@@ -2501,6 +2625,7 @@ public partial class MainWindow : Window
         _commanderSession.AgentId = ResolveCommanderAgentId(_agents, agentId);
         _settings.Save();
         UpdateSessionMeta();
+        UpdateFleetStatusBadge();
         WidgetHostLogger.Log($"Commander agent changed to {_commanderSession.AgentId ?? agentId}");
         if (_commanderSession.IsReady)
         {
@@ -2532,6 +2657,7 @@ public partial class MainWindow : Window
         _commanderSession.ModelId = modelId;
         _settings.Save();
         UpdateSessionMeta();
+        UpdateFleetStatusBadge();
         WidgetHostLogger.Log($"Commander model changed to {modelId}");
         if (_commanderSession.IsReady)
         {
