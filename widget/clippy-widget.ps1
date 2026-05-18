@@ -331,6 +331,8 @@ $script:ActiveCopilotProcess = $null
 $script:ClippyTabs = [ordered]@{}
 $script:ClippyTabOrder = [System.Collections.Generic.List[string]]::new()
 $script:ActiveClippyTabId = $null
+$script:CursorContextTabId = $null
+$script:ClippyTabRoleCursorContext = 'cursor-context'
 $script:ClippyTabStrip = $null
 $script:ClippyAddTabButton = $null
 $script:cOutputHost = $null
@@ -1049,6 +1051,22 @@ function script:Get-ActiveClippyTab {
     return script:Get-ClippyTab -TabId $script:ActiveClippyTabId
 }
 
+function script:Get-ClippyTabRole {
+    param([hashtable]$Tab)
+
+    if ($Tab -and $Tab.ContainsKey('Role') -and -not [string]::IsNullOrWhiteSpace([string]$Tab.Role)) {
+        return [string]$Tab.Role
+    }
+
+    return $null
+}
+
+function script:Test-ClippyCursorContextTab {
+    param([hashtable]$Tab)
+
+    return ((script:Get-ClippyTabRole -Tab $Tab) -eq $script:ClippyTabRoleCursorContext)
+}
+
 function script:Get-BusyClippyTabs {
     $busyTabs = [System.Collections.Generic.List[object]]::new()
     foreach ($tabId in @($script:ClippyTabOrder)) {
@@ -1714,7 +1732,8 @@ function script:New-ClippyTabState {
         [string]$Model,
         [string]$Agent,
         [string]$Runtime,
-        [string]$SurfaceKind
+        [string]$SurfaceKind,
+        [string]$Role
     )
 
     $resolvedSessionId = if ([string]::IsNullOrWhiteSpace($SessionId)) {
@@ -1736,6 +1755,7 @@ function script:New-ClippyTabState {
         Agent = $resolvedAgent
         Runtime = $resolvedRuntime
         SurfaceKind = $resolvedSurfaceKind
+        Role = $Role
         HostTransportKind = $script:ClippyHostTransportNone
         TerminalSurface = $(script:New-ClippyTerminalSurfaceState)
         BrowserSurface = $(script:New-ClippyBrowserSurfaceState)
@@ -2982,8 +3002,9 @@ function script:Start-ClippyTabHost {
     $nodeCommand = Get-Command 'node' -ErrorAction SilentlyContinue
     $nodeBridgeError = $null
     $embeddedTerminalError = $null
+    $requiresPromptBridge = ((script:Get-TabRuntime -Tab $Tab) -eq $script:ClippyRuntimeCopilot)
 
-    if (script:Test-ClippyTerminalHostAvailable) {
+    if (-not $requiresPromptBridge -and (script:Test-ClippyTerminalHostAvailable)) {
         try {
             if (script:Start-ClippyTerminalHost -Tab $Tab) {
                 return
@@ -2995,6 +3016,8 @@ function script:Start-ClippyTabHost {
             $Tab.HostProcess = $null
             [void](script:Set-TabHostTransportKind -Tab $Tab -HostTransportKind $script:ClippyHostTransportNone)
         }
+    } elseif ($requiresPromptBridge) {
+        $embeddedTerminalError = 'Embedded terminal host is disabled for prompt-backed Copilot tabs because cursor-context streaming requires the node bridge.'
     } else {
         $embeddedTerminalError = "Embedded terminal host was not found at $($script:TerminalHostExe)."
     }
@@ -3011,7 +3034,7 @@ function script:Start-ClippyTabHost {
         $arguments.Add('--json')
         $arguments.Add('--bridge-stdio')
         $arguments.Add('--runtime')
-        $arguments.Add('terminal')
+        $arguments.Add($(if ($requiresPromptBridge) { 'copilot' } else { 'terminal' }))
         $arguments.Add("--session-id=$([string]$Tab.SessionId)")
         $arguments.Add('--working-directory')
         $arguments.Add($script:RepoRoot)
@@ -3052,7 +3075,8 @@ function script:Start-ClippyTabHost {
             $Tab.HostState = 'error'
             [void](script:Set-TabHostTransportKind -Tab $Tab -HostTransportKind $script:ClippyHostTransportNone)
             $nodeBridgeError = "Session host could not be started. $($_.Exception.Message)"
-            script:Write-WidgetDebugLog "Node bridge launch failed [$($Tab.TabId)] $nodeBridgeError; falling back to embedded terminal."
+            $fallbackMessage = if ($requiresPromptBridge) { 'embedded terminal fallback is disabled for prompt-backed Copilot tabs.' } else { 'falling back to embedded terminal.' }
+            script:Write-WidgetDebugLog "Node bridge launch failed [$($Tab.TabId)] $nodeBridgeError; $fallbackMessage"
         }
 
         if ($started) {
@@ -3067,7 +3091,8 @@ function script:Start-ClippyTabHost {
             $Tab.HostState = 'error'
             [void](script:Set-TabHostTransportKind -Tab $Tab -HostTransportKind $script:ClippyHostTransportNone)
             $nodeBridgeError = 'Session host could not be started.'
-            script:Write-WidgetDebugLog "Node bridge launch failed [$($Tab.TabId)] $nodeBridgeError; falling back to embedded terminal."
+            $fallbackMessage = if ($requiresPromptBridge) { 'embedded terminal fallback is disabled for prompt-backed Copilot tabs.' } else { 'falling back to embedded terminal.' }
+            script:Write-WidgetDebugLog "Node bridge launch failed [$($Tab.TabId)] $nodeBridgeError; $fallbackMessage"
         }
     }
 
@@ -4014,14 +4039,22 @@ function script:New-ClippyTab {
         [string]$SessionId,
         [string]$Runtime,
         [string]$SurfaceKind,
+        [string]$Role,
+        [string]$DisplayName,
         [switch]$Activate,
         [switch]$LaunchHost
     )
 
     $resolvedSurfaceKind = script:Normalize-ClippySurfaceKind -SurfaceKind $SurfaceKind -Runtime $Runtime
-    $tab = script:New-ClippyTabState -SessionId $SessionId -Mode $script:WidgetSettings.Mode -Model $script:WidgetSettings.Model -Agent $script:WidgetSettings.Agent -Runtime $Runtime -SurfaceKind $resolvedSurfaceKind
+    $tab = script:New-ClippyTabState -SessionId $SessionId -Mode $script:WidgetSettings.Mode -Model $script:WidgetSettings.Model -Agent $script:WidgetSettings.Agent -Runtime $Runtime -SurfaceKind $resolvedSurfaceKind -Role $Role
+    if (-not [string]::IsNullOrWhiteSpace($DisplayName)) {
+        $tab.DisplayName = $DisplayName
+    }
     $script:ClippyTabs[$tab.TabId] = $tab
     $script:ClippyTabOrder.Add([string]$tab.TabId)
+    if (script:Test-ClippyCursorContextTab -Tab $tab) {
+        $script:CursorContextTabId = [string]$tab.TabId
+    }
 
     if ($LaunchHost) {
         [void](script:Start-ClippyTabHostSafely -Tab $tab)
@@ -4067,6 +4100,9 @@ function script:Close-ClippyTab {
 
     $script:ClippyTabOrder.Remove($TabId)
     [void]$script:ClippyTabs.Remove($TabId)
+    if ([string]$script:CursorContextTabId -eq [string]$TabId) {
+        $script:CursorContextTabId = $null
+    }
     script:Stop-ClippyTabHost -Tab $tab
 
     if ($script:ActiveClippyTabId -eq $TabId) {
@@ -4096,7 +4132,7 @@ function script:Initialize-ClippyTabs {
 
     if ($restoredState) {
         foreach ($savedTab in @($restoredState.Tabs)) {
-            $tab = script:New-ClippyTabState -SessionId $savedTab.SessionId -Mode $savedTab.Mode -Model $savedTab.Model -Agent $savedTab.Agent -Runtime $savedTab.Runtime -SurfaceKind $(if ($savedTab.PSObject.Properties.Name -contains 'SurfaceKind') { [string]$savedTab.SurfaceKind } else { $null })
+            $tab = script:New-ClippyTabState -SessionId $savedTab.SessionId -Mode $savedTab.Mode -Model $savedTab.Model -Agent $savedTab.Agent -Runtime $savedTab.Runtime -SurfaceKind $(if ($savedTab.PSObject.Properties.Name -contains 'SurfaceKind') { [string]$savedTab.SurfaceKind } else { $null }) -Role $(if ($savedTab.PSObject.Properties.Name -contains 'Role') { [string]$savedTab.Role } else { $null })
             if (-not [string]::IsNullOrWhiteSpace($savedTab.DisplayName)) {
                 $tab.DisplayName = [string]$savedTab.DisplayName
             }
@@ -4105,6 +4141,9 @@ function script:Initialize-ClippyTabs {
             }
             $script:ClippyTabs[$tab.TabId] = $tab
             $script:ClippyTabOrder.Add([string]$tab.TabId)
+            if (script:Test-ClippyCursorContextTab -Tab $tab) {
+                $script:CursorContextTabId = [string]$tab.TabId
+            }
             [void](script:Start-ClippyTabHostSafely -Tab $tab)
             if (-not (script:Test-ClippyKernelTab -Tab $tab) -and [string]$tab.HostState -ne 'error') {
                 script:Render-TranscriptWelcome -TabId $tab.TabId
@@ -4706,6 +4745,7 @@ function script:Load-CopilotSessionState {
             Agent = if ($savedTab.PSObject.Properties.Name -contains 'Agent') { [string]$savedTab.Agent } else { $null }
             Runtime = if ($savedTab.PSObject.Properties.Name -contains 'Runtime') { [string]$savedTab.Runtime } else { $script:ClippyRuntimeKernel }
             SurfaceKind = if ($savedTab.PSObject.Properties.Name -contains 'SurfaceKind') { [string]$savedTab.SurfaceKind } else { $script:ClippySurfaceTerminal }
+            Role = if ($savedTab.PSObject.Properties.Name -contains 'Role') { [string]$savedTab.Role } else { $null }
             CreatedAt = if ($savedTab.PSObject.Properties.Name -contains 'CreatedAt') { [string]$savedTab.CreatedAt } else { $null }
         })
     }
@@ -4765,6 +4805,8 @@ function script:Save-CopilotSessionStateImmediate {
             Model = $tab.Model
             Agent = $tab.Agent
             Runtime = $tab.Runtime
+            SurfaceKind = $tab.SurfaceKind
+            Role = $tab.Role
             HostState = $tab.HostState
             HostPid = $tab.HostPid
             CreatedAt = $tab.CreatedAt
@@ -4816,6 +4858,149 @@ function script:New-ClippyKernelSession {
     $tab = script:New-ClippyTab -SessionId (script:Resolve-RequestedSessionId) -Runtime $script:ClippyRuntimeKernel -SurfaceKind $script:ClippySurfaceTerminal -Activate -LaunchHost
     script:Update-WidgetStatus
     return $tab
+}
+
+function script:Find-ClippyCursorContextTab {
+    if (-not [string]::IsNullOrWhiteSpace([string]$script:CursorContextTabId)) {
+        $tab = script:Get-ClippyTab -TabId $script:CursorContextTabId
+        if ($tab -and (script:Test-ClippyCursorContextTab -Tab $tab)) {
+            return $tab
+        }
+    }
+
+    foreach ($tabId in @($script:ClippyTabOrder)) {
+        $tab = script:Get-ClippyTab -TabId $tabId
+        if ($tab -and (script:Test-ClippyCursorContextTab -Tab $tab)) {
+            $script:CursorContextTabId = [string]$tab.TabId
+            return $tab
+        }
+    }
+
+    foreach ($tabId in @($script:ClippyTabOrder)) {
+        $tab = script:Get-ClippyTab -TabId $tabId
+        if ($tab -and (script:Get-TabRuntime -Tab $tab) -eq $script:ClippyRuntimeCopilot -and [string]$tab.DisplayName -eq 'Cursor Context') {
+            $tab.Role = $script:ClippyTabRoleCursorContext
+            $script:CursorContextTabId = [string]$tab.TabId
+            return $tab
+        }
+    }
+
+    return $null
+}
+
+function script:Get-OrCreate-ClippyCursorContextTab {
+    $tab = script:Find-ClippyCursorContextTab
+    if (-not $tab) {
+        $tab = script:New-ClippyTab -SessionId (script:Resolve-RequestedSessionId) -Runtime $script:ClippyRuntimeCopilot -SurfaceKind $script:ClippySurfaceTerminal -Role $script:ClippyTabRoleCursorContext -DisplayName 'Cursor Context' -LaunchHost
+    }
+
+    if ((-not $tab.HostProcess) -or $tab.HostProcess.HasExited -or ([string]$tab.HostState -in @('closed', 'stopped', 'error'))) {
+        [void](script:Start-ClippyTabHostSafely -Tab $tab)
+    }
+
+    if ([string]$tab.HostState -eq 'error') {
+        throw 'Cursor Context session host is in an error state.'
+    }
+
+    $script:CursorContextTabId = [string]$tab.TabId
+    return $tab
+}
+
+function script:New-ClippyCursorContextPrompt {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Prompt,
+        [Parameter(Mandatory)]
+        [string]$CapturePath,
+        [Parameter(Mandatory)]
+        [string]$Label,
+        [Parameter(Mandatory)]
+        [string]$ActionId,
+        [Parameter(Mandatory)]
+        [int]$ScreenX,
+        [Parameter(Mandatory)]
+        [int]$ScreenY,
+        [Parameter(Mandatory)]
+        [string]$AnalysisId
+    )
+
+    $timestamp = (Get-Date).ToString('o')
+    return @(
+        'Clippy cursor context request'
+        ''
+        'Treat this request as input from the persistent Clippy context cursor. Use the attached screenshot as the cursor visual context for this turn and retain useful observations in this session for follow-up cursor requests.'
+        ''
+        "Analysis ID: $AnalysisId"
+        "Action: $ActionId"
+        "Label: $Label"
+        "Cursor position: ($ScreenX, $ScreenY)"
+        "Captured: $timestamp"
+        "Screenshot path: $CapturePath"
+        ''
+        $Prompt
+        ''
+        'Return a concise, useful response for the floating cursor card.'
+    ) -join "`n"
+}
+
+function script:Invoke-ClippyCursorContextPrompt {
+    param(
+        [Parameter(Mandatory)]
+        [string]$CapturePath,
+        [Parameter(Mandatory)]
+        [string]$Prompt,
+        [Parameter(Mandatory)]
+        [string]$Label,
+        [Parameter(Mandatory)]
+        [string]$ActionId,
+        [Parameter(Mandatory)]
+        [int]$ScreenX,
+        [Parameter(Mandatory)]
+        [int]$ScreenY,
+        [Parameter(Mandatory)]
+        [string]$AnalysisId
+    )
+
+    if (-not (Test-Path $CapturePath -PathType Leaf)) {
+        throw "Cursor capture does not exist: $CapturePath"
+    }
+
+    $tab = script:Get-OrCreate-ClippyCursorContextTab
+    if ($tab.StreamState -and $tab.StreamState.WaitingForResponse) {
+        throw 'Cursor Context is still processing the previous cursor request. Try again after it finishes.'
+    }
+
+    $cursorPrompt = script:New-ClippyCursorContextPrompt -Prompt $Prompt -CapturePath $CapturePath -Label $Label -ActionId $ActionId -ScreenX $ScreenX -ScreenY $ScreenY -AnalysisId $AnalysisId
+    $promptText = script:Build-CopilotPrompt -Prompt $cursorPrompt -AttachedFiles @($CapturePath) -Mode ([string]$tab.Mode)
+
+    [void](script:Reset-TabCopilotStreamState -Tab $tab)
+    $tab.StreamState.WaitingForResponse = $true
+    $tab.StreamState.CursorAnalysisId = $AnalysisId
+
+    script:Write-Term "Cursor Context analyzing '$Label' at ($ScreenX, $ScreenY)..." "#6B6B8D" -TabId $tab.TabId
+    script:Flush-TerminalUi
+    script:Set-CopilotBusyState $true
+
+    try {
+        script:Send-ClippyTabHostMessage -Tab $tab -Payload (
+            script:New-TerminalBridgeCommandPayload -Command 'session.input' -LegacyAction 'input' -Payload @{
+                text = $promptText
+            }
+        )
+    } catch {
+        $tab.StreamState.WaitingForResponse = $false
+        $tab.StreamState.CursorAnalysisId = $null
+        script:Set-CopilotBusyState $false
+        throw
+    }
+
+    script:Save-CopilotSessionState
+
+    return [pscustomobject]@{
+        TabId = [string]$tab.TabId
+        SessionId = [string]$tab.SessionId
+        AnalysisId = $AnalysisId
+    }
 }
 
 function script:Get-UniqueDirectories {
@@ -5883,17 +6068,21 @@ function script:Get-VsCodePromptContextLines {
 function script:Build-CopilotPrompt {
     param(
         [Parameter(Mandatory)]
-        [string]$Prompt
+        [string]$Prompt,
+        [string[]]$AttachedFiles,
+        [string]$Mode
     )
 
     $lines = [System.Collections.Generic.List[string]]::new()
-    if ((script:Get-ActiveTabMode) -eq 'Plan') {
+    $resolvedMode = if (-not [string]::IsNullOrWhiteSpace($Mode)) { $Mode } else { script:Get-ActiveTabMode }
+    if ($resolvedMode -eq 'Plan') {
         $lines.Add('[[PLAN]]')
     }
 
-    if ($script:AttachedFiles.Count -gt 0) {
+    $filesForPrompt = if ($PSBoundParameters.ContainsKey('AttachedFiles')) { @($AttachedFiles) } else { @($script:AttachedFiles) }
+    if ($filesForPrompt.Count -gt 0) {
         $lines.Add('Attached files for this turn:')
-        foreach ($file in $script:AttachedFiles) {
+        foreach ($file in $filesForPrompt) {
             $lines.Add("@$file")
         }
         $lines.Add('')
@@ -6203,7 +6392,8 @@ function script:Handle-CopilotEvent {
                 script:Append-TermStream -Text $delta -Color "#4EC9B0" -TabId $State.TabId
                 # Mirror delta to the cursor analysis floating widget if active
                 if (Get-Command 'script:Intercept-CursorAnalysisStream' -ErrorAction SilentlyContinue) {
-                    script:Intercept-CursorAnalysisStream -Text $delta -Color "#4EC9B0" | Out-Null
+                    $cursorAnalysisId = if ($State.ContainsKey('CursorAnalysisId')) { [string]$State.CursorAnalysisId } else { $null }
+                    script:Intercept-CursorAnalysisStream -Text $delta -Color "#4EC9B0" -TabId ([string]$State.TabId) -AnalysisId $cursorAnalysisId | Out-Null
                 }
             }
             return
@@ -6216,6 +6406,10 @@ function script:Handle-CopilotEvent {
                     $State.HadAssistantOutput = $true
                     $State.StreamedAssistantText = $content
                     script:Append-TermStream -Text $content -Color "#4EC9B0" -TabId $State.TabId
+                    if (Get-Command 'script:Intercept-CursorAnalysisStream' -ErrorAction SilentlyContinue) {
+                        $cursorAnalysisId = if ($State.ContainsKey('CursorAnalysisId')) { [string]$State.CursorAnalysisId } else { $null }
+                        script:Intercept-CursorAnalysisStream -Text $content -Color "#4EC9B0" -TabId ([string]$State.TabId) -AnalysisId $cursorAnalysisId | Out-Null
+                    }
                 } elseif ($content.StartsWith([string]$State.StreamedAssistantText)) {
                     $streamedLen = ([string]$State.StreamedAssistantText).Length
                     if ($streamedLen -le $content.Length) {
@@ -6226,6 +6420,10 @@ function script:Handle-CopilotEvent {
                     if ($suffix) {
                         $State.StreamedAssistantText = $content
                         script:Append-TermStream -Text $suffix -Color "#4EC9B0" -TabId $State.TabId
+                        if (Get-Command 'script:Intercept-CursorAnalysisStream' -ErrorAction SilentlyContinue) {
+                            $cursorAnalysisId = if ($State.ContainsKey('CursorAnalysisId')) { [string]$State.CursorAnalysisId } else { $null }
+                            script:Intercept-CursorAnalysisStream -Text $suffix -Color "#4EC9B0" -TabId ([string]$State.TabId) -AnalysisId $cursorAnalysisId | Out-Null
+                        }
                     }
                 }
             }
@@ -6434,11 +6632,15 @@ function script:Complete-CopilotPromptStream {
     script:Write-Term "" -TabId $targetTabId
     # Signal cursor analysis completion if active
     if (Get-Command 'script:Complete-CursorAnalysis' -ErrorAction SilentlyContinue) {
-        script:Complete-CursorAnalysis
+        $cursorAnalysisId = if ($State.ContainsKey('CursorAnalysisId')) { [string]$State.CursorAnalysisId } else { $null }
+        script:Complete-CursorAnalysis -TabId $targetTabId -AnalysisId $cursorAnalysisId
     }
     if ($tab) {
         $tab.ActiveAssistantStream = $null
         $tab.ActiveThoughtStream = $null
+        if ($tab.StreamState -and $tab.StreamState.ContainsKey('CursorAnalysisId')) {
+            $tab.StreamState.CursorAnalysisId = $null
+        }
         $tab.StreamState.WaitingForResponse = $false
     }
     script:Set-CopilotBusyState $false

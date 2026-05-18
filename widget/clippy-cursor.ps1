@@ -261,6 +261,8 @@ $script:CursorContextMenu        = $null
 $script:ResponseWidgetWindow     = $null
 $script:CursorAnalysisActive     = $false
 $script:CursorAnalysisWidget     = $null
+$script:CursorAnalysisTabId      = $null
+$script:CursorAnalysisId         = $null
 $script:CursorCaptureDir         = Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'Windows-Clippy-MCP\captures'
 $script:CursorConfigDir          = Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'Windows-Clippy-MCP'
 $script:CursorMaxCaptureFiles    = 20
@@ -663,6 +665,12 @@ function script:New-ResponseWidget {
     # Wire close
     $closeBtn = $window.FindName("CloseResponseBtn")
     $closeBtn.Add_Click({
+        if ($script:CursorAnalysisWidget -eq $capturedWindow) {
+            $script:CursorAnalysisActive = $false
+            $script:CursorAnalysisWidget = $null
+            $script:CursorAnalysisTabId = $null
+            $script:CursorAnalysisId = $null
+        }
         $capturedWindow.Hide()
     }.GetNewClosure())
 
@@ -804,42 +812,46 @@ function script:Dispatch-WidgetAnalysis {
     )
 
     try {
-        $tab = script:Get-ActiveClippyTab
-        if (-not $tab) { return $false }
+        if (-not (Get-Command 'script:Invoke-ClippyCursorContextPrompt' -ErrorAction SilentlyContinue)) {
+            script:Write-CursorLog "Widget cursor context prompt function is unavailable"
+            return $false
+        }
 
-        $fullPrompt = script:Build-CopilotPrompt -Prompt (
-            "$Prompt`n`n[Screenshot captured at ($ScreenX, $ScreenY) and saved to $CapturePath]"
-        )
+        $analysisId = ([guid]::NewGuid()).Guid
+        $result = script:Invoke-ClippyCursorContextPrompt -CapturePath $CapturePath `
+            -Prompt $Prompt -Label $Label -ActionId $ActionId `
+            -ScreenX $ScreenX -ScreenY $ScreenY -AnalysisId $analysisId
 
-        # Temporarily attach the screenshot file for this prompt
-        $savedFiles = @($script:AttachedFiles)
-        $script:AttachedFiles.Clear()
-        $script:AttachedFiles.Add($CapturePath)
+        if (-not $result) {
+            return $false
+        }
 
-        script:Send-ClippyTabHostMessage -Tab $tab -Payload (
-            script:New-TerminalBridgeCommandPayload -Command 'prompt' -Payload @{
-                prompt = $fullPrompt
-            }
-        )
-
-        # Restore prior attachments
-        $script:AttachedFiles.Clear()
-        foreach ($f in $savedFiles) { $script:AttachedFiles.Add($f) }
+        $metaText = "session $([string]$result.SessionId)"
+        if ($metaText.Length -gt 44) {
+            $metaText = $metaText.Substring(0, 44)
+        }
 
         script:Update-ResponseWidget -Widget $script:ResponseWidgetWindow -Updates @{
-            Status   = 'Streaming response...'
-            Subtitle = 'streaming...'
-            Meta     = $ActionId
+            Status   = 'Streaming from Cursor Context...'
+            Subtitle = 'persistent session'
+            Meta     = $metaText
         }
 
         # Mark analysis as active so the stream interceptor pipes deltas here
         $script:CursorAnalysisActive = $true
         $script:CursorAnalysisWidget = $script:ResponseWidgetWindow
+        $script:CursorAnalysisTabId = [string]$result.TabId
+        $script:CursorAnalysisId = [string]$result.AnalysisId
 
-        script:Write-CursorLog "Dispatched $ActionId to widget session"
+        script:Write-CursorLog "Dispatched $ActionId to Cursor Context session $($result.SessionId)"
         return $true
     } catch {
         script:Write-CursorLog "Dispatch-WidgetAnalysis failed: $($_.Exception.Message)"
+        script:Update-ResponseWidget -Widget $script:ResponseWidgetWindow -Updates @{
+            Status   = 'Dispatch failed'
+            Subtitle = 'error'
+            Meta     = $ActionId
+        }
         return $false
     }
 }
@@ -889,10 +901,18 @@ function script:Intercept-CursorAnalysisStream {
     #>
     param(
         [string]$Text,
-        [string]$Color = '#FFE8E8E8'
+        [string]$Color = '#FFE8E8E8',
+        [string]$TabId,
+        [string]$AnalysisId
     )
 
     if (-not $script:CursorAnalysisActive -or -not $script:CursorAnalysisWidget) {
+        return $false
+    }
+    if (-not [string]::IsNullOrWhiteSpace([string]$script:CursorAnalysisTabId) -and [string]$TabId -ne [string]$script:CursorAnalysisTabId) {
+        return $false
+    }
+    if (-not [string]::IsNullOrWhiteSpace([string]$script:CursorAnalysisId) -and [string]$AnalysisId -ne [string]$script:CursorAnalysisId) {
         return $false
     }
 
@@ -909,7 +929,18 @@ function script:Complete-CursorAnalysis {
     .SYNOPSIS
         Signals that the AI analysis stream has completed.
     #>
+    param(
+        [string]$TabId,
+        [string]$AnalysisId
+    )
+
     if (-not $script:CursorAnalysisActive) { return }
+    if (-not [string]::IsNullOrWhiteSpace([string]$script:CursorAnalysisTabId) -and [string]$TabId -ne [string]$script:CursorAnalysisTabId) {
+        return
+    }
+    if (-not [string]::IsNullOrWhiteSpace([string]$script:CursorAnalysisId) -and [string]$AnalysisId -ne [string]$script:CursorAnalysisId) {
+        return
+    }
 
     script:Update-ResponseWidget -Widget $script:CursorAnalysisWidget -Updates @{
         Status   = 'Complete'
@@ -917,6 +948,8 @@ function script:Complete-CursorAnalysis {
     }
     $script:CursorAnalysisActive = $false
     $script:CursorAnalysisWidget = $null
+    $script:CursorAnalysisTabId = $null
+    $script:CursorAnalysisId = $null
     script:Write-CursorLog "Cursor analysis completed"
 }
 
@@ -1154,6 +1187,8 @@ function script:Stop-ClippyCursorMode {
 
     $script:CursorAnalysisActive = $false
     $script:CursorAnalysisWidget = $null
+    $script:CursorAnalysisTabId = $null
+    $script:CursorAnalysisId = $null
     $script:CursorContextMenu = $null
 
     script:Write-CursorLog "Clippy cursor mode stopped"
