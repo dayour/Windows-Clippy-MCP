@@ -42,6 +42,22 @@
     "imagePath": {
       "type": "string",
       "description": "Local file path to the captured screenshot."
+    },
+    "contextJsonPath": {
+      "type": "string",
+      "description": "Local file path to the generated semantic screen-context JSON."
+    },
+    "contextMarkdownPath": {
+      "type": "string",
+      "description": "Local file path to the generated semantic screen-context Markdown report."
+    },
+    "windowCount": {
+      "type": "integer",
+      "description": "Number of visible top-level windows discovered by Win32 scanning."
+    },
+    "interactableCount": {
+      "type": "integer",
+      "description": "Number of interactable UI Automation elements discovered."
     }
   }
 }

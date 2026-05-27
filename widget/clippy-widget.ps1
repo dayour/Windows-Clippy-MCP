@@ -240,8 +240,8 @@ $ScriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyI
 $script:RepoRoot = Split-Path $ScriptDir
 $AssetsDir = Join-Path $script:RepoRoot "assets"
 $terminalHostCandidates = @(
-    (Join-Path $script:RepoRoot 'widget\TerminalHost\bin\Release\net8.0-windows\TerminalHost.exe'),
-    (Join-Path $script:RepoRoot 'widget\TerminalHost\bin\Debug\net8.0-windows\TerminalHost.exe')
+    (Join-Path $script:RepoRoot 'widget\TerminalHost\bin\Release\net10.0-windows\TerminalHost.exe'),
+    (Join-Path $script:RepoRoot 'widget\TerminalHost\bin\Debug\net10.0-windows\TerminalHost.exe')
 )
 $script:TerminalHostExe = $terminalHostCandidates |
     Where-Object { Test-Path $_ -PathType Leaf } |
@@ -4921,7 +4921,9 @@ function script:New-ClippyCursorContextPrompt {
         [Parameter(Mandatory)]
         [int]$ScreenY,
         [Parameter(Mandatory)]
-        [string]$AnalysisId
+        [string]$AnalysisId,
+        [string]$ContextJsonPath,
+        [string]$ContextMarkdownPath
     )
 
     $timestamp = (Get-Date).ToString('o')
@@ -4936,10 +4938,16 @@ function script:New-ClippyCursorContextPrompt {
         "Cursor position: ($ScreenX, $ScreenY)"
         "Captured: $timestamp"
         "Screenshot path: $CapturePath"
+        "Screen context JSON: $ContextJsonPath"
+        "Screen context Markdown: $ContextMarkdownPath"
+        ''
+        'You have three synchronized sources: screenshot pixels, a JSON runtime scan, and a Markdown screen-context report.'
+        'Use the JSON/Markdown context for window layers, UI Automation controls, bounds, supported interaction patterns, and accessibility/focusability.'
+        'Use the screenshot for visual-only interpretation such as layout, color, overlap, and text not exposed through UI Automation.'
         ''
         $Prompt
         ''
-        'Return a concise, useful response for the floating cursor card.'
+        'Return a concise, useful response for the floating cursor card. Include actionable findings and reference interactable UI elements when relevant.'
     ) -join "`n"
 }
 
@@ -4958,7 +4966,9 @@ function script:Invoke-ClippyCursorContextPrompt {
         [Parameter(Mandatory)]
         [int]$ScreenY,
         [Parameter(Mandatory)]
-        [string]$AnalysisId
+        [string]$AnalysisId,
+        [string]$ContextJsonPath,
+        [string]$ContextMarkdownPath
     )
 
     if (-not (Test-Path $CapturePath -PathType Leaf)) {
@@ -4970,8 +4980,16 @@ function script:Invoke-ClippyCursorContextPrompt {
         throw 'Cursor Context is still processing the previous cursor request. Try again after it finishes.'
     }
 
-    $cursorPrompt = script:New-ClippyCursorContextPrompt -Prompt $Prompt -CapturePath $CapturePath -Label $Label -ActionId $ActionId -ScreenX $ScreenX -ScreenY $ScreenY -AnalysisId $AnalysisId
-    $promptText = script:Build-CopilotPrompt -Prompt $cursorPrompt -AttachedFiles @($CapturePath) -Mode ([string]$tab.Mode)
+    $attachments = @($CapturePath)
+    if (-not [string]::IsNullOrWhiteSpace($ContextJsonPath) -and (Test-Path $ContextJsonPath -PathType Leaf)) {
+        $attachments += $ContextJsonPath
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ContextMarkdownPath) -and (Test-Path $ContextMarkdownPath -PathType Leaf)) {
+        $attachments += $ContextMarkdownPath
+    }
+
+    $cursorPrompt = script:New-ClippyCursorContextPrompt -Prompt $Prompt -CapturePath $CapturePath -Label $Label -ActionId $ActionId -ScreenX $ScreenX -ScreenY $ScreenY -AnalysisId $AnalysisId -ContextJsonPath $ContextJsonPath -ContextMarkdownPath $ContextMarkdownPath
+    $promptText = script:Build-CopilotPrompt -Prompt $cursorPrompt -AttachedFiles $attachments -Mode ([string]$tab.Mode)
 
     [void](script:Reset-TabCopilotStreamState -Tab $tab)
     $tab.StreamState.WaitingForResponse = $true

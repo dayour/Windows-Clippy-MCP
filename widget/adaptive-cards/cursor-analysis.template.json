@@ -60,7 +60,9 @@
       "facts": [
         { "title": "Action",   "value": "${action}" },
         { "title": "Position", "value": "(${cursorX}, ${cursorY})" },
-        { "title": "Captured", "value": "${timestamp}" }
+        { "title": "Captured", "value": "${timestamp}" },
+        { "title": "Context JSON", "value": "${contextJsonPath}" },
+        { "title": "Context MD", "value": "${contextMarkdownPath}" }
       ]
     }
   ],

@@ -266,6 +266,7 @@ $script:CursorAnalysisId         = $null
 $script:CursorCaptureDir         = Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'Windows-Clippy-MCP\captures'
 $script:CursorConfigDir          = Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'Windows-Clippy-MCP'
 $script:CursorMaxCaptureFiles    = 20
+$script:CursorContextSchemaVersion = '1.0.0'
 
 # VK codes for hotkeys
 $script:VK_E = 0x45
@@ -451,6 +452,332 @@ function script:Prune-OldCaptures {
                 ForEach-Object { Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue }
         }
     } catch {}
+}
+
+# ── Semantic screen context scanning ────────────────────────────────
+function script:Ensure-ScreenContextInterop {
+    if (([System.Management.Automation.PSTypeName]'ClippyCursor.ScreenContextApi').Type) {
+        return
+    }
+
+    Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Text;
+
+namespace ClippyCursor {
+    public static class ScreenContextApi {
+        public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct RECT {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+        [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
+        [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+        [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+        [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
+        public static List<Dictionary<string, object>> GetWindows() {
+            var results = new List<Dictionary<string, object>>();
+            var foreground = GetForegroundWindow();
+            var order = 0;
+            EnumWindows((hWnd, lParam) => {
+                order++;
+                if (!IsWindowVisible(hWnd)) return true;
+
+                var titleBuilder = new StringBuilder(512);
+                GetWindowText(hWnd, titleBuilder, titleBuilder.Capacity);
+                var title = titleBuilder.ToString();
+                if (string.IsNullOrWhiteSpace(title)) return true;
+
+                RECT rect;
+                if (!GetWindowRect(hWnd, out rect)) return true;
+                var width = rect.Right - rect.Left;
+                var height = rect.Bottom - rect.Top;
+                if (width <= 0 || height <= 0) return true;
+
+                var classBuilder = new StringBuilder(256);
+                GetClassName(hWnd, classBuilder, classBuilder.Capacity);
+                uint pid;
+                GetWindowThreadProcessId(hWnd, out pid);
+
+                var row = new Dictionary<string, object>();
+                row["zOrder"] = order;
+                row["hwnd"] = hWnd.ToInt64();
+                row["title"] = title;
+                row["className"] = classBuilder.ToString();
+                row["processId"] = (int)pid;
+                row["isForeground"] = hWnd == foreground;
+                row["bounds"] = new Dictionary<string, object> {
+                    { "x", rect.Left },
+                    { "y", rect.Top },
+                    { "width", width },
+                    { "height", height },
+                    { "right", rect.Right },
+                    { "bottom", rect.Bottom }
+                };
+                results.Add(row);
+                return true;
+            }, IntPtr.Zero);
+            return results;
+        }
+    }
+}
+'@
+}
+
+function script:Get-UiAutomationPatternNames {
+    param([System.Windows.Automation.AutomationElement]$Element)
+
+    $patternMap = [ordered]@{
+        Invoke = [System.Windows.Automation.InvokePattern]::Pattern
+        Value = [System.Windows.Automation.ValuePattern]::Pattern
+        Text = [System.Windows.Automation.TextPattern]::Pattern
+        Selection = [System.Windows.Automation.SelectionPattern]::Pattern
+        SelectionItem = [System.Windows.Automation.SelectionItemPattern]::Pattern
+        Scroll = [System.Windows.Automation.ScrollPattern]::Pattern
+        ExpandCollapse = [System.Windows.Automation.ExpandCollapsePattern]::Pattern
+        Toggle = [System.Windows.Automation.TogglePattern]::Pattern
+        RangeValue = [System.Windows.Automation.RangeValuePattern]::Pattern
+        Grid = [System.Windows.Automation.GridPattern]::Pattern
+        Table = [System.Windows.Automation.TablePattern]::Pattern
+    }
+
+    $patterns = @()
+    foreach ($entry in $patternMap.GetEnumerator()) {
+        try {
+            if ($Element.GetCurrentPattern($entry.Value)) {
+                $patterns += $entry.Key
+            }
+        } catch {}
+    }
+    return $patterns
+}
+
+function script:Get-UiAutomationSnapshot {
+    param([int]$MaxElements = 500)
+
+    try {
+        Add-Type -AssemblyName UIAutomationClient -ErrorAction SilentlyContinue
+        Add-Type -AssemblyName UIAutomationTypes -ErrorAction SilentlyContinue
+    } catch {
+        return @()
+    }
+
+    $items = [System.Collections.Generic.List[object]]::new()
+    try {
+        $all = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
+            [System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.Condition]::TrueCondition
+        )
+        $count = [Math]::Min($all.Count, $MaxElements)
+        for ($i = 0; $i -lt $count; $i++) {
+            $el = $all[$i]
+            $rect = $el.Current.BoundingRectangle
+            if ($rect.IsEmpty -or $rect.Width -le 0 -or $rect.Height -le 0) { continue }
+
+            $name = [string]$el.Current.Name
+            $automationId = [string]$el.Current.AutomationId
+            $controlType = [string]$el.Current.ControlType.ProgrammaticName
+            if ([string]::IsNullOrWhiteSpace($name) -and [string]::IsNullOrWhiteSpace($automationId)) { continue }
+
+            $patterns = @(script:Get-UiAutomationPatternNames -Element $el)
+            $interactable = $patterns.Count -gt 0 -or $el.Current.IsKeyboardFocusable
+            $items.Add([ordered]@{
+                index = $items.Count
+                name = $name
+                automationId = $automationId
+                controlType = $controlType
+                className = [string]$el.Current.ClassName
+                processId = [int]$el.Current.ProcessId
+                isEnabled = [bool]$el.Current.IsEnabled
+                isKeyboardFocusable = [bool]$el.Current.IsKeyboardFocusable
+                isInteractable = [bool]$interactable
+                patterns = $patterns
+                bounds = [ordered]@{
+                    x = [int]$rect.X
+                    y = [int]$rect.Y
+                    width = [int]$rect.Width
+                    height = [int]$rect.Height
+                    right = [int]$rect.Right
+                    bottom = [int]$rect.Bottom
+                }
+            })
+        }
+    } catch {
+        script:Write-CursorLog "UI Automation snapshot failed: $($_.Exception.Message)"
+    }
+
+    return @($items)
+}
+
+function script:Get-ProcessNameSafe {
+    param([int]$ProcessId)
+    try {
+        return (Get-Process -Id $ProcessId -ErrorAction Stop).ProcessName
+    } catch {
+        return $null
+    }
+}
+
+function script:Get-ClippyActionContract {
+    param([string]$ActionId)
+
+    switch ($ActionId) {
+        'explain' {
+            return 'Explain the visible applications, layers, user task, and the most relevant interactable UI elements.'
+        }
+        'summarize' {
+            return 'Summarize the foreground app, background layers, visible content, and likely user workflow.'
+        }
+        'extract' {
+            return 'Extract visible text from screenshot and UI Automation names/values. Preserve hierarchy where possible.'
+        }
+        'debug' {
+            return 'Identify UI defects: truncation, overlap, unreachable controls, disabled interactions, odd z-order, and layout risks.'
+        }
+        'accessibility' {
+            return 'Assess accessibility using UI Automation data: names, focusability, enabled state, control types, and visible hierarchy.'
+        }
+        'read-aloud' {
+            return 'Extract readable content and present it in a screen-reader friendly order.'
+        }
+        default {
+            return 'Analyze the screen context and provide concise, useful guidance.'
+        }
+    }
+}
+
+function script:Convert-ScreenContextToMarkdown {
+    param([object]$Context)
+
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $lines.Add("# Clippy Screen Context")
+    $lines.Add("")
+    $lines.Add(('- **Action:** {0} / {1}' -f $Context.action.id, $Context.action.label))
+    $lines.Add(('- **Captured:** {0}' -f $Context.capture.timestamp))
+    $lines.Add(('- **Screenshot:** `{0}`' -f $Context.capture.imagePath))
+    $lines.Add(('- **Screen:** {0}x{1}' -f $Context.screen.width, $Context.screen.height))
+    $lines.Add("")
+
+    $foreground = @($Context.windows | Where-Object { $_.isForeground } | Select-Object -First 1)
+    if ($foreground.Count -gt 0) {
+        $fg = $foreground[0]
+        $lines.Add("## Foreground Layer")
+        $lines.Add("")
+        $lines.Add(('- **Title:** {0}' -f $fg.title))
+        $lines.Add(('- **Process:** {0} ({1})' -f $fg.processName, $fg.processId))
+        $lines.Add(('- **Bounds:** x={0}, y={1}, w={2}, h={3}' -f $fg.bounds.x, $fg.bounds.y, $fg.bounds.width, $fg.bounds.height))
+        $lines.Add("")
+    }
+
+    $lines.Add("## Visible Window Layers")
+    $lines.Add("")
+    foreach ($window in @($Context.windows | Select-Object -First 20)) {
+        $marker = if ($window.isForeground) { "foreground" } else { "visible" }
+        $lines.Add(('- **#{0} {1}** `{2}` - {3} - x={4}, y={5}, w={6}, h={7}' -f $window.zOrder, $marker, $window.title, $window.processName, $window.bounds.x, $window.bounds.y, $window.bounds.width, $window.bounds.height))
+    }
+    $lines.Add("")
+
+    $interactables = @($Context.uiAutomation.elements | Where-Object { $_.isInteractable } | Select-Object -First 80)
+    $lines.Add("## Interactable UI Elements")
+    $lines.Add("")
+    if ($interactables.Count -eq 0) {
+        $lines.Add("_No interactable UI Automation elements were discovered._")
+    } else {
+        foreach ($el in $interactables) {
+            $label = if ($el.name) { $el.name } elseif ($el.automationId) { $el.automationId } else { "(unnamed)" }
+            $patterns = if ($el.patterns -and $el.patterns.Count -gt 0) { [string]::Join(", ", @($el.patterns)) } else { "focusable=$($el.isKeyboardFocusable)" }
+            $lines.Add(('- `{0}` - {1} - {2} - x={3}, y={4}, w={5}, h={6}' -f $label, $el.controlType, $patterns, $el.bounds.x, $el.bounds.y, $el.bounds.width, $el.bounds.height))
+        }
+    }
+    $lines.Add("")
+
+    $lines.Add("## Recommended Analysis Contract")
+    $lines.Add("")
+    $lines.Add($Context.action.contract)
+    $lines.Add("")
+
+    return ($lines -join "`n")
+}
+
+function script:New-ClippyScreenContext {
+    param(
+        [Parameter(Mandatory)][string]$CapturePath,
+        [Parameter(Mandatory)][string]$ActionId,
+        [Parameter(Mandatory)][string]$Label,
+        [Parameter(Mandatory)][int]$ScreenX,
+        [Parameter(Mandatory)][int]$ScreenY,
+        [Parameter(Mandatory)][string]$Prompt
+    )
+
+    script:Ensure-ScreenContextInterop
+    $captureItem = Get-Item -LiteralPath $CapturePath
+    $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+    $windows = @([ClippyCursor.ScreenContextApi]::GetWindows() | ForEach-Object {
+        $processId = [int]$_['processId']
+        [ordered]@{
+            zOrder = [int]$_['zOrder']
+            hwnd = [int64]$_['hwnd']
+            title = [string]$_['title']
+            className = [string]$_['className']
+            processId = $processId
+            processName = (script:Get-ProcessNameSafe -ProcessId $processId)
+            isForeground = [bool]$_['isForeground']
+            bounds = $_['bounds']
+        }
+    })
+
+    $uiElements = @(script:Get-UiAutomationSnapshot)
+    $context = [ordered]@{
+        schema = 'https://darbotlabs.github.io/windows-clippy-mcp/screen-context/v1'
+        schemaVersion = $script:CursorContextSchemaVersion
+        capture = [ordered]@{
+            imagePath = $captureItem.FullName
+            imageBytes = [int64]$captureItem.Length
+            timestamp = (Get-Date).ToString('o')
+            cursor = [ordered]@{ x = $ScreenX; y = $ScreenY }
+        }
+        action = [ordered]@{
+            id = $ActionId
+            label = $Label
+            prompt = $Prompt
+            contract = (script:Get-ClippyActionContract -ActionId $ActionId)
+        }
+        screen = [ordered]@{
+            width = [int]$bounds.Width
+            height = [int]$bounds.Height
+            left = [int]$bounds.Left
+            top = [int]$bounds.Top
+        }
+        windows = $windows
+        uiAutomation = [ordered]@{
+            elementCount = $uiElements.Count
+            interactableCount = @($uiElements | Where-Object { $_.isInteractable }).Count
+            elements = $uiElements
+        }
+    }
+
+    $base = [System.IO.Path]::GetFileNameWithoutExtension($CapturePath)
+    $jsonPath = Join-Path $script:CursorCaptureDir "$base.screen-context.json"
+    $mdPath = Join-Path $script:CursorCaptureDir "$base.screen-context.md"
+    $context | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $jsonPath -Encoding UTF8
+    script:Convert-ScreenContextToMarkdown -Context ([pscustomobject]$context) | Set-Content -LiteralPath $mdPath -Encoding UTF8
+
+    return [pscustomobject]@{
+        JsonPath = $jsonPath
+        MarkdownPath = $mdPath
+        Context = $context
+    }
 }
 
 function script:Capture-ScreenRegion {
@@ -766,6 +1093,8 @@ function script:Invoke-ClippyAnalysis {
     }
 
     script:Write-CursorLog "Captured $ActionId at ($ScreenX, $ScreenY) -> $capturePath"
+    $screenContext = script:New-ClippyScreenContext -CapturePath $capturePath -ActionId $ActionId -Label $label -ScreenX $ScreenX -ScreenY $ScreenY -Prompt $prompt
+    script:Write-CursorLog "Screen context for $ActionId -> $($screenContext.JsonPath); $($screenContext.MarkdownPath)"
 
     # Position the widget near cursor, avoiding screen overflow
     $screenBounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
@@ -792,13 +1121,15 @@ function script:Invoke-ClippyAnalysis {
     if ($script:IsWidgetHosted) {
         $dispatched = script:Dispatch-WidgetAnalysis -CapturePath $capturePath `
             -Prompt $prompt -Label $label -ActionId $ActionId `
-            -ScreenX $ScreenX -ScreenY $ScreenY
+            -ScreenX $ScreenX -ScreenY $ScreenY `
+            -ContextJsonPath $screenContext.JsonPath `
+            -ContextMarkdownPath $screenContext.MarkdownPath
         if ($dispatched) { return }
         # Fall through to standalone if dispatch failed
     }
 
     # Standalone mode: show capture info and prompt user to connect
-    script:Show-StandaloneResult -CapturePath $capturePath -ActionId $ActionId -Label $label
+    script:Show-StandaloneResult -CapturePath $capturePath -ActionId $ActionId -Label $label -ContextJsonPath $screenContext.JsonPath -ContextMarkdownPath $screenContext.MarkdownPath
 }
 
 function script:Dispatch-WidgetAnalysis {
@@ -808,7 +1139,9 @@ function script:Dispatch-WidgetAnalysis {
         [string]$Label,
         [string]$ActionId,
         [int]$ScreenX,
-        [int]$ScreenY
+        [int]$ScreenY,
+        [string]$ContextJsonPath,
+        [string]$ContextMarkdownPath
     )
 
     try {
@@ -820,7 +1153,8 @@ function script:Dispatch-WidgetAnalysis {
         $analysisId = ([guid]::NewGuid()).Guid
         $result = script:Invoke-ClippyCursorContextPrompt -CapturePath $CapturePath `
             -Prompt $Prompt -Label $Label -ActionId $ActionId `
-            -ScreenX $ScreenX -ScreenY $ScreenY -AnalysisId $analysisId
+            -ScreenX $ScreenX -ScreenY $ScreenY -AnalysisId $analysisId `
+            -ContextJsonPath $ContextJsonPath -ContextMarkdownPath $ContextMarkdownPath
 
         if (-not $result) {
             return $false
@@ -860,7 +1194,9 @@ function script:Show-StandaloneResult {
     param(
         [string]$CapturePath,
         [string]$ActionId,
-        [string]$Label
+        [string]$Label,
+        [string]$ContextJsonPath,
+        [string]$ContextMarkdownPath
     )
 
     $fileSize = (Get-Item $CapturePath).Length
@@ -873,12 +1209,16 @@ function script:Show-StandaloneResult {
         "  $CapturePath"
         "  Size: $sizeKB KB"
         ""
+        "Semantic context files:"
+        "  JSON: $ContextJsonPath"
+        "  Markdown: $ContextMarkdownPath"
+        ""
         "To get AI-powered analysis:"
         "  1. Open the Clippy Bench (click the widget icon)"
-        "  2. Use the Commander prompt with the screenshot attached"
+        "  2. Use the Commander prompt with the screenshot and context files attached"
         "  3. Or run: pwsh clippy-widget.ps1 to start a full session"
         ""
-        "The screenshot is ready for analysis through any AI provider."
+        "The screenshot and semantic screen context are ready for analysis through any AI provider."
     ) -join "`n"
 
     script:Update-ResponseWidget -Widget $script:ResponseWidgetWindow -Updates @{
