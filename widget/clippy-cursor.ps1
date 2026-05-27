@@ -107,6 +107,7 @@ namespace ClippyCursor {
         private GCHandle _procHandle;  // prevent GC of the delegate
 
         public event EventHandler<MouseEventInfo> RightClick;
+        public bool RequireControlModifier { get; set; }
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         public delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
@@ -159,7 +160,7 @@ namespace ClippyCursor {
         private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam) {
             if (nCode >= 0 && (int)wParam == WM_RBUTTONUP) {
                 bool ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
-                if (ctrl) {
+                if (!RequireControlModifier || ctrl) {
                     var hookStruct = (MSLLHOOKSTRUCT)Marshal.PtrToStructure(
                         lParam, typeof(MSLLHOOKSTRUCT));
                     RightClick?.Invoke(this,
@@ -272,6 +273,7 @@ $script:CursorCaptureDir         = Join-Path ([Environment]::GetFolderPath('Appl
 $script:CursorConfigDir          = Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'Windows-Clippy-MCP'
 $script:CursorMaxCaptureFiles    = 20
 $script:CursorContextSchemaVersion = '1.0.0'
+$script:ClippyCursorRequireCtrlForMenu = $false
 
 # VK codes for hotkeys
 $script:VK_E = 0x45
@@ -507,6 +509,7 @@ namespace ClippyCursor {
         [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
         [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
         [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+        [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hWnd);
         [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
@@ -542,6 +545,7 @@ namespace ClippyCursor {
                 row["className"] = classBuilder.ToString();
                 row["processId"] = (int)pid;
                 row["isForeground"] = hWnd == foreground;
+                row["isMinimized"] = IsIconic(hWnd);
                 row["bounds"] = new Dictionary<string, object> {
                     { "x", rect.Left },
                     { "y", rect.Top },
@@ -591,10 +595,21 @@ function script:Get-UiAutomationPatternNames {
 function script:Get-UiAutomationSnapshot {
     param([int]$MaxElements = 500)
 
+    $script:LastUiAutomationScan = [ordered]@{
+        status = 'ok'
+        maxElements = $MaxElements
+        scannedCount = 0
+        elementCount = 0
+        truncated = $false
+        errors = @()
+    }
+
     try {
         Add-Type -AssemblyName UIAutomationClient -ErrorAction SilentlyContinue
         Add-Type -AssemblyName UIAutomationTypes -ErrorAction SilentlyContinue
     } catch {
+        $script:LastUiAutomationScan.status = 'unavailable'
+        $script:LastUiAutomationScan.errors = @($_.Exception.Message)
         return @()
     }
 
@@ -605,44 +620,180 @@ function script:Get-UiAutomationSnapshot {
             [System.Windows.Automation.Condition]::TrueCondition
         )
         $count = [Math]::Min($all.Count, $MaxElements)
+        $script:LastUiAutomationScan.scannedCount = [int]$count
+        $script:LastUiAutomationScan.truncated = ($all.Count -gt $MaxElements)
         for ($i = 0; $i -lt $count; $i++) {
-            $el = $all[$i]
-            $rect = $el.Current.BoundingRectangle
-            if ($rect.IsEmpty -or $rect.Width -le 0 -or $rect.Height -le 0) { continue }
+            try {
+                $el = $all[$i]
+                $rect = $el.Current.BoundingRectangle
+                if ($rect.IsEmpty -or $rect.Width -le 0 -or $rect.Height -le 0) { continue }
 
-            $name = [string]$el.Current.Name
-            $automationId = [string]$el.Current.AutomationId
-            $controlType = [string]$el.Current.ControlType.ProgrammaticName
-            if ([string]::IsNullOrWhiteSpace($name) -and [string]::IsNullOrWhiteSpace($automationId)) { continue }
-
-            $patterns = @(script:Get-UiAutomationPatternNames -Element $el)
-            $interactable = $patterns.Count -gt 0 -or $el.Current.IsKeyboardFocusable
-            $items.Add([ordered]@{
-                index = $items.Count
-                name = $name
-                automationId = $automationId
-                controlType = $controlType
-                className = [string]$el.Current.ClassName
-                processId = [int]$el.Current.ProcessId
-                isEnabled = [bool]$el.Current.IsEnabled
-                isKeyboardFocusable = [bool]$el.Current.IsKeyboardFocusable
-                isInteractable = [bool]$interactable
-                patterns = $patterns
-                bounds = [ordered]@{
-                    x = [int]$rect.X
-                    y = [int]$rect.Y
-                    width = [int]$rect.Width
-                    height = [int]$rect.Height
-                    right = [int]$rect.Right
-                    bottom = [int]$rect.Bottom
+                $name = [string]$el.Current.Name
+                $automationId = [string]$el.Current.AutomationId
+                $controlType = [string]$el.Current.ControlType.ProgrammaticName
+                $patterns = @(script:Get-UiAutomationPatternNames -Element $el)
+                $isEnabled = [bool]$el.Current.IsEnabled
+                $isFocusable = [bool]$el.Current.IsKeyboardFocusable
+                $interactable = $isEnabled -and (($patterns.Count -gt 0) -or $isFocusable)
+                $value = $null
+                if ($patterns -contains 'Value') {
+                    try { $value = [string]$el.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value } catch {}
                 }
-            })
+
+                $items.Add([ordered]@{
+                    index = $items.Count
+                    name = $name
+                    automationId = $automationId
+                    controlType = $controlType
+                    className = [string]$el.Current.ClassName
+                    processId = [int]$el.Current.ProcessId
+                    isEnabled = $isEnabled
+                    isKeyboardFocusable = $isFocusable
+                    isInteractable = [bool]$interactable
+                    patterns = $patterns
+                    value = $value
+                    bounds = [ordered]@{
+                        x = [int]$rect.X
+                        y = [int]$rect.Y
+                        width = [int]$rect.Width
+                        height = [int]$rect.Height
+                        right = [int]$rect.Right
+                        bottom = [int]$rect.Bottom
+                    }
+                })
+            } catch {
+                $script:LastUiAutomationScan.errors += "Element ${i}: $($_.Exception.Message)"
+            }
         }
+        $script:LastUiAutomationScan.elementCount = [int]$items.Count
     } catch {
+        $script:LastUiAutomationScan.status = 'partial'
         script:Write-CursorLog "UI Automation snapshot failed: $($_.Exception.Message)"
+        $script:LastUiAutomationScan.errors += $_.Exception.Message
     }
 
     return @($items)
+}
+
+function script:Get-WindowVisibilityCategory {
+    param(
+        [Parameter(Mandatory)]$Window,
+        [Parameter(Mandatory)]$ScreenBounds
+    )
+
+    if ($Window.isMinimized) { return 'minimized' }
+    $bounds = $Window.bounds
+    if ($bounds.right -le $ScreenBounds.Left -or $bounds.bottom -le $ScreenBounds.Top -or
+        $bounds.x -ge $ScreenBounds.Right -or $bounds.y -ge $ScreenBounds.Bottom) {
+        return 'offscreen'
+    }
+    if ($Window.isForeground) { return 'foreground' }
+    return 'visible'
+}
+
+function script:Get-ClippyAccessibilityProfile {
+    param([object[]]$Elements)
+
+    $missingAccessibleName = @()
+    $missingAutomationId = @()
+    $focusableUnnamed = @()
+    $clickableUnnamed = @()
+    $disabledVisibleControls = @()
+    $tinyOrZeroSizeControls = @()
+    $textValueWithoutReadableText = @()
+
+    foreach ($el in @($Elements)) {
+        $hasName = -not [string]::IsNullOrWhiteSpace([string]$el.name)
+        $hasAutomationId = -not [string]::IsNullOrWhiteSpace([string]$el.automationId)
+        $label = if ($hasName) { [string]$el.name } elseif ($hasAutomationId) { [string]$el.automationId } else { "element-$($el.index)" }
+        $issue = [ordered]@{
+            index = [int]$el.index
+            label = $label
+            controlType = [string]$el.controlType
+            automationId = [string]$el.automationId
+            bounds = $el.bounds
+        }
+
+        if (-not $hasName -and ($el.isKeyboardFocusable -or $el.isInteractable)) { $missingAccessibleName += $issue }
+        if (-not $hasAutomationId -and $el.isInteractable) { $missingAutomationId += $issue }
+        if ($el.isKeyboardFocusable -and -not $hasName) { $focusableUnnamed += $issue }
+        if (($el.patterns -contains 'Invoke' -or $el.patterns -contains 'Toggle' -or $el.patterns -contains 'ExpandCollapse') -and -not $hasName) { $clickableUnnamed += $issue }
+        if (-not $el.isEnabled -and ($el.bounds.width -gt 0 -and $el.bounds.height -gt 0)) { $disabledVisibleControls += $issue }
+        if ($el.bounds.width -le 2 -or $el.bounds.height -le 2) { $tinyOrZeroSizeControls += $issue }
+        if (($el.patterns -contains 'Text' -or $el.patterns -contains 'Value') -and
+            [string]::IsNullOrWhiteSpace([string]$el.name) -and [string]::IsNullOrWhiteSpace([string]$el.value)) {
+            $textValueWithoutReadableText += $issue
+        }
+    }
+
+    $violationCount = @($missingAccessibleName).Count + @($missingAutomationId).Count + @($focusableUnnamed).Count +
+        @($clickableUnnamed).Count + @($disabledVisibleControls).Count + @($tinyOrZeroSizeControls).Count +
+        @($textValueWithoutReadableText).Count
+    $issueCount = @(
+        @($missingAccessibleName) + @($missingAutomationId) + @($focusableUnnamed) +
+        @($clickableUnnamed) + @($disabledVisibleControls) + @($tinyOrZeroSizeControls) +
+        @($textValueWithoutReadableText) |
+        ForEach-Object { $_.index } |
+        Sort-Object -Unique
+    ).Count
+
+    return [ordered]@{
+        issueCount = [int]$issueCount
+        violationCount = [int]$violationCount
+        missingAccessibleName = @($missingAccessibleName)
+        missingAutomationId = @($missingAutomationId)
+        focusableUnnamed = @($focusableUnnamed)
+        clickableUnnamed = @($clickableUnnamed)
+        disabledVisibleControls = @($disabledVisibleControls)
+        tinyOrZeroSizeControls = @($tinyOrZeroSizeControls)
+        textValueWithoutReadableText = @($textValueWithoutReadableText)
+    }
+}
+
+function script:Invoke-ClippyOptionalOcr {
+    param([Parameter(Mandatory)][string]$CapturePath)
+
+    $provider = [string]$env:CLIPPY_OCR_COMMAND
+    if ([string]::IsNullOrWhiteSpace($provider)) {
+        return [ordered]@{
+            status = 'not_configured'
+            provider = $null
+            text = $null
+            blocks = @()
+            warnings = @('No OCR provider configured; screenshot OCR was not attempted.')
+        }
+    }
+
+    if (-not (Get-Command $provider -ErrorAction SilentlyContinue)) {
+        return [ordered]@{
+            status = 'unavailable'
+            provider = $provider
+            text = $null
+            blocks = @()
+            warnings = @("Configured OCR provider was not found: $provider")
+        }
+    }
+
+    try {
+        $output = & $provider $CapturePath 2>&1
+        $exitCode = if ($global:LASTEXITCODE -is [int]) { [int]$global:LASTEXITCODE } else { 0 }
+        return [ordered]@{
+            status = if ($exitCode -eq 0) { 'ok' } else { 'error' }
+            provider = $provider
+            exitCode = $exitCode
+            text = (($output | Out-String).Trim())
+            blocks = @()
+            warnings = @()
+        }
+    } catch {
+        return [ordered]@{
+            status = 'error'
+            provider = $provider
+            text = $null
+            blocks = @()
+            warnings = @($_.Exception.Message)
+        }
+    }
 }
 
 function script:Get-ProcessNameSafe {
@@ -659,19 +810,19 @@ function script:Get-ClippyActionContract {
 
     switch ($ActionId) {
         'explain' {
-            return 'Explain the visible applications, layers, user task, and the most relevant interactable UI elements.'
+            return 'Explain This response contract: include visible app/region summary, foreground/nearby layers, key interactable controls, and likely user intent. Reference JSON/UIA evidence before visual inference.'
         }
         'summarize' {
-            return 'Summarize the foreground app, background layers, visible content, and likely user workflow.'
+            return 'Summarize Screen response contract: include foreground app, background context, visible information summary, and likely next useful action. Mention uncertainty when evidence is incomplete.'
         }
         'extract' {
-            return 'Extract visible text from screenshot and UI Automation names/values. Preserve hierarchy where possible.'
+            return 'Extract Text response contract: use UIA names/text/value data first, include OCR fallback text only when OCR status is ok, group by hierarchy, and mark uncertainty.'
         }
         'debug' {
-            return 'Identify UI defects: truncation, overlap, unreachable controls, disabled interactions, odd z-order, and layout risks.'
+            return 'Debug UI response contract: include layout issues, z-order/occlusion issues, truncated or overlapping controls, disabled or unreachable controls, and suggested fixes.'
         }
         'accessibility' {
-            return 'Assess accessibility using UI Automation data: names, focusability, enabled state, control types, and visible hierarchy.'
+            return 'Accessibility Check response contract: include missing names, focusability concerns, control pattern concerns, keyboard navigation risks, and WCAG-oriented suggestions.'
         }
         'read-aloud' {
             return 'Extract readable content and present it in a screen-reader friendly order.'
@@ -690,20 +841,27 @@ function script:Convert-ScreenContextToMarkdown {
     $lines.Add("")
     $lines.Add(('- **Action:** {0} / {1}' -f $Context.action.id, $Context.action.label))
     $lines.Add(('- **Captured:** {0}' -f $Context.capture.timestamp))
+    $lines.Add(('- **Capture mode:** {0}' -f $Context.capture.captureMode))
     $lines.Add(('- **Screenshot:** `{0}`' -f $Context.capture.imagePath))
+    $lines.Add(('- **JSON:** `{0}`' -f $Context.lineage.outputs.json))
+    $lines.Add(('- **Markdown:** `{0}`' -f $Context.lineage.outputs.markdown))
+    $lines.Add(('- **Paperboy bundle:** `{0}`' -f $Context.lineage.outputs.paperboyBundle))
     $lines.Add(('- **Screen:** {0}x{1}' -f $Context.screen.width, $Context.screen.height))
+    $lines.Add(('- **Windows:** {0}; **UIA elements:** {1}; **Interactables:** {2}; **Accessibility issues:** {3}; **OCR:** {4}' -f (@($Context.windows).Count), $Context.uiAutomation.elementCount, $Context.uiAutomation.interactableCount, $Context.accessibility.issueCount, $Context.ocr.status))
     $lines.Add("")
 
     $foreground = @($Context.windows | Where-Object { $_.isForeground } | Select-Object -First 1)
+    $lines.Add("## Foreground Layer")
+    $lines.Add("")
     if ($foreground.Count -gt 0) {
         $fg = $foreground[0]
-        $lines.Add("## Foreground Layer")
-        $lines.Add("")
         $lines.Add(('- **Title:** {0}' -f $fg.title))
         $lines.Add(('- **Process:** {0} ({1})' -f $fg.processName, $fg.processId))
         $lines.Add(('- **Bounds:** x={0}, y={1}, w={2}, h={3}' -f $fg.bounds.x, $fg.bounds.y, $fg.bounds.width, $fg.bounds.height))
-        $lines.Add("")
+    } else {
+        $lines.Add("_No foreground Win32 layer was discovered._")
     }
+    $lines.Add("")
 
     $lines.Add("## Visible Window Layers")
     $lines.Add("")
@@ -723,6 +881,48 @@ function script:Convert-ScreenContextToMarkdown {
             $label = if ($el.name) { $el.name } elseif ($el.automationId) { $el.automationId } else { "(unnamed)" }
             $patterns = if ($el.patterns -and $el.patterns.Count -gt 0) { [string]::Join(", ", @($el.patterns)) } else { "focusable=$($el.isKeyboardFocusable)" }
             $lines.Add(('- `{0}` - {1} - {2} - x={3}, y={4}, w={5}, h={6}' -f $label, $el.controlType, $patterns, $el.bounds.x, $el.bounds.y, $el.bounds.width, $el.bounds.height))
+        }
+    }
+    $lines.Add("")
+
+    $lines.Add("## Accessibility Concerns")
+    $lines.Add("")
+    if ($Context.accessibility.issueCount -eq 0) {
+        $lines.Add("_No accessibility concerns were classified from the UI Automation snapshot._")
+    } else {
+        $concernMap = [ordered]@{
+            missingAccessibleName = 'Missing accessible name'
+            focusableUnnamed = 'Focusable but unnamed'
+            clickableUnnamed = 'Clickable but unnamed'
+            missingAutomationId = 'Missing AutomationId on interactable controls'
+            disabledVisibleControls = 'Disabled visible controls'
+            tinyOrZeroSizeControls = 'Tiny or zero-size controls'
+            textValueWithoutReadableText = 'Text/value controls without readable text'
+        }
+        foreach ($entry in $concernMap.GetEnumerator()) {
+            $property = $Context.accessibility.PSObject.Properties[$entry.Key]
+            $items = if ($property) { @($property.Value) } else { @() }
+            if ($items.Count -eq 0) { continue }
+            $lines.Add(("### {0}" -f $entry.Value))
+            foreach ($issue in @($items | Select-Object -First 20)) {
+                $lines.Add(('- `{0}` - {1} - x={2}, y={3}, w={4}, h={5}' -f $issue.label, $issue.controlType, $issue.bounds.x, $issue.bounds.y, $issue.bounds.width, $issue.bounds.height))
+            }
+            $lines.Add("")
+        }
+    }
+    $lines.Add("")
+
+    $lines.Add("## OCR")
+    $lines.Add("")
+    $lines.Add(('- **Status:** {0}' -f $Context.ocr.status))
+    if ($Context.ocr.text) {
+        $lines.Add("")
+        $lines.Add('```text')
+        $lines.Add([string]$Context.ocr.text)
+        $lines.Add('```')
+    } elseif ($Context.ocr.warnings) {
+        foreach ($warning in @($Context.ocr.warnings)) {
+            $lines.Add("- $warning")
         }
     }
     $lines.Add("")
@@ -799,7 +999,8 @@ function script:New-ClippyScreenContext {
         [Parameter(Mandatory)][string]$Label,
         [Parameter(Mandatory)][int]$ScreenX,
         [Parameter(Mandatory)][int]$ScreenY,
-        [Parameter(Mandatory)][string]$Prompt
+        [Parameter(Mandatory)][string]$Prompt,
+        [string]$CaptureMode = 'region'
     )
 
     $captureItem = Get-Item -LiteralPath $CapturePath
@@ -813,7 +1014,7 @@ function script:New-ClippyScreenContext {
     $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
     $windows = @([ClippyCursor.ScreenContextApi]::GetWindows() | ForEach-Object {
         $processId = [int]$_['processId']
-        [ordered]@{
+        $row = [ordered]@{
             zOrder = [int]$_['zOrder']
             hwnd = [int64]$_['hwnd']
             title = [string]$_['title']
@@ -821,11 +1022,17 @@ function script:New-ClippyScreenContext {
             processId = $processId
             processName = (script:Get-ProcessNameSafe -ProcessId $processId)
             isForeground = [bool]$_['isForeground']
+            isMinimized = [bool]$_['isMinimized']
             bounds = $_['bounds']
         }
+        $row.visibility = script:Get-WindowVisibilityCategory -Window ([pscustomobject]$row) -ScreenBounds $bounds
+        $row
     })
 
     $uiElements = @(script:Get-UiAutomationSnapshot)
+    $accessibility = script:Get-ClippyAccessibilityProfile -Elements $uiElements
+    $ocr = script:Invoke-ClippyOptionalOcr -CapturePath $captureItem.FullName
+    $foreground = @($windows | Where-Object { $_.isForeground } | Select-Object -First 1)
     $context = [ordered]@{
         schema = 'https://darbotlabs.github.io/windows-clippy-mcp/screen-context/v1'
         schemaVersion = $script:CursorContextSchemaVersion
@@ -833,7 +1040,16 @@ function script:New-ClippyScreenContext {
             imagePath = $captureItem.FullName
             imageBytes = [int64]$captureItem.Length
             timestamp = (Get-Date).ToString('o')
+            captureMode = $CaptureMode
             cursor = [ordered]@{ x = $ScreenX; y = $ScreenY }
+            primaryDisplayBounds = [ordered]@{
+                x = [int]$bounds.Left
+                y = [int]$bounds.Top
+                width = [int]$bounds.Width
+                height = [int]$bounds.Height
+                right = [int]$bounds.Right
+                bottom = [int]$bounds.Bottom
+            }
         }
         action = [ordered]@{
             id = $ActionId
@@ -848,11 +1064,21 @@ function script:New-ClippyScreenContext {
             top = [int]$bounds.Top
         }
         windows = $windows
+        layerModel = [ordered]@{
+            foreground = if ($foreground.Count -gt 0) { $foreground[0] } else { $null }
+            visibleWindowCount = @($windows | Where-Object { $_.visibility -eq 'visible' -or $_.visibility -eq 'foreground' }).Count
+            offscreenCandidateCount = @($windows | Where-Object { $_.visibility -eq 'offscreen' }).Count
+            minimizedCandidateCount = @($windows | Where-Object { $_.visibility -eq 'minimized' }).Count
+            backgroundVisibleApps = @($windows | Where-Object { $_.visibility -eq 'visible' } | Select-Object -First 20)
+        }
         uiAutomation = [ordered]@{
             elementCount = $uiElements.Count
             interactableCount = @($uiElements | Where-Object { $_.isInteractable }).Count
+            scan = $script:LastUiAutomationScan
             elements = $uiElements
         }
+        accessibility = $accessibility
+        ocr = $ocr
         lineage = [ordered]@{
             source = 'clippy-cursor'
             outputs = [ordered]@{
@@ -1179,6 +1405,7 @@ function script:Invoke-ClippyAnalysis {
     $prompt = $actionDef.Prompt
 
     # Capture
+    $captureMode = if ($actionDef.Region) { 'region' } else { 'full-screen' }
     $capturePath = if ($actionDef.Region) {
         script:Capture-ScreenRegion -CenterX $ScreenX -CenterY $ScreenY
     } else {
@@ -1191,7 +1418,7 @@ function script:Invoke-ClippyAnalysis {
     }
 
     script:Write-CursorLog "Captured $ActionId at ($ScreenX, $ScreenY) -> $capturePath"
-    $screenContext = script:New-ClippyScreenContext -CapturePath $capturePath -ActionId $ActionId -Label $label -ScreenX $ScreenX -ScreenY $ScreenY -Prompt $prompt
+    $screenContext = script:New-ClippyScreenContext -CapturePath $capturePath -ActionId $ActionId -Label $label -ScreenX $ScreenX -ScreenY $ScreenY -Prompt $prompt -CaptureMode $captureMode
     script:Write-CursorLog "Screen context for $ActionId -> $($screenContext.JsonPath); $($screenContext.MarkdownPath); $($screenContext.BundlePath)"
 
     # Position the widget near cursor, avoiding screen overflow
@@ -1498,6 +1725,38 @@ function script:New-StandaloneCursorMenu {
     return $menu
 }
 
+function script:Show-ClippyCursorContextMenu {
+    param(
+        [int]$ScreenX,
+        [int]$ScreenY
+    )
+
+    if (-not $script:CursorContextMenu -or -not $script:CursorAnchorWindow) {
+        return
+    }
+
+    $script:CursorAnchorWindow.Dispatcher.Invoke([Action]{
+        $dpi = script:Get-DpiScale
+        $script:CursorAnchorWindow.Left = $ScreenX * $dpi.X
+        $script:CursorAnchorWindow.Top  = $ScreenY * $dpi.Y
+        $script:CursorContextMenu.PlacementTarget = $script:CursorAnchorWindow
+        $script:CursorContextMenu.Placement = 'Bottom'
+        $script:CursorContextMenu.IsOpen = $false
+        $script:CursorContextMenu.IsOpen = $true
+    })
+}
+
+function script:Set-ClippyCursorClickMode {
+    param([bool]$RequireCtrl)
+
+    $script:ClippyCursorRequireCtrlForMenu = $RequireCtrl
+    if ($script:MouseHookInstance) {
+        $script:MouseHookInstance.RequireControlModifier = $RequireCtrl
+    }
+    $mode = if ($RequireCtrl) { 'Ctrl+Right-Click only' } else { 'Right-click anywhere' }
+    script:Write-CursorLog "Clippy cursor click mode set to: $mode"
+}
+
 # ── Lifecycle: Start / Stop ─────────────────────────────────────────
 function script:Start-ClippyCursorMode {
     <#
@@ -1539,26 +1798,22 @@ function script:Install-ClippyCursorHooks {
         MUST be called from the WPF dispatcher thread (inside Dispatcher.Run message pump).
     #>
 
-    # Mouse hook: Ctrl+Right-Click -> context menu
+    # Mouse hook: right-click -> context menu, optionally gated by Ctrl.
     try {
+        if ($script:MouseHookInstance) {
+            $script:MouseHookInstance.Dispose()
+            $script:MouseHookInstance = $null
+        }
         $script:MouseHookInstance = [ClippyCursor.MouseHook]::new()
-        $capturedMenu = $script:CursorContextMenu
-        $capturedAnchor = $script:CursorAnchorWindow
+        $script:MouseHookInstance.RequireControlModifier = [bool]$script:ClippyCursorRequireCtrlForMenu
         $script:MouseHookInstance.Add_RightClick({
             param($sender, $e)
-            $capturedAnchor.Dispatcher.Invoke([Action]{
-                $dpi = script:Get-DpiScale
-                $capturedAnchor.Left = $e.X * $dpi.X
-                $capturedAnchor.Top  = $e.Y * $dpi.Y
-                $capturedMenu.PlacementTarget = $capturedAnchor
-                $capturedMenu.Placement = 'Bottom'
-                $capturedMenu.IsOpen = $false
-                $capturedMenu.IsOpen = $true
-            })
+            script:Show-ClippyCursorContextMenu -ScreenX $e.X -ScreenY $e.Y
         }.GetNewClosure())
         $hookOk = $script:MouseHookInstance.Install()
         if ($hookOk -ne [IntPtr]::Zero) {
-            script:Write-CursorLog "Mouse hook installed (handle: 0x$($hookOk.ToString('X')))"
+            $mode = if ($script:ClippyCursorRequireCtrlForMenu) { 'Ctrl+Right-Click' } else { 'Right-click anywhere' }
+            script:Write-CursorLog "Mouse hook installed (handle: 0x$($hookOk.ToString('X')); mode: $mode)"
         } else {
             $err = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error()
             script:Write-CursorLog "Mouse hook FAILED (Win32 error: $err)"
@@ -1569,6 +1824,10 @@ function script:Install-ClippyCursorHooks {
 
     # Keyboard hook: Ctrl+Shift+E/S/T
     try {
+        if ($script:KeyboardHookInstance) {
+            $script:KeyboardHookInstance.Dispose()
+            $script:KeyboardHookInstance = $null
+        }
         $script:KeyboardHookInstance = [ClippyCursor.KeyboardHook]::new()
         $script:KeyboardHookInstance.Add_HotkeyPressed({
             param($sender, $vkCode)
@@ -1715,7 +1974,8 @@ function script:Get-CursorAnalysisAdaptiveCardTemplate {
 # ── Standalone entry point ──────────────────────────────────────────
 if ($Standalone) {
     Write-Host "Clippy Cursor Mode" -ForegroundColor Cyan
-    Write-Host "  Ctrl+Right-Click : Clippy AI context menu" -ForegroundColor DarkCyan
+    Write-Host "  Right-Click      : Clippy AI context menu" -ForegroundColor DarkCyan
+    Write-Host "  Ctrl+Right-Click : Also opens Clippy AI context menu" -ForegroundColor DarkCyan
     Write-Host "  Ctrl+Shift+E     : Explain This" -ForegroundColor DarkCyan
     Write-Host "  Ctrl+Shift+S     : Summarize Screen" -ForegroundColor DarkCyan
     Write-Host "  Ctrl+Shift+T     : Extract Text" -ForegroundColor DarkCyan

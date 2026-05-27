@@ -12,7 +12,10 @@
     "action",
     "screen",
     "windows",
+    "layerModel",
     "uiAutomation",
+    "accessibility",
+    "ocr",
     "lineage"
   ],
   "properties": {
@@ -29,12 +32,14 @@
         "imagePath",
         "imageBytes",
         "timestamp",
+        "captureMode",
         "cursor"
       ],
       "properties": {
         "imagePath": { "type": "string" },
         "imageBytes": { "type": "integer", "minimum": 0 },
         "timestamp": { "type": "string" },
+        "captureMode": { "type": "string" },
         "cursor": {
           "type": "object",
           "required": [ "x", "y" ],
@@ -42,6 +47,9 @@
             "x": { "type": "integer" },
             "y": { "type": "integer" }
           }
+        },
+        "primaryDisplayBounds": {
+          "$ref": "#/$defs/bounds"
         }
       }
     },
@@ -83,6 +91,20 @@
         "$ref": "#/$defs/windowLayer"
       }
     },
+    "layerModel": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "foreground": { "anyOf": [ { "$ref": "#/$defs/windowLayer" }, { "type": "null" } ] },
+        "visibleWindowCount": { "type": "integer", "minimum": 0 },
+        "offscreenCandidateCount": { "type": "integer", "minimum": 0 },
+        "minimizedCandidateCount": { "type": "integer", "minimum": 0 },
+        "backgroundVisibleApps": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/windowLayer" }
+        }
+      }
+    },
     "uiAutomation": {
       "type": "object",
       "additionalProperties": true,
@@ -94,11 +116,50 @@
       "properties": {
         "elementCount": { "type": "integer", "minimum": 0 },
         "interactableCount": { "type": "integer", "minimum": 0 },
+        "scan": {
+          "type": "object",
+          "additionalProperties": true
+        },
         "elements": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/uiaElement"
           }
+        }
+      }
+    },
+    "accessibility": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "issueCount"
+      ],
+      "properties": {
+        "issueCount": { "type": "integer", "minimum": 0 },
+        "violationCount": { "type": "integer", "minimum": 0 },
+        "missingAccessibleName": { "type": "array", "items": { "$ref": "#/$defs/accessibilityIssue" } },
+        "missingAutomationId": { "type": "array", "items": { "$ref": "#/$defs/accessibilityIssue" } },
+        "focusableUnnamed": { "type": "array", "items": { "$ref": "#/$defs/accessibilityIssue" } },
+        "clickableUnnamed": { "type": "array", "items": { "$ref": "#/$defs/accessibilityIssue" } },
+        "disabledVisibleControls": { "type": "array", "items": { "$ref": "#/$defs/accessibilityIssue" } },
+        "tinyOrZeroSizeControls": { "type": "array", "items": { "$ref": "#/$defs/accessibilityIssue" } },
+        "textValueWithoutReadableText": { "type": "array", "items": { "$ref": "#/$defs/accessibilityIssue" } }
+      }
+    },
+    "ocr": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": { "type": "string" },
+        "provider": { "type": [ "string", "null" ] },
+        "text": { "type": [ "string", "null" ] },
+        "blocks": { "type": "array" },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
         }
       }
     },
@@ -157,6 +218,8 @@
         "processId": { "type": "integer" },
         "processName": { "type": [ "string", "null" ] },
         "isForeground": { "type": "boolean" },
+        "isMinimized": { "type": "boolean" },
+        "visibility": { "type": "string" },
         "bounds": { "$ref": "#/$defs/bounds" }
       }
     },
@@ -189,6 +252,18 @@
           "type": "array",
           "items": { "type": "string" }
         },
+        "value": { "type": [ "string", "null" ] },
+        "bounds": { "$ref": "#/$defs/bounds" }
+      }
+    },
+    "accessibilityIssue": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "index": { "type": "integer" },
+        "label": { "type": "string" },
+        "controlType": { "type": "string" },
+        "automationId": { "type": "string" },
         "bounds": { "$ref": "#/$defs/bounds" }
       }
     }

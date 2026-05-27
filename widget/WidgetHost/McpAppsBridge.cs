@@ -281,7 +281,7 @@ internal sealed class McpAppsBridge : IAsyncDisposable
                 },
                 io_modelcontextprotocol_ui = (object?)null,
             },
-            clientInfo = new { name = "windows-clippy-widget", version = "0.2.0-alpha.1" },
+            clientInfo = new { name = "windows-clippy-widget", version = "0.2.1" },
         };
         // Build the params JSON manually so we can use the exact extension
         // key "io.modelcontextprotocol/ui" (dot + slash) that the SDK
@@ -289,7 +289,7 @@ internal sealed class McpAppsBridge : IAsyncDisposable
         var rawParams = JsonDocument.Parse(
             "{\"protocolVersion\":\"" + ProtocolVersion + "\",\"capabilities\":{" +
             "\"extensions\":{\"io.modelcontextprotocol/ui\":{\"mimeTypes\":[\"text/html;profile=mcp-app\"]}}" +
-            "},\"clientInfo\":{\"name\":\"windows-clippy-widget\",\"version\":\"0.2.0-alpha.1\"}}");
+            "},\"clientInfo\":{\"name\":\"windows-clippy-widget\",\"version\":\"0.2.1\"}}");
 
         _ = initParams; // suppress unused warning; structured form kept for future tweaks.
 

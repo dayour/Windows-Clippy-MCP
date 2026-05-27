@@ -4944,6 +4944,8 @@ function script:New-ClippyCursorContextPrompt {
         'You have three synchronized sources: screenshot pixels, a JSON runtime scan, and a Markdown screen-context report.'
         'Use the JSON/Markdown context for window layers, UI Automation controls, bounds, supported interaction patterns, and accessibility/focusability.'
         'Use the screenshot for visual-only interpretation such as layout, color, overlap, and text not exposed through UI Automation.'
+        'Use the action-specific response contract in the Markdown/JSON context as mandatory output structure.'
+        'Do not invent controls, apps, text, OCR results, or accessibility issues that are not present in the screenshot, JSON, or Markdown evidence. If evidence is missing or uncertain, say so.'
         ''
         $Prompt
         ''
@@ -9052,8 +9054,11 @@ $miCursorMode = script:New-ToolbarMenuItem -Header 'Cursor Mode'
 $miCursorActivate = script:New-ToolbarMenuItem -Header 'Activate Clippy Cursor'
 $miCursorActivate.Add_Click({
     if (Get-Command 'script:Start-ClippyCursorMode' -ErrorAction SilentlyContinue) {
-        script:Start-ClippyCursorMode
-        script:Write-Term 'Clippy cursor mode activated. Ctrl+Right-Click for AI context menu.' '#4EC9B0'
+        [void](script:Start-ClippyCursorMode)
+        if (Get-Command 'script:Install-ClippyCursorHooks' -ErrorAction SilentlyContinue) {
+            script:Install-ClippyCursorHooks
+        }
+        script:Write-Term 'Clippy cursor mode activated. Right-click anywhere for the Clippy AI context menu.' '#4EC9B0'
         script:Write-Term ''
     } else {
         script:Write-Term 'Cursor module not loaded.' '#F48771'
@@ -9061,6 +9066,65 @@ $miCursorActivate.Add_Click({
     }
 })
 $miCursorMode.Items.Add($miCursorActivate) | Out-Null
+
+$miCursorOpenContext = script:New-ToolbarMenuItem -Header 'Open Clippy Click Context'
+$miCursorOpenContext.Add_Click({
+    if (Get-Command 'script:Show-ClippyCursorContextMenu' -ErrorAction SilentlyContinue) {
+        if (-not $script:CursorContextMenu) {
+            [void](script:Start-ClippyCursorMode)
+        }
+        $pos = [System.Windows.Forms.Cursor]::Position
+        script:Show-ClippyCursorContextMenu -ScreenX $pos.X -ScreenY $pos.Y
+    } else {
+        script:Write-Term 'Cursor context menu is not loaded.' '#F48771'
+        script:Write-Term ''
+    }
+})
+$miCursorMode.Items.Add($miCursorOpenContext) | Out-Null
+
+$miCursorClickAnywhere = script:New-ToolbarMenuItem -Header 'Right-click anywhere opens Clippy' -Checkable -StayOpen
+$miCursorClickAnywhere.Add_Click({
+    if (Get-Command 'script:Set-ClippyCursorClickMode' -ErrorAction SilentlyContinue) {
+        script:Set-ClippyCursorClickMode -RequireCtrl $false
+    }
+})
+$miCursorMode.Items.Add($miCursorClickAnywhere) | Out-Null
+
+$miCursorCtrlOnly = script:New-ToolbarMenuItem -Header 'Ctrl+Right-click safe mode' -Checkable -StayOpen
+$miCursorCtrlOnly.Add_Click({
+    if (Get-Command 'script:Set-ClippyCursorClickMode' -ErrorAction SilentlyContinue) {
+        script:Set-ClippyCursorClickMode -RequireCtrl $true
+    }
+})
+$miCursorMode.Items.Add($miCursorCtrlOnly) | Out-Null
+
+$miCursorExplain = script:New-ToolbarMenuItem -Header 'Explain This Here'
+$miCursorExplain.Add_Click({
+    if (Get-Command 'script:Invoke-ClippyAnalysis' -ErrorAction SilentlyContinue) {
+        $pos = [System.Windows.Forms.Cursor]::Position
+        script:Invoke-ClippyAnalysis -ScreenX $pos.X -ScreenY $pos.Y -ActionId 'explain'
+    }
+})
+$miCursorMode.Items.Add($miCursorExplain) | Out-Null
+
+$miCursorSummarize = script:New-ToolbarMenuItem -Header 'Summarize Screen Now'
+$miCursorSummarize.Add_Click({
+    if (Get-Command 'script:Invoke-ClippyAnalysis' -ErrorAction SilentlyContinue) {
+        $pos = [System.Windows.Forms.Cursor]::Position
+        script:Invoke-ClippyAnalysis -ScreenX $pos.X -ScreenY $pos.Y -ActionId 'summarize'
+    }
+})
+$miCursorMode.Items.Add($miCursorSummarize) | Out-Null
+
+$miCursorExtract = script:New-ToolbarMenuItem -Header 'Extract Text Here'
+$miCursorExtract.Add_Click({
+    if (Get-Command 'script:Invoke-ClippyAnalysis' -ErrorAction SilentlyContinue) {
+        $pos = [System.Windows.Forms.Cursor]::Position
+        script:Invoke-ClippyAnalysis -ScreenX $pos.X -ScreenY $pos.Y -ActionId 'extract'
+    }
+})
+$miCursorMode.Items.Add($miCursorExtract) | Out-Null
+
 $miCursorDeactivate = script:New-ToolbarMenuItem -Header 'Restore Default Cursor'
 $miCursorDeactivate.Add_Click({
     if (Get-Command 'script:Stop-ClippyCursorMode' -ErrorAction SilentlyContinue) {
@@ -9125,9 +9189,20 @@ $ctx.Add_Opened({
     $miSysinternals.InputGestureText = if ($miSysinternals.IsEnabled) { 'installed' } else { 'not found' }
     $cursorLoaded = [bool](Get-Command 'script:Start-ClippyCursorMode' -ErrorAction SilentlyContinue)
     $miCursorMode.IsEnabled = $cursorLoaded
-    $miCursorMode.InputGestureText = if (-not $cursorLoaded) { 'not loaded' } elseif ($script:ClippyCursorActive) { 'active' } else { 'off' }
-    $miCursorActivate.IsEnabled = $cursorLoaded -and (-not $script:ClippyCursorActive)
-    $miCursorDeactivate.IsEnabled = $cursorLoaded -and $script:ClippyCursorActive
+    $cursorHooksActive = $cursorLoaded -and $script:MouseHookInstance
+    $cursorModeActive = $cursorLoaded -and ($script:ClippyCursorActive -or $cursorHooksActive)
+    $clickMode = if ($cursorLoaded -and $script:ClippyCursorRequireCtrlForMenu) { 'Ctrl+Right' } else { 'Right-click' }
+    $miCursorMode.InputGestureText = if (-not $cursorLoaded) { 'not loaded' } elseif ($cursorModeActive) { "active: $clickMode" } else { 'off' }
+    $miCursorActivate.IsEnabled = $cursorLoaded -and (-not $cursorHooksActive)
+    $miCursorOpenContext.IsEnabled = $cursorLoaded
+    $miCursorClickAnywhere.IsEnabled = $cursorLoaded
+    $miCursorClickAnywhere.IsChecked = $cursorLoaded -and (-not $script:ClippyCursorRequireCtrlForMenu)
+    $miCursorCtrlOnly.IsEnabled = $cursorLoaded
+    $miCursorCtrlOnly.IsChecked = $cursorLoaded -and [bool]$script:ClippyCursorRequireCtrlForMenu
+    $miCursorExplain.IsEnabled = $cursorLoaded
+    $miCursorSummarize.IsEnabled = $cursorLoaded
+    $miCursorExtract.IsEnabled = $cursorLoaded
+    $miCursorDeactivate.IsEnabled = $cursorModeActive
 })
 
 $script:Widget.ContextMenu = $ctx

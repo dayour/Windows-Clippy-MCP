@@ -62,6 +62,14 @@
     "interactableCount": {
       "type": "integer",
       "description": "Number of interactable UI Automation elements discovered."
+    },
+    "accessibilityIssueCount": {
+      "type": "integer",
+      "description": "Number of accessibility concerns classified from UI Automation metadata."
+    },
+    "ocrStatus": {
+      "type": "string",
+      "description": "OCR provider status for the capture, such as ok, not_configured, unavailable, or error."
     }
   }
 }

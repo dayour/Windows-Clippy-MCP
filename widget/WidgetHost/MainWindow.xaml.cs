@@ -20,6 +20,7 @@ public partial class MainWindow : Window
 
     private static readonly string[] ValidModes = ["Agent", "Plan", "Swarm"];
     private const string DefaultMountedResourceUri = "ui://clippy/fleet-status.html";
+    private const string CommanderMountedResourceUri = "ui://clippy/commander.html";
     private static readonly (string Name, string Header)[] ToolMenuEntries =
     [
         (nameof(WidgetToolSettings.AllowAllTools), "Allow all tools"),
@@ -40,7 +41,7 @@ public partial class MainWindow : Window
         new Dictionary<string, MountedViewBinding>(StringComparer.OrdinalIgnoreCase)
         {
             [DefaultMountedResourceUri] = new(DefaultMountedResourceUri, "clippy.fleet-status"),
-            ["ui://clippy/commander.html"] = new("ui://clippy/commander.html", "clippy.commander.state"),
+            [CommanderMountedResourceUri] = new(CommanderMountedResourceUri, "clippy.commander.state"),
             ["ui://clippy/agent-catalog.html"] = new("ui://clippy/agent-catalog.html", "clippy.agent-catalog"),
         };
 
@@ -55,7 +56,9 @@ public partial class MainWindow : Window
     private McpAppsBridge? _appsBridge;
     private McpAppsHost? _appsHost;
     private McpAppsHost? _secondaryAppsHost;
+    private McpAppsHost? _commanderCardAppsHost;
     private FleetStatusWindow? _fleetStatusWindow;
+    private CommanderCardWindow? _commanderCardWindow;
     private bool _allowClose;
     private bool _isShuttingDown;
     private bool _isSyncingUi;
@@ -141,6 +144,9 @@ public partial class MainWindow : Window
         UpdateFleetStatusBadge();
         WidgetHostLogger.Log($"BenchWindow created. RepoRoot={_repoRoot}; ConfigDir={_copilotConfigDir}; Agents={_agents.Length}");
         Closing += OnClosing;
+        LocationChanged += OnBenchPositionOrSizeChanged;
+        SizeChanged += OnBenchPositionOrSizeChanged;
+        StateChanged += OnBenchStateChanged;
         InitializeMcpAppsHost();
     }
 
@@ -254,9 +260,14 @@ public partial class MainWindow : Window
         _commanderHub.GroupsChanged -= OnCommanderHubGroupsChanged;
         _commanderHub.SessionRegistered -= OnCommanderHubSessionChanged;
         _commanderHub.SessionUnregistered -= OnCommanderHubSessionChanged;
+        LocationChanged -= OnBenchPositionOrSizeChanged;
+        SizeChanged -= OnBenchPositionOrSizeChanged;
+        StateChanged -= OnBenchStateChanged;
 
         try { _appsHost?.Dispose(); }
         catch (Exception ex) { WidgetHostLogger.Log($"McpAppsHost dispose warn: {ex.Message}"); }
+        try { _commanderCardWindow?.Close(); }
+        catch (Exception ex) { WidgetHostLogger.Log($"CommanderCardWindow close warn: {ex.Message}"); }
         try { _fleetStatusWindow?.Close(); }
         catch (Exception ex) { WidgetHostLogger.Log($"FleetStatusWindow close warn: {ex.Message}"); }
         if (_appsBridge is not null)
@@ -1483,6 +1494,7 @@ public partial class MainWindow : Window
         try
         {
             DragMove();
+            PositionCommanderCardLayer();
         }
         catch
         {
@@ -1512,6 +1524,8 @@ public partial class MainWindow : Window
         await Dispatcher.InvokeAsync(UpdateLayout, DispatcherPriority.Loaded);
         await EnsureBenchInitializedAsync(preferredSessionId);
         PositionRelativeToLauncher(launcherBounds);
+        await EnsureCommanderCardLayerAsync().ConfigureAwait(true);
+        PositionCommanderCardLayer();
         Activate();
         FocusSelectedSession();
     }
@@ -1534,6 +1548,7 @@ public partial class MainWindow : Window
         }
 
         PositionRelativeToLauncher(launcherBounds);
+        PositionCommanderCardLayer();
     }
 
     public void HideBench()
@@ -1544,6 +1559,7 @@ public partial class MainWindow : Window
         }
 
         Hide();
+        _commanderCardWindow?.Hide();
         UpdateStatus("Bench hidden.");
     }
 
@@ -1562,6 +1578,27 @@ public partial class MainWindow : Window
     public string GetActiveMode()
     {
         return _settings.Mode;
+    }
+
+    private void OnBenchPositionOrSizeChanged(object? sender, EventArgs e)
+    {
+        PositionCommanderCardLayer();
+    }
+
+    private void OnBenchStateChanged(object? sender, EventArgs e)
+    {
+        if (WindowState == WindowState.Minimized)
+        {
+            _commanderCardWindow?.Hide();
+            return;
+        }
+
+        if (IsVisible && _commanderCardWindow is not null)
+        {
+            _commanderCardWindow.Show();
+            PositionCommanderCardLayer();
+            Activate();
+        }
     }
 
     public string? GetActiveAgentId()
@@ -2153,6 +2190,11 @@ public partial class MainWindow : Window
                 await _secondaryAppsHost.PostResourceListChangedAsync().ConfigureAwait(true);
                 await PushMcpAppsToolResultToViewAsync(_secondaryAppsHost, DefaultMountedResourceUri, reason, "fleet-status").ConfigureAwait(true);
             }
+            if (_commanderCardAppsHost is not null)
+            {
+                await _commanderCardAppsHost.PostResourceListChangedAsync().ConfigureAwait(true);
+                await PushMcpAppsToolResultToViewAsync(_commanderCardAppsHost, CommanderMountedResourceUri, reason, "commander-card").ConfigureAwait(true);
+            }
         }
         catch (Exception ex)
         {
@@ -2173,6 +2215,11 @@ public partial class MainWindow : Window
         if (_secondaryAppsHost is not null)
         {
             await PushMcpAppsToolResultToViewAsync(_secondaryAppsHost, DefaultMountedResourceUri, reason, "fleet-status").ConfigureAwait(true);
+        }
+
+        if (_commanderCardAppsHost is not null)
+        {
+            await PushMcpAppsToolResultToViewAsync(_commanderCardAppsHost, CommanderMountedResourceUri, reason, "commander-card").ConfigureAwait(true);
         }
     }
 
@@ -2210,6 +2257,111 @@ public partial class MainWindow : Window
         {
             WidgetHostLogger.Log($"PushMcpAppsToolResultToViewAsync({reason}, {surface}): {ex.Message}");
         }
+    }
+
+    private async Task EnsureCommanderCardLayerAsync()
+    {
+        if (_appsBridge is null || !_appsBridge.IsReady || !IsVisible || _isShuttingDown)
+        {
+            return;
+        }
+
+        if (_commanderCardWindow is null)
+        {
+            _commanderCardWindow = new CommanderCardWindow(
+                _appsBridge,
+                CommanderMountedResourceUri,
+                _commanderSession.SessionId,
+                onHostChanged: host =>
+                {
+                    _commanderCardAppsHost = host;
+                    if (host is not null)
+                    {
+                        host.ViewInitialized += OnCommanderCardViewInitialized;
+                        _ = Dispatcher.InvokeAsync(async () =>
+                        {
+                            try
+                            {
+                                await PushMcpAppsToolResultToViewAsync(host, CommanderMountedResourceUri, "commander-card-open", "commander-card").ConfigureAwait(true);
+                            }
+                            catch (Exception ex)
+                            {
+                                WidgetHostLogger.Log($"CommanderCardWindow seed: {ex.Message}");
+                            }
+                        });
+                    }
+                });
+            _commanderCardWindow.Closed += (_, _) =>
+            {
+                _commanderCardWindow = null;
+                _commanderCardAppsHost = null;
+            };
+        }
+
+        PositionCommanderCardLayer();
+        if (!_commanderCardWindow.IsVisible)
+        {
+            _commanderCardWindow.Show();
+        }
+
+        var hostToSeed = _commanderCardWindow.Host ?? _commanderCardAppsHost;
+        if (hostToSeed is not null)
+        {
+            await PushMcpAppsToolResultToViewAsync(hostToSeed, CommanderMountedResourceUri, "commander-card-show", "commander-card").ConfigureAwait(true);
+        }
+    }
+
+    private void PositionCommanderCardLayer()
+    {
+        if (_commanderCardWindow is null || !IsVisible)
+        {
+            return;
+        }
+
+        try
+        {
+            _commanderCardWindow.AlignBehind(this);
+        }
+        catch (Exception ex)
+        {
+            WidgetHostLogger.Log($"PositionCommanderCardLayer: {ex.Message}");
+        }
+    }
+
+    private void OnCommanderCardViewInitialized(object? sender, EventArgs e)
+    {
+        WidgetHostLogger.Log("CommanderCardWindow: re-seeding standalone Commander card post-handshake.");
+        if (sender is not McpAppsHost host)
+        {
+            return;
+        }
+
+        _ = Dispatcher.InvokeAsync(async () =>
+        {
+            try
+            {
+                await host.PostResourceListChangedAsync().ConfigureAwait(true);
+                await PushMcpAppsToolResultToViewAsync(host, CommanderMountedResourceUri, "commander-card-handshake", "commander-card").ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                WidgetHostLogger.Log($"CommanderCardWindow handshake seed: {ex.Message}");
+            }
+        });
+
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(3000).ConfigureAwait(false);
+            try
+            {
+                var text = await Dispatcher.InvokeAsync(async () => await host.DumpViewTextAsync().ConfigureAwait(true)).Task.Unwrap().ConfigureAwait(false);
+                WidgetHostLogger.Log($"CommanderCardWindow: view text dump: {text}");
+            }
+            catch (Exception ex)
+            {
+                WidgetHostLogger.Log($"CommanderCardWindow dump failed: {ex.Message}");
+            }
+        });
     }
 
     private void OnFleetStatusBtnClick(object sender, RoutedEventArgs e)
@@ -2520,8 +2672,9 @@ public partial class MainWindow : Window
                 return;
             }
 
+            var explicitAppsView = !string.IsNullOrWhiteSpace(_options.AppsViewUri);
             if (!string.IsNullOrWhiteSpace(_resourceUriCurrent)
-                && !string.Equals(_resourceUriCurrent, DefaultMountedResourceUri, StringComparison.OrdinalIgnoreCase))
+                && (explicitAppsView || !string.Equals(_resourceUriCurrent, DefaultMountedResourceUri, StringComparison.OrdinalIgnoreCase)))
             {
                 _appsHost = new McpAppsHost(
                     resourceUri: _resourceUriCurrent,
@@ -2541,6 +2694,11 @@ public partial class MainWindow : Window
                 AppsHostSlot.Height = 0;
                 AppsHostSlot.Visibility = Visibility.Collapsed;
                 PublishMountedViewRefresh("bridge-start");
+            }
+
+            if (IsVisible)
+            {
+                await EnsureCommanderCardLayerAsync().ConfigureAwait(true);
             }
         }
         catch (Exception ex)

@@ -34,6 +34,7 @@ It exposes **49 tools total: 42 Desktop Automation tools + 7 M365/Power Platform
 • **Zero CV / Vision optional** – Works with *any* LLM; screenshot attachment is optional.
 • **Fast** – Typical end-to-end latency 1.5 – 2.3 s per action.
 • **MCP-compliant** – Validates against the official JSON schema and ships with MCP Apps host-conformance checks.
+• **Clippy Cursor intelligence layer** – `clippy-cursor` turns right-click into a Clippy Click context menu with Explain, Summarize, Extract Text, Debug UI, Accessibility Check, semanifest JSON/Markdown, and Paperboy bundles.
 • **Extensible** – Add your own Python tools in `main.py`.
 • **MIT-licensed** – Fork, embed, or commercialize freely.
 
@@ -173,13 +174,43 @@ That's it! The setup automatically:
 After installation:
 1. **Restart VS Code completely**
 2. Run `clippy-widget` to launch the floating widget.
-3. Run `clippy-live-tile` to launch the dedicated native adaptive live tile for icon and widget review.
-4. Run `clippy_widget_refresh` to relaunch running widget hosts after changes.
-5. Run `clippy_widget_restart` to restart the widget service and relaunch widget hosts.
-6. Run `clippy` to open a Copilot terminal session that automatically attaches a widget.
-7. Start using Windows Clippy tools in agent mode.
+3. Run `clippy-cursor` to launch Clippy Cursor Mode; right-click anywhere for the Clippy Click intelligence context menu.
+4. Run `clippy-live-tile` to launch the dedicated native adaptive live tile for icon and widget review.
+5. Run `clippy_widget_refresh` to relaunch running widget hosts after changes.
+6. Run `clippy_widget_restart` to restart the widget service and relaunch widget hosts.
+7. Run `clippy` to open a Copilot terminal session that automatically attaches a widget.
+8. Start using Windows Clippy tools in agent mode.
 
 **[Complete NPM Installation Guide →](NPM-INSTALL.md)**
+
+---
+
+## Clippy Cursor Mode
+
+Clippy Cursor Mode is the local desktop intelligence layer for screen-aware help:
+
+```shell
+clippy-cursor
+```
+
+When active, Clippy replaces the normal cursor and right-click opens the **Clippy Click** context menu anywhere on screen. The menu can run:
+
+- **Explain This**
+- **Summarize Screen**
+- **Extract Text**
+- **Read Aloud**
+- **Debug UI**
+- **Accessibility Check**
+
+Each action captures the screen or cursor region, enumerates Win32 windows, scans UI Automation elements, classifies accessibility concerns, writes `screen-context.json` and `screen-context.md`, and optionally creates a `.paperboy.zip` bundle under `%APPDATA%\Windows-Clippy-MCP\captures`.
+
+From the widget, use **Cursor Mode → Activate Clippy Cursor**. The widget menu also exposes **Open Clippy Click Context**, **Right-click anywhere opens Clippy**, **Ctrl+Right-click safe mode**, and direct actions like **Explain This Here**. Use **Restore Default Cursor** to stop cursor mode.
+
+For foreground debugging:
+
+```shell
+clippy-cursor --debug
+```
 
 ---
 
@@ -252,7 +283,7 @@ Create or update `.vscode/settings.json` in the root your workspace:
 
 ### Global Installation (All Workspaces) - Manual Method
 
-**For NPM users:** Use `npm install -g @clippymcp/windows-clippy-mcp` instead for easier global installation.
+**For NPM users:** Use `npm install -g @dayour/windows-clippy-mcp` instead for easier global installation.
 
 For global installation using the manual method that works across all VS Code workspaces:
 
@@ -392,7 +423,7 @@ A single-file, fully portable HTML reference covering every surface this project
 
 ### Core Requirements
 • Windows 10/11
-• Node.js 16+ for the one-click `npm install` flow
+• Node.js 25.7.0+ and npm 11.7.0+ for the one-click `npm install` flow
 • Python 3.13+ and [UV](https://github.com/astral-sh/uv) `pip install uv` for manual setup, or let `npm install` provision them automatically
 • English Windows locale (for consistent UI Automation tree)
 

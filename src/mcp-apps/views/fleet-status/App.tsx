@@ -87,7 +87,7 @@ type AdaptiveManifest = {
 
 type FlipField = { label?: string; value?: string };
 
-const APP_INFO = { name: "clippy.fleet-status", version: "0.2.0-alpha.1" };
+const APP_INFO = { name: "clippy.fleet-status", version: "0.2.1" };
 
 export function App() {
   const [snapshot, setSnapshot] = useState<FleetSnapshot | null>(null);
