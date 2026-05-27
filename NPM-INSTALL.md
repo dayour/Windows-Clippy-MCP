@@ -13,6 +13,8 @@ The easiest way to get started with Windows Clippy MCP:
 ### Prerequisites
 - Windows 10/11
 - Node.js 25.7.0+ and npm 11.7.0+ (install from [nodejs.org](https://nodejs.org))
+- PowerShell 7+ for Clippy Cursor and validation scripts
+- .NET desktop runtime/SDK matching the packaged native hosts for native widget/live-tile launch; Clippy Cursor uses the PowerShell standalone path
 - Internet access for the first install (the setup bootstraps `uv` and Python 3.13 automatically if needed)
 
 ### Install & Setup

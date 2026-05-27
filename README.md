@@ -425,6 +425,8 @@ A single-file, fully portable HTML reference covering every surface this project
 • Windows 10/11
 • Node.js 25.7.0+ and npm 11.7.0+ for the one-click `npm install` flow
 • Python 3.13+ and [UV](https://github.com/astral-sh/uv) `pip install uv` for manual setup, or let `npm install` provision them automatically
+• PowerShell 7+ for `clippy-cursor`, legacy widget launch, and Darbit validation scripts
+• .NET desktop runtime/SDK matching the packaged native hosts for native `clippy-widget` and `clippy-live-tile`; `clippy-cursor` can run through the PowerShell standalone path
 • English Windows locale (for consistent UI Automation tree)
 
 ### Microsoft 365 & Power Platform Tools (Optional)
