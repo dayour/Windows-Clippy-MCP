@@ -708,10 +708,35 @@ As of this PRD, the first implementation pass has already added:
 
 Remaining production hardening:
 
-- accessibility classifier
-- OCR provider
-- action-by-action validation harness
-- E2E test runner
+- accessibility classifier (initial heuristic data already exposed in JSON)
+- OCR provider (intentionally absent until a real provider is configured)
+- action-by-action validation harness (covered by the E2E boss gate below)
+
+## End-to-end boss gate
+
+The Level 10 boss gate is implemented as a deterministic offline harness.
+
+Launcher:
+
+```text
+widget\Launch-DarbitE2E.cmd
+widget\darbit-e2e.ps1
+```
+
+The harness:
+
+1. Loads `widget\clippy-cursor.ps1` as a module (without starting hooks).
+2. Captures a real full-screen screenshot.
+3. Generates `screen-context.json`, `screen-context.md`, and the Paperboy `.paperboy.zip`.
+4. Validates the JSON shape against `screen-context.schema.json`.
+5. Validates the Markdown section contract.
+6. Inspects the Paperboy zip for `screenshot.png`, `screen-context.json`, `screen-context.md`, and `manifest.json`.
+7. Verifies hosted prompt wiring in `clippy-widget.ps1` (`$attachments += $ContextJsonPath`, `$attachments += $ContextMarkdownPath`, and the no-fake-response preamble).
+8. Verifies the adaptive card binds `${contextJsonPath}` / `${contextMarkdownPath}` and exposes a Paperboy affordance.
+9. Verifies all five cursor actions are wired with contract strings.
+10. Writes a verdict to `%APPDATA%\Windows-Clippy-MCP\darbit-e2e\latest.e2e.json` and exits non-zero if any gate fails.
+
+The card deck grader (`widget\darbit-card-deck-game.ps1`) calls this harness as part of Level 10 via `commandSucceeds` and `jsonGate` check kinds, so the final grade reflects real generated evidence, not just source-text presence.
 
 ## Card deck game launcher
 

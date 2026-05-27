@@ -202,6 +202,84 @@ function Test-DeckCheck {
                     $result.missing = @("JSON array '$($Check.propertyPath)' contains $count item(s); minimum is $minimum.")
                 }
             }
+            'commandSucceeds' {
+                $scriptArg = [string]$Check.script
+                $scriptPath = Resolve-RepoPath -RepoRoot $RepoRoot -Path $scriptArg
+                if (-not (Test-Path -LiteralPath $scriptPath -PathType Leaf)) {
+                    $result.missing = @("Missing script: $scriptArg")
+                    break
+                }
+
+                $extraArgs = @()
+                if ($Check.arguments) {
+                    foreach ($a in @($Check.arguments)) { $extraArgs += [string]$a }
+                }
+
+                $output = & pwsh -NoProfile -ExecutionPolicy Bypass -File $scriptPath @extraArgs 2>&1
+                $exit = $LASTEXITCODE
+                $expected = if ($null -ne $Check.expectedExitCode) { [int]$Check.expectedExitCode } else { 0 }
+                if ($exit -eq $expected) {
+                    $result.status = 'pass'
+                    $result.score = 1.0
+                    $result.evidence = @("$scriptArg exited with $exit (expected $expected).")
+                } else {
+                    $tailLines = @($output | Select-Object -Last 8 | ForEach-Object { [string]$_ })
+                    $tail = ($tailLines -join ' | ')
+                    $result.missing = @("$scriptArg exited with $exit (expected $expected). tail: $tail")
+                }
+            }
+            'jsonGate' {
+                $rawPath = [Environment]::ExpandEnvironmentVariables([string]$Check.path)
+                $absolutePath = if ([System.IO.Path]::IsPathRooted($rawPath)) {
+                    $rawPath
+                } else {
+                    Resolve-RepoPath -RepoRoot $RepoRoot -Path $rawPath
+                }
+                if (-not (Test-Path -LiteralPath $absolutePath -PathType Leaf)) {
+                    $result.missing = @("Missing JSON artifact: $absolutePath")
+                    break
+                }
+
+                $json = Get-Content -LiteralPath $absolutePath -Raw | ConvertFrom-Json -Depth 30
+                $value = Get-JsonPropertyValue -InputObject $json -PropertyPath ([string]$Check.propertyPath)
+
+                $hasEquals  = $null -ne $Check.PSObject.Properties['equals']
+                $hasMinimum = $null -ne $Check.PSObject.Properties['minimum']
+                $issues = @()
+                if ($hasEquals) {
+                    if ([string]$value -ne [string]$Check.equals) {
+                        $issues += "Expected $($Check.propertyPath) = '$($Check.equals)'; got '$value'."
+                    } else {
+                        $result.evidence += "$($Check.propertyPath) = $value"
+                    }
+                }
+                if ($hasMinimum) {
+                    $numeric = 0
+                    if (-not [int]::TryParse([string]$value, [ref]$numeric)) {
+                        $issues += "Expected numeric $($Check.propertyPath) >= $($Check.minimum); got '$value'."
+                    } elseif ($numeric -lt [int]$Check.minimum) {
+                        $issues += "Expected $($Check.propertyPath) >= $($Check.minimum); got $numeric."
+                    } else {
+                        $result.evidence += "$($Check.propertyPath) = $numeric (>= $($Check.minimum))"
+                    }
+                }
+
+                if ($issues.Count -eq 0 -and $result.evidence.Count -gt 0) {
+                    $result.status = 'pass'
+                    $result.score = 1.0
+                } elseif ($issues.Count -eq 0) {
+                    # No expectations supplied — treat presence of property as pass.
+                    if ($null -eq $value) {
+                        $result.missing = @("Property '$($Check.propertyPath)' not found.")
+                    } else {
+                        $result.status = 'pass'
+                        $result.score = 1.0
+                        $result.evidence += "Property '$($Check.propertyPath)' present."
+                    }
+                } else {
+                    $result.missing = $issues
+                }
+            }
             default {
                 throw "Unsupported deck check kind: $($Check.kind)"
             }

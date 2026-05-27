@@ -448,13 +448,33 @@ function script:Ensure-CaptureDirectory {
 }
 
 function script:Prune-OldCaptures {
-    # Keep only the N most recent capture files to prevent disk bloat.
+    # Keep only the N most recent clippy-* PNG captures, and remove every
+    # sibling artifact (JSON, MD, .paperboy.zip, staging folder) keyed off
+    # the same capture base name so disk usage does not grow unbounded.
     try {
-        $files = Get-ChildItem -Path $script:CursorCaptureDir -Filter 'clippy-*.png' -ErrorAction SilentlyContinue |
+        if (-not (Test-Path -LiteralPath $script:CursorCaptureDir)) { return }
+        $files = Get-ChildItem -LiteralPath $script:CursorCaptureDir -Filter 'clippy-*.png' -File -ErrorAction SilentlyContinue |
                  Sort-Object LastWriteTime -Descending
-        if ($files.Count -gt $script:CursorMaxCaptureFiles) {
-            $files | Select-Object -Skip $script:CursorMaxCaptureFiles |
-                ForEach-Object { Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue }
+        if ($files.Count -le $script:CursorMaxCaptureFiles) { return }
+
+        $toRemove = $files | Select-Object -Skip $script:CursorMaxCaptureFiles
+        foreach ($file in $toRemove) {
+            $base = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
+            $siblingPatterns = @(
+                "$base.png",
+                "$base.screen-context.json",
+                "$base.screen-context.md",
+                "$base.screen-context.paperboy.zip",
+                "$base.*"
+            )
+            foreach ($pattern in $siblingPatterns) {
+                Get-ChildItem -LiteralPath $script:CursorCaptureDir -Filter $pattern -Force -ErrorAction SilentlyContinue |
+                    ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
+            }
+            $stagingDir = Join-Path $script:CursorCaptureDir "$base.paperboy"
+            if (Test-Path -LiteralPath $stagingDir) {
+                Remove-Item -LiteralPath $stagingDir -Recurse -Force -ErrorAction SilentlyContinue
+            }
         }
     } catch {}
 }

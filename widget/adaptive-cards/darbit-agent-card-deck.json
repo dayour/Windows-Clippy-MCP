@@ -352,6 +352,34 @@
           "kind": "fileContains",
           "path": "widget\\darbit-card-deck-game.ps1",
           "allOf": [ "grade", "review", "earnedXp", "totalXp" ]
+        },
+        {
+          "id": "e2e-harness-exists",
+          "title": "E2E boss gate harness exists",
+          "kind": "fileExists",
+          "path": "widget\\darbit-e2e.ps1"
+        },
+        {
+          "id": "e2e-harness-runs",
+          "title": "E2E boss gate runs and exits 0",
+          "kind": "commandSucceeds",
+          "script": "widget\\darbit-e2e.ps1"
+        },
+        {
+          "id": "e2e-overall-pass",
+          "title": "E2E boss gate review.status is pass",
+          "kind": "jsonGate",
+          "path": "%APPDATA%\\Windows-Clippy-MCP\\darbit-e2e\\latest.e2e.json",
+          "propertyPath": "review.status",
+          "equals": "pass"
+        },
+        {
+          "id": "e2e-gate-count",
+          "title": "E2E boss gate executed all gates",
+          "kind": "jsonGate",
+          "path": "%APPDATA%\\Windows-Clippy-MCP\\darbit-e2e\\latest.e2e.json",
+          "propertyPath": "review.passCount",
+          "minimum": 11
         }
       ]
     }
