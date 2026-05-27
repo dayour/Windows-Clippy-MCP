@@ -360,26 +360,34 @@
           "path": "widget\\darbit-e2e.ps1"
         },
         {
-          "id": "e2e-harness-runs",
-          "title": "E2E boss gate runs and exits 0",
-          "kind": "commandSucceeds",
-          "script": "widget\\darbit-e2e.ps1"
+          "id": "live-action-explain",
+          "title": "Live action 'explain' produces real artifacts",
+          "kind": "liveAction",
+          "actionId": "explain"
         },
         {
-          "id": "e2e-overall-pass",
-          "title": "E2E boss gate review.status is pass",
-          "kind": "jsonGate",
-          "path": "%APPDATA%\\Windows-Clippy-MCP\\darbit-e2e\\latest.e2e.json",
-          "propertyPath": "review.status",
-          "equals": "pass"
+          "id": "live-action-summarize",
+          "title": "Live action 'summarize' produces real artifacts",
+          "kind": "liveAction",
+          "actionId": "summarize"
         },
         {
-          "id": "e2e-gate-count",
-          "title": "E2E boss gate executed all gates",
-          "kind": "jsonGate",
-          "path": "%APPDATA%\\Windows-Clippy-MCP\\darbit-e2e\\latest.e2e.json",
-          "propertyPath": "review.passCount",
-          "minimum": 11
+          "id": "live-action-extract",
+          "title": "Live action 'extract' produces real artifacts",
+          "kind": "liveAction",
+          "actionId": "extract"
+        },
+        {
+          "id": "live-action-debug",
+          "title": "Live action 'debug' produces real artifacts",
+          "kind": "liveAction",
+          "actionId": "debug"
+        },
+        {
+          "id": "live-action-accessibility",
+          "title": "Live action 'accessibility' produces real artifacts",
+          "kind": "liveAction",
+          "actionId": "accessibility"
         }
       ]
     }

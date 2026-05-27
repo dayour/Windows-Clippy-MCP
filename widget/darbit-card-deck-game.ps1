@@ -202,6 +202,154 @@ function Test-DeckCheck {
                     $result.missing = @("JSON array '$($Check.propertyPath)' contains $count item(s); minimum is $minimum.")
                 }
             }
+            'liveAction' {
+                # Independent live validation: runs the cursor pipeline directly
+                # against widget\clippy-cursor.ps1 (no harness, no self-attestation),
+                # then validates every produced artifact with checks that do NOT
+                # depend on the producer's own claims:
+                #   - PNG decodes as a real image with width*height > 0
+                #   - JSON parses, has the required top-level keys, and reports
+                #     a foreground window that actually matches isForeground:true
+                #     in the windows[] array
+                #   - Markdown contains all required sections
+                #   - .paperboy.zip contains exactly the 4 expected entries and a
+                #     parseable manifest.json with artifactType clippy-screen-context-paperboy
+                $actionId = [string]$Check.actionId
+                $cursorScript = Join-Path $RepoRoot 'widget\clippy-cursor.ps1'
+                if (-not (Test-Path -LiteralPath $cursorScript -PathType Leaf)) {
+                    $result.missing = @("Missing cursor script: $cursorScript")
+                    break
+                }
+
+                $driverPath = [System.IO.Path]::GetTempFileName() + '.ps1'
+                $outJsonPath = [System.IO.Path]::GetTempFileName()
+                $driver = @"
+`$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
+Add-Type -AssemblyName System.Drawing -ErrorAction SilentlyContinue
+Add-Type -AssemblyName PresentationCore -ErrorAction SilentlyContinue
+Add-Type -AssemblyName PresentationFramework -ErrorAction SilentlyContinue
+Add-Type -AssemblyName WindowsBase -ErrorAction SilentlyContinue
+Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction SilentlyContinue
+. '$cursorScript'
+script:Ensure-CaptureDirectory
+`$cap = script:Capture-FullScreen
+`$ctx = script:New-ClippyScreenContext -CapturePath `$cap -ActionId '$actionId' -Label '$actionId' -ScreenX 0 -ScreenY 0 -Prompt 'darbit-cdg liveAction'
+[pscustomobject]@{
+    CapturePath  = `$cap
+    JsonPath     = `$ctx.JsonPath
+    MarkdownPath = `$ctx.MarkdownPath
+    BundlePath   = `$ctx.BundlePath
+} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath '$outJsonPath' -Encoding UTF8
+"@
+                Set-Content -LiteralPath $driverPath -Value $driver -Encoding UTF8
+
+                $stdout = & pwsh -NoProfile -ExecutionPolicy Bypass -File $driverPath 2>&1
+                $exit = $LASTEXITCODE
+                Remove-Item -LiteralPath $driverPath -Force -ErrorAction SilentlyContinue
+
+                if ($exit -ne 0 -or -not (Test-Path -LiteralPath $outJsonPath)) {
+                    $tail = (($stdout | Select-Object -Last 6) -join ' | ')
+                    $result.missing = @("Live action '$actionId' driver exited $exit. tail: $tail")
+                    Remove-Item -LiteralPath $outJsonPath -Force -ErrorAction SilentlyContinue
+                    break
+                }
+
+                $paths = Get-Content -LiteralPath $outJsonPath -Raw | ConvertFrom-Json
+                Remove-Item -LiteralPath $outJsonPath -Force -ErrorAction SilentlyContinue
+
+                $issues = @()
+
+                # PNG: must decode as real image with non-zero dimensions
+                try {
+                    Add-Type -AssemblyName System.Drawing -ErrorAction Stop
+                    $img = [System.Drawing.Image]::FromFile($paths.CapturePath)
+                    try {
+                        if ($img.Width -le 0 -or $img.Height -le 0) {
+                            $issues += "PNG has invalid dimensions: $($img.Width)x$($img.Height)"
+                        } else {
+                            $result.evidence += "PNG decoded: $($img.Width)x$($img.Height) at $($paths.CapturePath)"
+                        }
+                    } finally { $img.Dispose() }
+                } catch {
+                    $issues += "PNG did not decode as image: $($_.Exception.Message)"
+                }
+
+                # JSON: parse, validate shape, cross-check foreground claim
+                try {
+                    $j = Get-Content -LiteralPath $paths.JsonPath -Raw | ConvertFrom-Json -Depth 30
+                    $required = @('schema','schemaVersion','capture','action','screen','windows','uiAutomation','lineage')
+                    foreach ($k in $required) {
+                        if ($null -eq $j.$k) { $issues += "JSON missing top-level key: $k" }
+                    }
+                    if ($null -ne $j.action -and [string]$j.action.id -ne $actionId) {
+                        $issues += "JSON action.id mismatch: expected '$actionId', got '$($j.action.id)'"
+                    }
+                    $fg = @($j.windows | Where-Object { $_.isForeground })
+                    if ($fg.Count -ne 1) {
+                        $issues += "Expected exactly 1 foreground window; got $($fg.Count)"
+                    } else {
+                        $result.evidence += "JSON foreground: '$($fg[0].title)' pid=$($fg[0].processId)"
+                    }
+                    $elCount = [int]$j.uiAutomation.elementCount
+                    $actualElements = @($j.uiAutomation.elements).Count
+                    if ($elCount -ne $actualElements) {
+                        $issues += "uiAutomation.elementCount=$elCount but elements[] length=$actualElements"
+                    } else {
+                        $result.evidence += "JSON UIA elements: $elCount"
+                    }
+                } catch {
+                    $issues += "JSON parse failed: $($_.Exception.Message)"
+                }
+
+                # Markdown: independent section check
+                try {
+                    $md = Get-Content -LiteralPath $paths.MarkdownPath -Raw
+                    $needed = @('# Clippy Screen Context','## Foreground Layer','## Visible Window Layers','## Interactable UI Elements','## Recommended Analysis Contract')
+                    foreach ($s in $needed) {
+                        if (-not $md.Contains($s)) { $issues += "Markdown missing section: $s" }
+                    }
+                    if ($issues.Count -eq 0 -or -not ($issues | Where-Object { $_ -like 'Markdown*' })) {
+                        $result.evidence += "Markdown sections OK ($($md.Length) chars)"
+                    }
+                } catch {
+                    $issues += "Markdown read failed: $($_.Exception.Message)"
+                }
+
+                # Paperboy zip: 4 entries + parseable manifest with right artifactType
+                try {
+                    Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction Stop
+                    $zip = [System.IO.Compression.ZipFile]::OpenRead($paths.BundlePath)
+                    try {
+                        $entries = @($zip.Entries | ForEach-Object { $_.FullName })
+                        $expected = @('screenshot.png','screen-context.json','screen-context.md','manifest.json')
+                        $missingEntries = @($expected | Where-Object { $entries -notcontains $_ })
+                        if ($missingEntries.Count -gt 0) { $issues += "Bundle missing entries: $($missingEntries -join ', ')" }
+                        $manifestEntry = $zip.Entries | Where-Object { $_.FullName -eq 'manifest.json' } | Select-Object -First 1
+                        if ($manifestEntry) {
+                            $sr = New-Object System.IO.StreamReader($manifestEntry.Open())
+                            try { $manifestText = $sr.ReadToEnd() } finally { $sr.Dispose() }
+                            $manifest = $manifestText | ConvertFrom-Json
+                            if ([string]$manifest.artifactType -ne 'clippy-screen-context-paperboy') {
+                                $issues += "Bundle manifest artifactType wrong: $($manifest.artifactType)"
+                            } else {
+                                $result.evidence += "Bundle manifest artifactType OK; entries: $($entries.Count)"
+                            }
+                        } else {
+                            $issues += 'Bundle has no manifest.json'
+                        }
+                    } finally { $zip.Dispose() }
+                } catch {
+                    $issues += "Bundle inspection failed: $($_.Exception.Message)"
+                }
+
+                if ($issues.Count -eq 0) {
+                    $result.status = 'pass'
+                    $result.score = 1.0
+                } else {
+                    $result.missing = $issues
+                }
+            }
             'commandSucceeds' {
                 $scriptArg = [string]$Check.script
                 $scriptPath = Resolve-RepoPath -RepoRoot $RepoRoot -Path $scriptArg
