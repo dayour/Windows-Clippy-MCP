@@ -51,6 +51,10 @@
       "type": "string",
       "description": "Local file path to the generated semantic screen-context Markdown report."
     },
+    "contextBundlePath": {
+      "type": "string",
+      "description": "Local file path to the generated Paperboy bundle containing the screenshot, JSON, Markdown, and manifest."
+    },
     "windowCount": {
       "type": "integer",
       "description": "Number of visible top-level windows discovered by Win32 scanning."

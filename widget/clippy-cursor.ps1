@@ -47,6 +47,11 @@ if ($Standalone) {
     Add-Type -AssemblyName System.Windows.Forms
 }
 
+function script:Ensure-CursorCaptureAssemblies {
+    Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
+    Add-Type -AssemblyName System.Drawing -ErrorAction Stop
+}
+
 # ── Detect widget-hosted mode ───────────────────────────────────────
 # When dot-sourced by clippy-widget.ps1, these functions already exist.
 $script:IsWidgetHosted = (
@@ -710,6 +715,63 @@ function script:Convert-ScreenContextToMarkdown {
     return ($lines -join "`n")
 }
 
+function script:New-ClippyScreenContextPaperboyBundle {
+    param(
+        [Parameter(Mandatory)][string]$CapturePath,
+        [Parameter(Mandatory)][string]$JsonPath,
+        [Parameter(Mandatory)][string]$MarkdownPath,
+        [Parameter(Mandatory)][object]$Context
+    )
+
+    $base = [System.IO.Path]::GetFileNameWithoutExtension($CapturePath)
+    $bundlePath = Join-Path $script:CursorCaptureDir "$base.screen-context.paperboy.zip"
+    $stagingPath = Join-Path $script:CursorCaptureDir "$base.paperboy"
+
+    try {
+        if (Test-Path -LiteralPath $stagingPath) {
+            Remove-Item -LiteralPath $stagingPath -Recurse -Force
+        }
+        New-Item -ItemType Directory -Path $stagingPath -Force | Out-Null
+
+        Copy-Item -LiteralPath $CapturePath -Destination (Join-Path $stagingPath 'screenshot.png') -Force
+        Copy-Item -LiteralPath $JsonPath -Destination (Join-Path $stagingPath 'screen-context.json') -Force
+        Copy-Item -LiteralPath $MarkdownPath -Destination (Join-Path $stagingPath 'screen-context.md') -Force
+
+        $manifest = [ordered]@{
+            schemaVersion = '1.0.0'
+            artifactType = 'clippy-screen-context-paperboy'
+            createdAt = (Get-Date).ToString('o')
+            source = 'windows-clippy-mcp'
+            files = @(
+                [ordered]@{ name = 'screenshot.png'; role = 'screenshot'; sourcePath = $CapturePath },
+                [ordered]@{ name = 'screen-context.json'; role = 'semanifest-json'; sourcePath = $JsonPath },
+                [ordered]@{ name = 'screen-context.md'; role = 'semanifest-markdown'; sourcePath = $MarkdownPath }
+            )
+            lineage = $Context.lineage
+        }
+        $manifest | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Join-Path $stagingPath 'manifest.json') -Encoding UTF8
+
+        if (Test-Path -LiteralPath $bundlePath) {
+            Remove-Item -LiteralPath $bundlePath -Force
+        }
+        Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction Stop
+        [System.IO.Compression.ZipFile]::CreateFromDirectory(
+            $stagingPath,
+            $bundlePath,
+            [System.IO.Compression.CompressionLevel]::Optimal,
+            $false
+        )
+        return $bundlePath
+    } catch {
+        script:Write-CursorLog "Paperboy bundle creation failed: $($_.Exception.Message)"
+        return $null
+    } finally {
+        if (Test-Path -LiteralPath $stagingPath) {
+            Remove-Item -LiteralPath $stagingPath -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 function script:New-ClippyScreenContext {
     param(
         [Parameter(Mandatory)][string]$CapturePath,
@@ -720,8 +782,14 @@ function script:New-ClippyScreenContext {
         [Parameter(Mandatory)][string]$Prompt
     )
 
-    script:Ensure-ScreenContextInterop
     $captureItem = Get-Item -LiteralPath $CapturePath
+    $base = [System.IO.Path]::GetFileNameWithoutExtension($CapturePath)
+    $jsonPath = Join-Path $script:CursorCaptureDir "$base.screen-context.json"
+    $mdPath = Join-Path $script:CursorCaptureDir "$base.screen-context.md"
+    $bundlePath = Join-Path $script:CursorCaptureDir "$base.screen-context.paperboy.zip"
+
+    script:Ensure-CursorCaptureAssemblies
+    script:Ensure-ScreenContextInterop
     $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
     $windows = @([ClippyCursor.ScreenContextApi]::GetWindows() | ForEach-Object {
         $processId = [int]$_['processId']
@@ -765,17 +833,25 @@ function script:New-ClippyScreenContext {
             interactableCount = @($uiElements | Where-Object { $_.isInteractable }).Count
             elements = $uiElements
         }
+        lineage = [ordered]@{
+            source = 'clippy-cursor'
+            outputs = [ordered]@{
+                screenshot = $captureItem.FullName
+                json = $jsonPath
+                markdown = $mdPath
+                paperboyBundle = $bundlePath
+            }
+        }
     }
 
-    $base = [System.IO.Path]::GetFileNameWithoutExtension($CapturePath)
-    $jsonPath = Join-Path $script:CursorCaptureDir "$base.screen-context.json"
-    $mdPath = Join-Path $script:CursorCaptureDir "$base.screen-context.md"
     $context | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $jsonPath -Encoding UTF8
     script:Convert-ScreenContextToMarkdown -Context ([pscustomobject]$context) | Set-Content -LiteralPath $mdPath -Encoding UTF8
+    $createdBundlePath = script:New-ClippyScreenContextPaperboyBundle -CapturePath $captureItem.FullName -JsonPath $jsonPath -MarkdownPath $mdPath -Context ([pscustomobject]$context)
 
     return [pscustomobject]@{
         JsonPath = $jsonPath
         MarkdownPath = $mdPath
+        BundlePath = $createdBundlePath
         Context = $context
     }
 }
@@ -788,6 +864,7 @@ function script:Capture-ScreenRegion {
         [int]$Height = 600
     )
 
+    script:Ensure-CursorCaptureAssemblies
     script:Ensure-CaptureDirectory
 
     $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
@@ -818,6 +895,7 @@ function script:Capture-ScreenRegion {
 }
 
 function script:Capture-FullScreen {
+    script:Ensure-CursorCaptureAssemblies
     script:Ensure-CaptureDirectory
 
     $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
@@ -1094,7 +1172,7 @@ function script:Invoke-ClippyAnalysis {
 
     script:Write-CursorLog "Captured $ActionId at ($ScreenX, $ScreenY) -> $capturePath"
     $screenContext = script:New-ClippyScreenContext -CapturePath $capturePath -ActionId $ActionId -Label $label -ScreenX $ScreenX -ScreenY $ScreenY -Prompt $prompt
-    script:Write-CursorLog "Screen context for $ActionId -> $($screenContext.JsonPath); $($screenContext.MarkdownPath)"
+    script:Write-CursorLog "Screen context for $ActionId -> $($screenContext.JsonPath); $($screenContext.MarkdownPath); $($screenContext.BundlePath)"
 
     # Position the widget near cursor, avoiding screen overflow
     $screenBounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
@@ -1129,7 +1207,7 @@ function script:Invoke-ClippyAnalysis {
     }
 
     # Standalone mode: show capture info and prompt user to connect
-    script:Show-StandaloneResult -CapturePath $capturePath -ActionId $ActionId -Label $label -ContextJsonPath $screenContext.JsonPath -ContextMarkdownPath $screenContext.MarkdownPath
+    script:Show-StandaloneResult -CapturePath $capturePath -ActionId $ActionId -Label $label -ContextJsonPath $screenContext.JsonPath -ContextMarkdownPath $screenContext.MarkdownPath -ContextBundlePath $screenContext.BundlePath
 }
 
 function script:Dispatch-WidgetAnalysis {
@@ -1196,7 +1274,8 @@ function script:Show-StandaloneResult {
         [string]$ActionId,
         [string]$Label,
         [string]$ContextJsonPath,
-        [string]$ContextMarkdownPath
+        [string]$ContextMarkdownPath,
+        [string]$ContextBundlePath
     )
 
     $fileSize = (Get-Item $CapturePath).Length
@@ -1212,6 +1291,7 @@ function script:Show-StandaloneResult {
         "Semantic context files:"
         "  JSON: $ContextJsonPath"
         "  Markdown: $ContextMarkdownPath"
+        "  Paperboy bundle: $ContextBundlePath"
         ""
         "To get AI-powered analysis:"
         "  1. Open the Clippy Bench (click the widget icon)"

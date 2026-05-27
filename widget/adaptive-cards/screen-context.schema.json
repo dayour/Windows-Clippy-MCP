@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://darbotlabs.github.io/windows-clippy-mcp/screen-context/v1",
+  "title": "Darbit Screen Context",
+  "description": "Machine-readable semanifest emitted by Windows Clippy cursor actions.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema",
+    "schemaVersion",
+    "capture",
+    "action",
+    "screen",
+    "windows",
+    "uiAutomation",
+    "lineage"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "type": "string"
+    },
+    "capture": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "imagePath",
+        "imageBytes",
+        "timestamp",
+        "cursor"
+      ],
+      "properties": {
+        "imagePath": { "type": "string" },
+        "imageBytes": { "type": "integer", "minimum": 0 },
+        "timestamp": { "type": "string" },
+        "cursor": {
+          "type": "object",
+          "required": [ "x", "y" ],
+          "properties": {
+            "x": { "type": "integer" },
+            "y": { "type": "integer" }
+          }
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "label",
+        "prompt",
+        "contract"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "prompt": { "type": "string" },
+        "contract": { "type": "string" }
+      }
+    },
+    "screen": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "width",
+        "height",
+        "left",
+        "top"
+      ],
+      "properties": {
+        "width": { "type": "integer", "minimum": 0 },
+        "height": { "type": "integer", "minimum": 0 },
+        "left": { "type": "integer" },
+        "top": { "type": "integer" }
+      }
+    },
+    "windows": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/windowLayer"
+      }
+    },
+    "uiAutomation": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "elementCount",
+        "interactableCount",
+        "elements"
+      ],
+      "properties": {
+        "elementCount": { "type": "integer", "minimum": 0 },
+        "interactableCount": { "type": "integer", "minimum": 0 },
+        "elements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/uiaElement"
+          }
+        }
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "source",
+        "outputs"
+      ],
+      "properties": {
+        "source": { "type": "string" },
+        "outputs": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "screenshot": { "type": "string" },
+            "json": { "type": "string" },
+            "markdown": { "type": "string" },
+            "paperboyBundle": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "bounds": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "x": { "type": "integer" },
+        "y": { "type": "integer" },
+        "width": { "type": "integer" },
+        "height": { "type": "integer" },
+        "right": { "type": "integer" },
+        "bottom": { "type": "integer" }
+      }
+    },
+    "windowLayer": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "zOrder",
+        "hwnd",
+        "title",
+        "className",
+        "processId",
+        "isForeground",
+        "bounds"
+      ],
+      "properties": {
+        "zOrder": { "type": "integer" },
+        "hwnd": { "type": "integer" },
+        "title": { "type": "string" },
+        "className": { "type": "string" },
+        "processId": { "type": "integer" },
+        "processName": { "type": [ "string", "null" ] },
+        "isForeground": { "type": "boolean" },
+        "bounds": { "$ref": "#/$defs/bounds" }
+      }
+    },
+    "uiaElement": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "index",
+        "name",
+        "automationId",
+        "controlType",
+        "processId",
+        "isEnabled",
+        "isKeyboardFocusable",
+        "isInteractable",
+        "patterns",
+        "bounds"
+      ],
+      "properties": {
+        "index": { "type": "integer" },
+        "name": { "type": "string" },
+        "automationId": { "type": "string" },
+        "controlType": { "type": "string" },
+        "className": { "type": "string" },
+        "processId": { "type": "integer" },
+        "isEnabled": { "type": "boolean" },
+        "isKeyboardFocusable": { "type": "boolean" },
+        "isInteractable": { "type": "boolean" },
+        "patterns": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "bounds": { "$ref": "#/$defs/bounds" }
+      }
+    }
+  }
+}

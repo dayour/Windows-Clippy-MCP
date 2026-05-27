@@ -62,13 +62,15 @@
         { "title": "Position", "value": "(${cursorX}, ${cursorY})" },
         { "title": "Captured", "value": "${timestamp}" },
         { "title": "Context JSON", "value": "${contextJsonPath}" },
-        { "title": "Context MD", "value": "${contextMarkdownPath}" }
+        { "title": "Context MD", "value": "${contextMarkdownPath}" },
+        { "title": "Paperboy", "value": "${contextBundlePath}" }
       ]
     }
   ],
   "actions": [
     { "type": "Action.Submit", "title": "Copy",          "data": { "action": "copy" } },
     { "type": "Action.Submit", "title": "Ask Follow-up", "data": { "action": "followup" } },
+    { "type": "Action.Submit", "title": "Open Bundle",   "data": { "action": "open_bundle" } },
     { "type": "Action.Submit", "title": "Open in Bench", "data": { "action": "open_bench" } }
   ]
 }

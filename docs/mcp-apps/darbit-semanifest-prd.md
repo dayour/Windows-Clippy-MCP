@@ -702,14 +702,32 @@ As of this PRD, the first implementation pass has already added:
 - Markdown context generation
 - hosted prompt attachment wiring
 - adaptive-card schema fields for context paths
+- formal `screen-context.schema.json`
+- Paperboy `.paperboy.zip` context bundles
+- card deck game launcher and grading harness
 
 Remaining production hardening:
 
-- formal JSON schema file
 - accessibility classifier
 - OCR provider
-- Paperboy bundle output
 - action-by-action validation harness
-- UI affordance to open context files
 - E2E test runner
+
+## Card deck game launcher
+
+The Darbit questline is also represented as a local **card deck** (`cd`) that can be completed into a reviewed **card deck game** (`cdg`).
+
+Launcher:
+
+```text
+widget\Launch-DarbitCardDeckGame.cmd
+```
+
+Default card deck:
+
+```text
+widget\adaptive-cards\darbit-agent-card-deck.json
+```
+
+The launcher reads the deck, evaluates each quest against repo artifacts, writes `cd` and `cdg` JSON files under `%APPDATA%\Windows-Clippy-MCP\darbit-card-deck-game`, produces a Markdown review, and assigns a grade from earned XP. This makes the game auditable: a quest only passes when its checks find actual implementation evidence.
 
