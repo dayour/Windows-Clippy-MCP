@@ -1820,7 +1820,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "fastmcp", specifier = ">=2.8.1" },
+    { name = "fastmcp", specifier = ">=3.2.0" },
     { name = "fuzzywuzzy", specifier = ">=0.18.0" },
     { name = "humancursor", specifier = ">=1.1.5" },
     { name = "markdownify", specifier = ">=1.1.0" },
