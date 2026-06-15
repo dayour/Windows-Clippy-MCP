@@ -18,6 +18,8 @@ internal sealed class CommanderBroadcastOutcome
     public CommanderDispatchResult Result { get; }
 }
 
+internal sealed record CommanderGroupMember(Guid TabKey, string SessionId, string DisplayName);
+
 internal sealed class CommanderLinkGroup
 {
     public CommanderLinkGroup(string label)
@@ -130,18 +132,42 @@ internal sealed class CommanderHub
             string.Equals(s.SessionId, sessionId, StringComparison.OrdinalIgnoreCase));
     }
 
-    public IReadOnlyDictionary<string, IReadOnlyCollection<string>> DescribeGroups()
+    public TerminalTabSession? FindByTabKey(string tabKey)
+    {
+        if (string.IsNullOrWhiteSpace(tabKey) ||
+            !Guid.TryParse(tabKey, out var parsed))
+        {
+            return null;
+        }
+
+        return _sessions.TryGetValue(parsed, out var session) ? session : null;
+    }
+
+    public TerminalTabSession? ResolveTarget(string? tabKey, string? sessionId)
+    {
+        var byKey = FindByTabKey(tabKey ?? string.Empty);
+        if (byKey is not null)
+        {
+            return byKey;
+        }
+
+        return string.IsNullOrWhiteSpace(sessionId) ? null : FindBySessionId(sessionId);
+    }
+
+    public IReadOnlyDictionary<string, IReadOnlyCollection<CommanderGroupMember>> DescribeGroups()
     {
         lock (_groupGate)
         {
-            var result = new Dictionary<string, IReadOnlyCollection<string>>(StringComparer.OrdinalIgnoreCase);
+            var result = new Dictionary<string, IReadOnlyCollection<CommanderGroupMember>>(StringComparer.OrdinalIgnoreCase);
             foreach (var (label, group) in _groups)
             {
                 var keys = group.TabKeys;
-                var names = keys
-                    .Select(k => _sessions.TryGetValue(k, out var s) ? s.DisplayName : "(closed)")
+                var members = keys
+                    .Select(k => _sessions.TryGetValue(k, out var s)
+                        ? new CommanderGroupMember(k, s.SessionId ?? string.Empty, s.DisplayName ?? string.Empty)
+                        : new CommanderGroupMember(k, string.Empty, "(closed)"))
                     .ToArray();
-                result[label] = names;
+                result[label] = members;
             }
 
             return result;

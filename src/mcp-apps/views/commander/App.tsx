@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useApp } from "@modelcontextprotocol/ext-apps/react";
 
-const APP_INFO = { name: "clippy.commander", version: "0.2.0-alpha.1" };
+const APP_INFO = { name: "clippy.commander", version: "0.2.1" };
 const COMMANDER_MODES = ["Agent", "Plan", "Swarm"] as const;
 const HISTORY_LIMIT = 24;
 

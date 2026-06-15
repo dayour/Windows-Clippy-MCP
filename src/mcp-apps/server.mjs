@@ -38,7 +38,7 @@ import { FleetState } from "./bridge-state.mjs";
 
 const SERVER_INFO = {
   name: "windows-clippy-mcp-apps",
-  version: "0.2.0",
+  version: "0.2.1",
 };
 
 /**

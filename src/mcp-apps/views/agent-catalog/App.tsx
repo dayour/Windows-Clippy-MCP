@@ -19,7 +19,7 @@ type AgentCatalogPayload = {
   error?: string | null;
 };
 
-const APP_INFO = { name: "clippy.agent-catalog", version: "0.2.0-alpha.1" };
+const APP_INFO = { name: "clippy.agent-catalog", version: "0.2.1" };
 
 export function App() {
   const [payload, setPayload] = useState<AgentCatalogPayload | null>(null);

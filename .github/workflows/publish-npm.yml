@@ -10,9 +10,22 @@ on:
         required: false
         type: string
 
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: publish-npm-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      DOTNET_NOLOGO: true
+      NPM_CONFIG_AUDIT: false
+      NPM_CONFIG_FUND: false
 
     steps:
       - name: Checkout code
@@ -21,18 +34,38 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '18'
+          node-version: '25.7.0'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Install dependencies
-        run: npm ci --only=production || npm install --only=production
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
 
       - name: Update version if specified
         if: github.event.inputs.version != ''
         run: npm version ${{ github.event.inputs.version }} --no-git-tag-version
 
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build MCP Apps views
+        run: npm run build:views
+
+      - name: Build native widget payloads
+        shell: pwsh
+        run: |
+          dotnet build Windows-Clippy-MCP.sln -c Release -nologo
+          dotnet build widget\TerminalHost\TerminalHost.csproj -c Debug -nologo
+
+      - name: Validate package payload
+        run: npm run validate
+
+      - name: Pack dry run
+        run: npm pack --dry-run
+
       - name: Publish to NPM
-        run: npm publish --access public
+        run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -50,7 +83,7 @@ jobs:
             This release includes the NPM package for one-click installation:
 
             ```bash
-            npm install -g @clippymcp/windows-clippy-mcp
+            npm install -g @dayour/windows-clippy-mcp
             ```
 
             ### What's New

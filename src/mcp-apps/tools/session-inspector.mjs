@@ -4,8 +4,8 @@
  * Read-only deep inspection of a single fleet entity. Given a kind + id,
  * return the full slice from the current FleetState snapshot. Supports:
  *   - kind=commander         (returns commander slice; id optional)
- *   - kind=tab, id=sessionId (returns matching tab entry)
- *   - kind=group, id=label   (returns matching group entry + member sessionIds)
+ *   - kind=tab, id=tabKey or legacy sessionId (returns matching tab entry)
+ *   - kind=group, id=label   (returns matching group entry + member tabKeys/sessionIds)
  *   - kind=agent, id=agentId (returns matching agent catalog entry)
  *
  * The canonical debugging surface for any MCP host: "show me the raw state
@@ -40,7 +40,7 @@ export function registerSessionInspector(server, { state } = {}) {
           .max(256)
           .optional()
           .describe(
-            "Identifier for the entity: tab sessionId, group label, or agent id. Optional for kind=commander (returns the active commander).",
+            "Identifier for the entity: tabKey (preferred) or sessionId, group label, or agent id. Optional for kind=commander.",
           ),
       },
       _meta: { ui: { resourceUri: INSPECTOR_VIEW_URI } },
@@ -106,7 +106,14 @@ function lookup(snap, kind, id) {
   if (kind === "tab") {
     if (!id) return null;
     const list = Array.isArray(snap.tabs?.list) ? snap.tabs.list : [];
-    return list.find((t) => t && typeof t === "object" && t.sessionId === id) ?? null;
+    return (
+      list.find(
+        (t) =>
+          t &&
+          typeof t === "object" &&
+          (t.tabKey === id || t.sessionId === id),
+      ) ?? null
+    );
   }
   if (kind === "group") {
     if (!id) return null;

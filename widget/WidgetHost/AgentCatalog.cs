@@ -1,11 +1,20 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 
 namespace WidgetHost;
 
-internal sealed record AgentDefinition(string Id, string DisplayName, string FilePath, string Source);
+internal sealed record AgentDefinition(
+    string Id,
+    string DisplayName,
+    string FilePath,
+    string Source,
+    string RelativePath,
+    string ContentHash,
+    IReadOnlyList<string> PathPatterns);
 
 internal static class AgentCatalog
 {
@@ -70,7 +79,7 @@ internal static class AgentCatalog
 
         try
         {
-            foreach (var file in Directory.GetFiles(directory, "*.md"))
+            foreach (var file in Directory.EnumerateFiles(directory, "*.md", SearchOption.AllDirectories))
             {
                 var name = Path.GetFileNameWithoutExtension(file);
                 if (IgnoredFileNames.Contains(name, StringComparer.OrdinalIgnoreCase))
@@ -104,7 +113,22 @@ internal static class AgentCatalog
             ? BundledSource
             : UserSource;
 
-        return new AgentDefinition(id, id, filePath, source);
+        var sourceRoot = source == UserSource
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".copilot", "agents")
+            : GetBundledAgentsDir();
+        var relativePath = BuildPortableRelativePath(filePath, sourceRoot, source);
+        var contentHash = ComputeContentHash(filePath);
+        var pathPatterns = BuildPathPatterns(id, source, relativePath);
+
+        return new AgentDefinition(id, id, filePath, source, relativePath, contentHash, pathPatterns);
+    }
+
+    public static string BuildPortableTooltip(AgentDefinition agent)
+    {
+        var path = string.IsNullOrWhiteSpace(agent.RelativePath)
+            ? agent.Id
+            : agent.RelativePath;
+        return $"{agent.Source}: {path}";
     }
 
     private static string? GetBundledAgentsDir()
@@ -175,5 +199,68 @@ internal static class AgentCatalog
             return false;
         }
     }
+
+    private static string BuildPortableRelativePath(string filePath, string? sourceRoot, string source)
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(sourceRoot))
+            {
+                var relative = Path.GetRelativePath(sourceRoot, filePath);
+                if (!relative.StartsWith("..", StringComparison.Ordinal) &&
+                    !Path.IsPathRooted(relative))
+                {
+                    return source == UserSource
+                        ? Path.Combine(".copilot", "agents", relative)
+                        : Path.Combine("agents", relative);
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        return Path.GetFileName(filePath);
+    }
+
+    private static string ComputeContentHash(string filePath)
+    {
+        try
+        {
+            using var stream = File.OpenRead(filePath);
+            var hash = SHA256.HashData(stream);
+            return Convert.ToHexString(hash).ToLowerInvariant();
+        }
+        catch (Exception ex)
+        {
+            WidgetHostLogger.Log($"Agent hash skipped for {filePath}: {ex.Message}");
+            return string.Empty;
+        }
+    }
+
+    private static IReadOnlyList<string> BuildPathPatterns(string id, string source, string relativePath)
+    {
+        var root = source == UserSource
+            ? Path.Combine(".copilot", "agents")
+            : "agents";
+
+        var patterns = new List<string>
+        {
+            NormalizePortablePath(relativePath),
+            NormalizePortablePath(Path.Combine(root, $"{id}.md")),
+            NormalizePortablePath(Path.Combine(root, "**", $"{id}.md"))
+        };
+
+        return new ReadOnlyCollection<string>(
+            patterns
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray());
+    }
+
+    private static string NormalizePortablePath(string path) =>
+        string.IsNullOrWhiteSpace(path)
+            ? string.Empty
+            : path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 }
 

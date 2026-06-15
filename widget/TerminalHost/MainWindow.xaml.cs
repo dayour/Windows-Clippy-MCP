@@ -268,14 +268,14 @@ public partial class MainWindow : Window
 
     private async Task<bool> TryHandleControlMessageAsync(JsonElement message)
     {
-        var action = GetRequiredStringProperty(message, "action");
-        switch (action)
+        var control = NormalizeControlMessage(message);
+        switch (control.Action)
         {
             case "write":
-                await Dispatcher.InvokeAsync(() => WriteTerminalText(GetOptionalStringProperty(message, "text") ?? string.Empty));
+                await Dispatcher.InvokeAsync(() => WriteTerminalText(GetOptionalStringProperty(control.Payload, "text") ?? string.Empty));
                 return true;
             case "input":
-                var text = GetOptionalStringProperty(message, "text");
+                var text = GetOptionalStringProperty(control.Payload, "text") ?? GetOptionalStringProperty(control.Payload, "input") ?? GetOptionalStringProperty(control.Payload, "prompt");
                 if (string.IsNullOrWhiteSpace(text))
                 {
                     ReportProtocolError("Input control message requires a non-empty 'text' value.");
@@ -285,8 +285,8 @@ public partial class MainWindow : Window
                 await Dispatcher.InvokeAsync(() => SubmitTerminalInput(text));
                 return true;
             case "resize":
-                var cols = GetOptionalPositiveInt32Property(message, "cols", Terminal.Terminal.Columns);
-                var rows = GetOptionalPositiveInt32Property(message, "rows", Terminal.Terminal.Rows);
+                var cols = GetOptionalPositiveInt32Property(control.Payload, "cols", Terminal.Terminal.Columns);
+                var rows = GetOptionalPositiveInt32Property(control.Payload, "rows", Terminal.Terminal.Rows);
                 await Dispatcher.InvokeAsync(() => Terminal.ConPTYTerm.Resize(cols, rows));
                 return true;
             case "close":
@@ -294,9 +294,57 @@ public partial class MainWindow : Window
                 await Dispatcher.InvokeAsync(RequestShutdownAsync);
                 return false;
             default:
-                ReportProtocolError($"Unsupported control action '{action}'.");
+                ReportProtocolError($"Unsupported control action '{control.Action}'.");
                 return true;
         }
+    }
+
+    private static ControlMessage NormalizeControlMessage(JsonElement message)
+    {
+        if (TryGetHostCommand(message, out var command, out var payload))
+        {
+            return new ControlMessage(MapHostCommandToAction(command), payload);
+        }
+
+        return new ControlMessage(GetRequiredStringProperty(message, "action"), message);
+    }
+
+    private static bool TryGetHostCommand(JsonElement message, out string command, out JsonElement payload)
+    {
+        command = string.Empty;
+        payload = message;
+
+        var type = GetOptionalStringProperty(message, "type");
+        if (!string.Equals(type, "host.command", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!message.TryGetProperty("payload", out payload) || payload.ValueKind != JsonValueKind.Object)
+        {
+            throw new JsonException("Host command messages must include an object 'payload'.");
+        }
+
+        command = GetOptionalStringProperty(payload, "command") ?? GetOptionalStringProperty(message, "command") ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(command))
+        {
+            throw new JsonException("Host command messages must include 'payload.command'.");
+        }
+
+        return true;
+    }
+
+    private static string MapHostCommandToAction(string command)
+    {
+        return command.Trim() switch
+        {
+            "session.input" => "input",
+            "prompt" => "input",
+            "session.write" => "write",
+            "session.resize" => "resize",
+            "host.shutdown" => "shutdown",
+            _ => throw new JsonException($"Unsupported host command '{command}'.")
+        };
     }
 
     private void WriteTerminalText(string text)
@@ -386,6 +434,8 @@ public partial class MainWindow : Window
             Debug.WriteLine(message);
         }
     }
+
+    private readonly record struct ControlMessage(string Action, JsonElement Payload);
 
     private void OnTerminalReady(object? sender, EventArgs e)
     {
