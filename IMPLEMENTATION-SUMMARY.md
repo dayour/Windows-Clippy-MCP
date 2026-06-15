@@ -11,7 +11,7 @@ Successfully implemented a complete 1-click NPM installation system for Windows 
 ## What Was Implemented
 
 ### 1. NPM Package Structure
-- **Package Name**: `@clippymcp/windows-clippy-mcp`
+- **Package Name**: `@dayour/windows-clippy-mcp`
 - **Platform Restriction**: Windows only (`"os": ["win32"]`)
 - **Global Installation Support**: Works with `npm install -g`
 - **All Required Files**: Python code, dependencies, scripts, documentation
@@ -44,7 +44,7 @@ Successfully implemented a complete 1-click NPM installation system for Windows 
 
 ### One-Click Installation (NEW)
 ```bash
-npm install -g @clippymcp/windows-clippy-mcp
+npm install -g @dayour/windows-clippy-mcp
 # Restart VS Code - Done!
 ```
 
@@ -72,7 +72,7 @@ Both methods provide identical functionality - user choice!
 
 ### Package Structure
 ```
-@clippymcp/windows-clippy-mcp/
+@dayour/windows-clippy-mcp/
  package.json # NPM package configuration
  main.py # MCP server (49 total tools: 42 Desktop Automation + 7 M365/Power Platform)
  src/desktop/ # Desktop automation classes
@@ -177,7 +177,7 @@ Both methods provide identical functionality - user choice!
 ## Status: Implementation Complete
 
 **All Requirements Met**:
-- One-click NPM installation with `npm install -g @clippymcp/windows-clippy-mcp`
+- One-click NPM installation with `npm install -g @dayour/windows-clippy-mcp`
 - Automated setup script embedded in NPM package
 - Automatic VS Code configuration creation
 - Windows service auto-start capability

@@ -10,6 +10,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BrowserHost", "widget\Brows
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LiveTileHost", "widget\LiveTileHost\LiveTileHost.csproj", "{B5F6443A-34D2-4F5B-9A6D-215C0FE4D38B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WidgetHost", "widget\WidgetHost\WidgetHost.csproj", "{7C7F7EAA-5F93-45E9-9D22-7C37A1B390AB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -28,6 +30,10 @@ Global
 		{B5F6443A-34D2-4F5B-9A6D-215C0FE4D38B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B5F6443A-34D2-4F5B-9A6D-215C0FE4D38B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B5F6443A-34D2-4F5B-9A6D-215C0FE4D38B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7C7F7EAA-5F93-45E9-9D22-7C37A1B390AB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7C7F7EAA-5F93-45E9-9D22-7C37A1B390AB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7C7F7EAA-5F93-45E9-9D22-7C37A1B390AB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7C7F7EAA-5F93-45E9-9D22-7C37A1B390AB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -36,6 +42,7 @@ Global
 		{703FAE7E-100C-C248-EA41-4B70ABD45C32} = {FE4919D5-1BF8-8638-3BBB-F36310E28416}
 		{A1B2C3D4-5678-9012-ABCD-EF0123456789} = {FE4919D5-1BF8-8638-3BBB-F36310E28416}
 		{B5F6443A-34D2-4F5B-9A6D-215C0FE4D38B} = {FE4919D5-1BF8-8638-3BBB-F36310E28416}
+		{7C7F7EAA-5F93-45E9-9D22-7C37A1B390AB} = {FE4919D5-1BF8-8638-3BBB-F36310E28416}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {2EEF3160-1537-4FB4-93AB-40D1427847A9}

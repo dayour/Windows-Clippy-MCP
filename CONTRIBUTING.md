@@ -5,7 +5,7 @@ Change the name and description fields.
 {
   "name": "Windows Clippy MCP",
   "description": "Your friendly AI assistant for Windows desktop automation and Microsoft 365 integration",
-  "version": "0.1.69",
+  "version": "0.2.0",
   "icon": "assets/WC25.png",
   "logo": "assets/WC25.png"
 }

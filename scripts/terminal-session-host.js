@@ -8,6 +8,7 @@ const { spawn } = require('child_process');
 const { randomUUID } = require('crypto');
 const {
   createLaunchConfig,
+  buildTerminalSpawnArgs,
   buildPromptSpawnArgs,
   resolveSpawnPlan,
   TranscriptSink,
@@ -361,7 +362,7 @@ function createHostContext(launchOptions, options = {}) {
 }
 
 function formatLaunchMetadata(context, launchOptions) {
-  const spawnPlan = resolveSpawnPlan(context.launchConfig);
+  const spawnPlan = resolveLaunchMetadataPlan(context);
   return {
     tabId: context.tabId,
     displayName: context.displayName,
@@ -406,6 +407,21 @@ function formatLaunchMetadata(context, launchOptions) {
     requestedDisplayName: launchOptions.displayName,
     sessionTransport: context.runtime === 'terminal' ? 'pty-stream' : 'resume-prompt-stream'
   };
+}
+
+function resolveLaunchMetadataPlan(context) {
+  const shell = String(context.terminalSpec.shell || '').trim().toLowerCase();
+  if (context.runtime === 'terminal' && shell === 'copilot') {
+    const { argv, env } = buildTerminalSpawnArgs(context.launchConfig);
+    return {
+      executable: context.launchConfig.executable,
+      argv,
+      env,
+      cwd: context.launchConfig.workingDirectory
+    };
+  }
+
+  return resolveSpawnPlan(context.launchConfig);
 }
 
 function emitBridgeMessage(type, payload) {
@@ -756,8 +772,8 @@ function resolveTerminalLaunch(context) {
   if (context.terminalSpec.command) {
     if (process.platform === 'win32') {
       return {
-        executable: 'powershell.exe',
-        args: ['-NoLogo', '-NoExit', '-Command', context.terminalSpec.command],
+        executable: 'cmd.exe',
+        args: ['/D', '/S', '/C', context.terminalSpec.command],
         env: terminalEnv
       };
     }
@@ -797,11 +813,14 @@ function resolveTerminalLaunch(context) {
         env: terminalEnv
       };
     case 'copilot':
-      return {
-        executable: context.launchConfig.executable,
-        args: resolveSpawnPlan(context.launchConfig).argv,
-        env: Object.assign(terminalEnv, resolveSpawnPlan(context.launchConfig).env)
-      };
+      {
+        const { argv, env } = buildTerminalSpawnArgs(context.launchConfig);
+        return {
+          executable: context.launchConfig.executable,
+          args: argv,
+          env: Object.assign(terminalEnv, env)
+        };
+      }
     default:
       return {
         executable: context.terminalSpec.shell,

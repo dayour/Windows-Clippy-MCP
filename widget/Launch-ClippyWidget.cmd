@@ -1,4 +1,2 @@
 @echo off
-setlocal
-title Windows Clippy Widget
-start "" powershell.exe -NoProfile -Sta -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0clippy-widget.ps1" %*
+node "%~dp0..\scripts\start-widget.js" %*

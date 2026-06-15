@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace TerminalHost;
 
@@ -30,10 +31,12 @@ public partial class MainWindow : Window
     private bool _exitMonitorStarted;
     private bool _shutdownRequested;
     private bool _startupScriptInjected;
+    private bool _loaded;
 
     public MainWindow(SessionLaunchOptions options)
     {
         _options = options;
+        TerminalHostLogger.Log($"MainWindow created. HwndMode={_options.HwndMode}; DisplayName={_options.DisplayName}");
 
         if (!string.IsNullOrWhiteSpace(_options.WorkingDirectory))
         {
@@ -202,18 +205,23 @@ public partial class MainWindow : Window
     private void OnSourceInitialized(object? sender, EventArgs e)
     {
         _windowHandle = new WindowInteropHelper(this).Handle;
-        TryEmitReady();
+        TerminalHostLogger.Log($"SourceInitialized. HWND=0x{_windowHandle.ToInt64():X}; HwndMode={_options.HwndMode}");
         if (_options.HwndMode)
         {
             Hide();
+            TerminalHostLogger.Log("Window hidden for hwnd-mode startup.");
         }
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        _loaded = true;
+        TerminalHostLogger.Log($"Loaded. HWND=0x{_windowHandle.ToInt64():X}; InputRedirected={IsInputRedirected()}");
+        TryEmitReady();
+
         if (IsInputRedirected())
         {
-            _ = RunControlLoopAsync(_controlLoopCancellation.Token);
+            _ = Task.Run(() => RunControlLoopAsync(_controlLoopCancellation.Token));
         }
     }
 
@@ -260,14 +268,14 @@ public partial class MainWindow : Window
 
     private async Task<bool> TryHandleControlMessageAsync(JsonElement message)
     {
-        var action = GetRequiredStringProperty(message, "action");
-        switch (action)
+        var control = NormalizeControlMessage(message);
+        switch (control.Action)
         {
             case "write":
-                await Dispatcher.InvokeAsync(() => WriteTerminalText(GetOptionalStringProperty(message, "text") ?? string.Empty));
+                await Dispatcher.InvokeAsync(() => WriteTerminalText(GetOptionalStringProperty(control.Payload, "text") ?? string.Empty));
                 return true;
             case "input":
-                var text = GetOptionalStringProperty(message, "text");
+                var text = GetOptionalStringProperty(control.Payload, "text") ?? GetOptionalStringProperty(control.Payload, "input") ?? GetOptionalStringProperty(control.Payload, "prompt");
                 if (string.IsNullOrWhiteSpace(text))
                 {
                     ReportProtocolError("Input control message requires a non-empty 'text' value.");
@@ -277,8 +285,8 @@ public partial class MainWindow : Window
                 await Dispatcher.InvokeAsync(() => SubmitTerminalInput(text));
                 return true;
             case "resize":
-                var cols = GetOptionalPositiveInt32Property(message, "cols", Terminal.Terminal.Columns);
-                var rows = GetOptionalPositiveInt32Property(message, "rows", Terminal.Terminal.Rows);
+                var cols = GetOptionalPositiveInt32Property(control.Payload, "cols", Terminal.Terminal.Columns);
+                var rows = GetOptionalPositiveInt32Property(control.Payload, "rows", Terminal.Terminal.Rows);
                 await Dispatcher.InvokeAsync(() => Terminal.ConPTYTerm.Resize(cols, rows));
                 return true;
             case "close":
@@ -286,9 +294,57 @@ public partial class MainWindow : Window
                 await Dispatcher.InvokeAsync(RequestShutdownAsync);
                 return false;
             default:
-                ReportProtocolError($"Unsupported control action '{action}'.");
+                ReportProtocolError($"Unsupported control action '{control.Action}'.");
                 return true;
         }
+    }
+
+    private static ControlMessage NormalizeControlMessage(JsonElement message)
+    {
+        if (TryGetHostCommand(message, out var command, out var payload))
+        {
+            return new ControlMessage(MapHostCommandToAction(command), payload);
+        }
+
+        return new ControlMessage(GetRequiredStringProperty(message, "action"), message);
+    }
+
+    private static bool TryGetHostCommand(JsonElement message, out string command, out JsonElement payload)
+    {
+        command = string.Empty;
+        payload = message;
+
+        var type = GetOptionalStringProperty(message, "type");
+        if (!string.Equals(type, "host.command", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!message.TryGetProperty("payload", out payload) || payload.ValueKind != JsonValueKind.Object)
+        {
+            throw new JsonException("Host command messages must include an object 'payload'.");
+        }
+
+        command = GetOptionalStringProperty(payload, "command") ?? GetOptionalStringProperty(message, "command") ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(command))
+        {
+            throw new JsonException("Host command messages must include 'payload.command'.");
+        }
+
+        return true;
+    }
+
+    private static string MapHostCommandToAction(string command)
+    {
+        return command.Trim() switch
+        {
+            "session.input" => "input",
+            "prompt" => "input",
+            "session.write" => "write",
+            "session.resize" => "resize",
+            "host.shutdown" => "shutdown",
+            _ => throw new JsonException($"Unsupported host command '{command}'.")
+        };
     }
 
     private void WriteTerminalText(string text)
@@ -379,11 +435,14 @@ public partial class MainWindow : Window
         }
     }
 
+    private readonly record struct ControlMessage(string Action, JsonElement Payload);
+
     private void OnTerminalReady(object? sender, EventArgs e)
     {
         Dispatcher.Invoke(() =>
         {
             _terminalProcessPid ??= TryGetProcessId(Terminal.ConPTYTerm.Process);
+            TerminalHostLogger.Log($"Terminal ready event. Terminal PID={_terminalProcessPid}");
             TryEmitReady();
             TryInjectStartupScript();
 
@@ -436,7 +495,8 @@ public partial class MainWindow : Window
 
     private void TryEmitReady()
     {
-        if (_readySent || _windowHandle == IntPtr.Zero)
+        TerminalHostLogger.Log($"TryEmitReady called. ReadySent={_readySent}; Loaded={_loaded}; HWND=0x{_windowHandle.ToInt64():X}");
+        if (_readySent || _windowHandle == IntPtr.Zero || !_loaded)
         {
             return;
         }
@@ -448,6 +508,7 @@ public partial class MainWindow : Window
             hwnd = $"0x{_windowHandle.ToInt64():X}",
             pid = _terminalProcessPid ?? Process.GetCurrentProcess().Id
         });
+        TerminalHostLogger.Log("Ready payload emitted.");
     }
 
     private void TryInjectStartupScript()
@@ -646,9 +707,10 @@ public sealed class SessionLaunchOptions
         return Shell?.Trim().ToLowerInvariant() switch
         {
             "copilot" => BuildCopilotStartupCommandLine(),
-            "powershell" => BuildCommandLine(["powershell.exe"]),
+            "pwsh" => BuildCommandLine(["pwsh.exe"]),
+            "powershell" => BuildCommandLine(["pwsh.exe"]),
             "cmd" => BuildCommandLine(["cmd.exe"]),
-            _ => throw new ArgumentException($"Unsupported shell shortcut '{Shell}'. Supported values: copilot, powershell, cmd.")
+            _ => throw new ArgumentException($"Unsupported shell shortcut '{Shell}'. Supported values: copilot, pwsh, powershell, cmd.")
         };
     }
 
@@ -699,12 +761,6 @@ public sealed class SessionLaunchOptions
         {
             arguments.Add("--agent");
             arguments.Add(Agent);
-        }
-
-        if (!string.IsNullOrWhiteSpace(Mode))
-        {
-            arguments.Add("--mode");
-            arguments.Add(Mode);
         }
 
         if (AllowAllTools)
@@ -824,9 +880,46 @@ internal static class ProtocolWriter
                 Console.Out.WriteLine(json);
                 Console.Out.Flush();
             }
+            TerminalHostLogger.Log($"Protocol payload written: {json}");
+        }
+        catch (Exception ex)
+        {
+            TerminalHostLogger.Log($"Protocol write failed: {ex}");
+        }
+    }
+}
+
+internal static class TerminalHostLogger
+{
+    private static readonly object SyncRoot = new();
+    private static readonly string LogPath = BuildLogPath();
+
+    public static void Log(string message)
+    {
+        try
+        {
+            var directory = Path.GetDirectoryName(LogPath);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            lock (SyncRoot)
+            {
+                File.AppendAllText(
+                    LogPath,
+                    $"[{DateTime.UtcNow:O}] {message}{Environment.NewLine}",
+                    Encoding.UTF8);
+            }
         }
         catch
         {
         }
+    }
+
+    private static string BuildLogPath()
+    {
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        return Path.Combine(appData, "Windows-Clippy-MCP", "logs", "terminalhost.log");
     }
 }

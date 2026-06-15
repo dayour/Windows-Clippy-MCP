@@ -10,6 +10,8 @@ const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
 const packageDir = path.resolve(__dirname, '..');
 const requiredPythonVersion = '3.13';
+const requiredNodeVersion = { major: 25, minor: 7, patch: 0 };
+const requiredNpmVersion = { major: 11, minor: 7, patch: 0 };
 let resolvedUvExecutable = null;
 
 // Console colors for better output
@@ -40,6 +42,53 @@ function logWarning(message) {
 
 function logError(message) {
   log(`${colors.red} ${message}${colors.reset}`);
+}
+
+function parseSemver(versionText) {
+  const match = /(\d+)\.(\d+)\.(\d+)/.exec(versionText || '');
+  if (!match) {
+    return null;
+  }
+
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3])
+  };
+}
+
+function compareSemver(actual, required) {
+  for (const key of ['major', 'minor', 'patch']) {
+    if (actual[key] > required[key]) return 1;
+    if (actual[key] < required[key]) return -1;
+  }
+  return 0;
+}
+
+async function ensureNodeRuntime() {
+  const nodeVersion = parseSemver(process.version);
+  if (!nodeVersion || compareSemver(nodeVersion, requiredNodeVersion) < 0) {
+    logError(`Node.js ${requiredNodeVersion.major}.${requiredNodeVersion.minor}.${requiredNodeVersion.patch}+ is required. Current runtime is ${process.version}.`);
+    logError('Install the current Node.js release from https://nodejs.org and run npm install again.');
+    process.exit(1);
+  }
+
+  logSuccess(`Node.js ${process.version} detected`);
+
+  try {
+    const { stdout } = await execFileAsync('npm', ['--version'], { windowsHide: true });
+    const npmVersionText = stdout.trim();
+    const npmVersion = parseSemver(npmVersionText);
+    if (!npmVersion || compareSemver(npmVersion, requiredNpmVersion) < 0) {
+      logError(`npm ${requiredNpmVersion.major}.${requiredNpmVersion.minor}.${requiredNpmVersion.patch}+ is required. Current npm is ${npmVersionText || '<unknown>'}.`);
+      logError('Upgrade npm with: npm install -g npm@latest');
+      process.exit(1);
+    }
+    logSuccess(`npm ${npmVersionText} detected`);
+  } catch (error) {
+    logError(`Unable to verify npm version: ${error.message}`);
+    process.exit(1);
+  }
 }
 
 function prependToPath(directory) {
@@ -262,6 +311,7 @@ async function checkPlatform() {
 async function checkDependencies() {
   logStep('1/7', 'Checking dependencies...');
 
+  await ensureNodeRuntime();
   const uvExecutable = await installUv();
   await ensurePythonRuntime(uvExecutable);
 

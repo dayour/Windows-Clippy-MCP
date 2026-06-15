@@ -5,6 +5,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 
 const colors = {
   green: '\x1b[32m',
@@ -44,11 +45,13 @@ async function validatePackageStructure() {
       'scripts/clippy-session.js',
       'scripts/clippy-widget-refresh.js',
       'scripts/clippy-widget-restart.js',
+      'scripts/start-cursor.js',
       'scripts/start-native-livetile.js',
       'scripts/clippy_widget_service.js',
       'scripts/service-runner.js',
       'scripts/setup.js',
       'scripts/start-widget.js',
+      'scripts/validate-darbit-semanifest.ps1',
     'scripts/install-service.js',
     'scripts/uninstall-service.js',
       'src/desktop/__init__.py',
@@ -56,12 +59,27 @@ async function validatePackageStructure() {
       'src/terminal/TerminalAdaptiveCard.js',
       'widget/Launch-ClippyWidget.cmd',
       'widget/Launch-ClippyLiveTile.cmd',
+      'widget/Launch-ClippyCursor.cmd',
       'widget/clippy-widget.ps1',
+      'widget/clippy-cursor.ps1',
       'widget/LiveTileHost/LiveTileHost.csproj',
       'widget/LiveTileHost/App.xaml',
       'widget/LiveTileHost/App.xaml.cs',
       'widget/LiveTileHost/MainWindow.xaml',
       'widget/LiveTileHost/MainWindow.xaml.cs',
+      'widget/WidgetHost/WidgetHost.csproj',
+      'widget/WidgetHost/App.xaml',
+      'widget/WidgetHost/App.xaml.cs',
+      'widget/WidgetHost/LauncherWindow.xaml',
+      'widget/WidgetHost/LauncherWindow.xaml.cs',
+      'widget/WidgetHost/MainWindow.xaml',
+      'widget/WidgetHost/MainWindow.xaml.cs',
+      'widget/WidgetHost/ConPtyConnection.cs',
+      'widget/WidgetHost/ModelCatalog.cs',
+      'widget/WidgetHost/PseudoConsoleApi.cs',
+      'widget/WidgetHost/AgentCatalog.cs',
+      'widget/WidgetHost/TerminalTabSession.cs',
+      'widget/WidgetHost/WidgetSettings.cs',
       'widget/adaptive-cards/terminal-session.template.json',
       'widget/adaptive-cards/terminal-session.data.schema.json',
       'widget/adaptive-cards/clippy-native-livetile.template.json',
@@ -109,30 +127,49 @@ async function validatePackageStructure() {
       packageJson.bin &&
       packageJson.bin.clippy &&
       packageJson.bin['clippy-widget'] &&
+      packageJson.bin['clippy-cursor'] &&
       packageJson.bin['clippy-live-tile'] &&
       packageJson.bin.clippy_widget_refresh &&
       packageJson.bin.clippy_widget_restart
     ) {
-      logSuccess('package.json exposes clippy, clippy-widget, clippy-live-tile, clippy_widget_refresh, and clippy_widget_restart binaries');
+      logSuccess('package.json exposes clippy, clippy-widget, clippy-cursor, clippy-live-tile, clippy_widget_refresh, and clippy_widget_restart binaries');
     } else {
       logError('package.json missing required widget bin entries');
       allValid = false;
     }
 
     const requiredPackagedPaths = [
-      'assets/**',
+      'assets/WC25.png',
+      'assets/agentcard_32.png',
+      'assets/agentcard_192.png',
+      'assets/agentcard_focused_32.png',
+      'assets/clippy25_32.png',
+      'assets/clippy25_96.png',
+      'assets/clippy25_128.png',
+      'assets/clippy25_256.png',
       'scripts/**',
       'widget/clippy-widget.ps1',
+      'widget/clippy-cursor.ps1',
       'widget/Launch-ClippyWidget.cmd',
       'widget/Launch-ClippyLiveTile.cmd',
+      'widget/Launch-ClippyCursor.cmd',
       'widget/adaptive-cards/**',
       'widget/LiveTileHost/*.csproj',
       'widget/LiveTileHost/*.xaml',
       'widget/LiveTileHost/*.cs',
-      'widget/TerminalHost/bin/Debug/net8.0-windows/*.dll',
-      'widget/TerminalHost/bin/Debug/net8.0-windows/*.exe',
-      'widget/TerminalHost/bin/Debug/net8.0-windows/*.json',
-      'widget/TerminalHost/bin/Debug/net8.0-windows/runtimes/**/native/*.dll'
+      'widget/WidgetHost/*.csproj',
+      'widget/WidgetHost/*.xaml',
+      'widget/WidgetHost/*.cs',
+      'widget/TerminalHost/bin/Debug/net10.0-windows/*.dll',
+      'widget/TerminalHost/bin/Debug/net10.0-windows/*.exe',
+      'widget/TerminalHost/bin/Debug/net10.0-windows/*.json',
+      'widget/TerminalHost/bin/Debug/net10.0-windows/runtimes/**/native/*.dll',
+      'widget/WidgetHost/bin/Release/net10.0-windows/*.dll',
+      'widget/WidgetHost/bin/Release/net10.0-windows/*.exe',
+      'widget/WidgetHost/bin/Release/net10.0-windows/*.json',
+      'widget/WidgetHost/bin/Release/net10.0-windows/agents/**',
+      'widget/WidgetHost/bin/Release/net10.0-windows/mcp-apps/views/*.html',
+      'widget/WidgetHost/bin/Release/net10.0-windows/runtimes/**/native/*.dll'
     ];
 
     for (const packagedPath of requiredPackagedPaths) {
@@ -145,7 +182,7 @@ async function validatePackageStructure() {
     }
 
     // Check required scripts
-    const requiredScripts = ['postinstall', 'setup', 'start', 'start:widget', 'start:widget:debug', 'start:live-tile', 'refresh:widget', 'restart:widget', 'start:mcp', 'install-service', 'uninstall-service'];
+    const requiredScripts = ['postinstall', 'setup', 'start', 'start:widget', 'start:widget:debug', 'start:cursor', 'start:cursor:debug', 'start:live-tile', 'refresh:widget', 'restart:widget', 'start:mcp', 'install-service', 'uninstall-service'];
     for (const script of requiredScripts) {
       if (packageJson.scripts && packageJson.scripts[script]) {
         logSuccess(`Script defined: ${script}`);
@@ -195,6 +232,7 @@ async function validateScripts() {
       'scripts/clippy-session.js',
       'scripts/clippy-widget-refresh.js',
       'scripts/clippy-widget-restart.js',
+      'scripts/start-cursor.js',
       'scripts/start-native-livetile.js',
       'scripts/clippy_widget_service.js',
       'scripts/service-runner.js',
@@ -235,6 +273,69 @@ async function validateScripts() {
   return allValid;
 }
 
+async function validateNativeBuild() {
+  if (process.platform !== 'win32') {
+    return true;
+  }
+
+  log(`${colors.bold}Validating Native Build${colors.reset}`);
+  log('');
+
+  const result = spawnSync(
+    'dotnet',
+    ['build', '.\\Windows-Clippy-MCP.sln', '-nologo'],
+    {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      stdio: 'pipe'
+    }
+  );
+
+  if (result.status === 0) {
+    logSuccess('dotnet build succeeded for Windows-Clippy-MCP.sln');
+    log('');
+    return true;
+  }
+
+  const detail = (result.stderr || result.stdout || 'dotnet build failed without output').trim();
+  logError(`dotnet build failed: ${detail}`);
+  log('');
+  return false;
+}
+
+async function validateDarbitSemanifest() {
+  if (process.platform !== 'win32') {
+    return true;
+  }
+
+  log(`${colors.bold}Validating Darbit Semanifest${colors.reset}`);
+  log('');
+
+  const result = spawnSync(
+    'pwsh',
+    ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', 'scripts\\validate-darbit-semanifest.ps1'],
+    {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      stdio: 'pipe'
+    }
+  );
+
+  if (result.status === 0) {
+    logSuccess('Darbit semanifest validation succeeded');
+    if (result.stdout && result.stdout.trim()) {
+      logInfo(result.stdout.trim());
+    }
+    log('');
+    return true;
+  }
+
+  const detail = (result.stderr || result.stdout || 'Darbit semanifest validation failed without output').trim();
+  logError(`Darbit semanifest validation failed: ${detail}`);
+  log('');
+  return false;
+}
+
 async function showPlatformInfo() {
   log(`${colors.bold}Platform Information${colors.reset}`);
   log('');
@@ -260,11 +361,13 @@ async function main() {
 
   const structureValid = await validatePackageStructure();
   const scriptsValid = await validateScripts();
+  const nativeBuildValid = await validateNativeBuild();
+  const darbitValid = await validateDarbitSemanifest();
 
   log(`${colors.bold}Summary${colors.reset}`);
   log('');
 
-  if (structureValid && scriptsValid) {
+  if (structureValid && scriptsValid && nativeBuildValid && darbitValid) {
     logSuccess('All validation checks passed! Package is ready for publication.');
     process.exit(0);
   } else {

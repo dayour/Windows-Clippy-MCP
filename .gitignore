@@ -69,8 +69,8 @@ dmypy.json
 *.tgz
 
 # .NET build artifacts
-widget/TerminalHost/bin/
-widget/TerminalHost/obj/
+widget/**/bin/
+widget/**/obj/
 *.user
 *.suo
 .vs/

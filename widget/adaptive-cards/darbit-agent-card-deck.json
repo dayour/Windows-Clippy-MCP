@@ -1,0 +1,395 @@
+{
+  "$schema": "https://darbotlabs.github.io/windows-clippy-mcp/darbit-agent-card-deck/v1",
+  "schemaVersion": "1.0.0",
+  "artifactType": "darbit-agent-card-deck",
+  "shortName": "cd",
+  "name": "Darbit Semanifest Agent Card Deck",
+  "description": "Evidence-driven quest deck for completing and grading the Darbit Semanifest game.",
+  "gameOutput": {
+    "shortName": "cdg",
+    "artifactType": "darbit-card-deck-game",
+    "description": "A completed run of this card deck, including per-card evidence, review notes, score, and grade."
+  },
+  "gradeScale": [
+    { "grade": "A+", "minimumPercent": 97 },
+    { "grade": "A", "minimumPercent": 90 },
+    { "grade": "B", "minimumPercent": 80 },
+    { "grade": "C", "minimumPercent": 70 },
+    { "grade": "D", "minimumPercent": 60 },
+    { "grade": "F", "minimumPercent": 0 }
+  ],
+  "cards": [
+    {
+      "id": "level-0-origin-spark",
+      "level": 0,
+      "quest": "Origin Spark",
+      "badge": "Origin Spark",
+      "xp": 50,
+      "objective": "Define Darbit, semanifest lineage, scope, and success criteria.",
+      "checks": [
+        {
+          "id": "prd-exists",
+          "title": "PRD exists",
+          "kind": "fileExists",
+          "path": "docs\\mcp-apps\\darbit-semanifest-prd.md"
+        },
+        {
+          "id": "prd-definitions",
+          "title": "PRD defines Darbit and semanifest",
+          "kind": "fileContains",
+          "path": "docs\\mcp-apps\\darbit-semanifest-prd.md",
+          "allOf": [ "Darbit Semanifest", "semanifest lineage", "persistent reasoning loop" ]
+        },
+        {
+          "id": "prd-questline",
+          "title": "PRD includes gamified questline",
+          "kind": "fileContains",
+          "path": "docs\\mcp-apps\\darbit-semanifest-prd.md",
+          "allOf": [ "Gamified implementation questline", "Darbit Awakened" ]
+        }
+      ]
+    },
+    {
+      "id": "level-1-pixel-scout",
+      "level": 1,
+      "quest": "Pixel Scout",
+      "badge": "Pixel Scout",
+      "xp": 100,
+      "objective": "Capture full-screen and region screenshots with local retention controls.",
+      "checks": [
+        {
+          "id": "capture-region",
+          "title": "Region capture function exists",
+          "kind": "fileContains",
+          "path": "widget\\clippy-cursor.ps1",
+          "allOf": [ "function script:Capture-ScreenRegion", "CopyFromScreen", "CursorCaptureDir" ]
+        },
+        {
+          "id": "capture-fullscreen",
+          "title": "Full-screen capture function exists",
+          "kind": "fileContains",
+          "path": "widget\\clippy-cursor.ps1",
+          "allOf": [ "function script:Capture-FullScreen", "CopyFromScreen", "PrimaryScreen" ]
+        },
+        {
+          "id": "capture-pruning",
+          "title": "Capture pruning exists",
+          "kind": "fileContains",
+          "path": "widget\\clippy-cursor.ps1",
+          "allOf": [ "function script:Prune-OldCaptures", "CursorMaxCaptureFiles" ]
+        }
+      ]
+    },
+    {
+      "id": "level-2-layer-ranger",
+      "level": 2,
+      "quest": "Layer Ranger",
+      "badge": "Layer Ranger",
+      "xp": 150,
+      "objective": "Enumerate visible Win32 window layers, foreground state, process identity, and bounds.",
+      "checks": [
+        {
+          "id": "win32-interop",
+          "title": "Win32 interop is declared",
+          "kind": "fileContains",
+          "path": "widget\\clippy-cursor.ps1",
+          "allOf": [ "EnumWindows", "GetForegroundWindow", "GetWindowRect", "GetWindowThreadProcessId" ]
+        },
+        {
+          "id": "window-layer-fields",
+          "title": "Window layer fields are captured",
+          "kind": "fileContains",
+          "path": "widget\\clippy-cursor.ps1",
+          "allOf": [ "zOrder", "hwnd", "title", "className", "processId", "isForeground", "bounds" ]
+        },
+        {
+          "id": "process-name",
+          "title": "Process names are resolved",
+          "kind": "fileContains",
+          "path": "widget\\clippy-cursor.ps1",
+          "allOf": [ "function script:Get-ProcessNameSafe", "processName" ]
+        }
+      ]
+    },
+    {
+      "id": "level-3-control-cartographer",
+      "level": 3,
+      "quest": "Control Cartographer",
+      "badge": "Control Cartographer",
+      "xp": 200,
+      "objective": "Scan UI Automation elements and identify interactable controls.",
+      "checks": [
+        {
+          "id": "uia-assemblies",
+          "title": "UI Automation assemblies are loaded",
+          "kind": "fileContains",
+          "path": "widget\\clippy-cursor.ps1",
+          "allOf": [ "UIAutomationClient", "UIAutomationTypes", "AutomationElement" ]
+        },
+        {
+          "id": "uia-traversal",
+          "title": "UIA descendants are traversed",
+          "kind": "fileContains",
+          "path": "widget\\clippy-cursor.ps1",
+          "allOf": [ "RootElement.FindAll", "TreeScope", "Descendants", "MaxElements" ]
+        },
+        {
+          "id": "uia-patterns",
+          "title": "Supported interaction patterns are inspected",
+          "kind": "fileContains",
+          "path": "widget\\clippy-cursor.ps1",
+          "allOf": [ "InvokePattern", "ValuePattern", "TextPattern", "SelectionPattern", "TogglePattern", "RangeValuePattern" ]
+        }
+      ]
+    },
+    {
+      "id": "level-4-schema-smith",
+      "level": 4,
+      "quest": "Schema Smith",
+      "badge": "Schema Smith",
+      "xp": 200,
+      "objective": "Generate a versioned JSON semanifest with a stable top-level shape and formal schema.",
+      "checks": [
+        {
+          "id": "json-generator",
+          "title": "Screen-context JSON generator exists",
+          "kind": "fileContains",
+          "path": "widget\\clippy-cursor.ps1",
+          "allOf": [ "function script:New-ClippyScreenContext", "ConvertTo-Json", "screen-context.json" ]
+        },
+        {
+          "id": "json-shape",
+          "title": "JSON includes expected top-level fields",
+          "kind": "fileContains",
+          "path": "widget\\clippy-cursor.ps1",
+          "allOf": [ "schemaVersion", "capture", "action", "screen", "windows", "uiAutomation" ]
+        },
+        {
+          "id": "formal-schema-file",
+          "title": "Formal screen-context schema file exists",
+          "kind": "fileExists",
+          "path": "widget\\adaptive-cards\\screen-context.schema.json"
+        }
+      ]
+    },
+    {
+      "id": "level-5-lorekeeper",
+      "level": 5,
+      "quest": "Lorekeeper",
+      "badge": "Lorekeeper",
+      "xp": 150,
+      "objective": "Generate a readable Markdown report from the semanifest.",
+      "checks": [
+        {
+          "id": "markdown-generator",
+          "title": "Markdown generator exists",
+          "kind": "fileContains",
+          "path": "widget\\clippy-cursor.ps1",
+          "allOf": [ "function script:Convert-ScreenContextToMarkdown", "screen-context.md" ]
+        },
+        {
+          "id": "markdown-sections",
+          "title": "Markdown includes required sections",
+          "kind": "fileContains",
+          "path": "widget\\clippy-cursor.ps1",
+          "allOf": [ "Foreground Layer", "Visible Window Layers", "Interactable UI Elements", "Recommended Analysis Contract" ]
+        },
+        {
+          "id": "markdown-links",
+          "title": "Markdown records screenshot evidence",
+          "kind": "fileContains",
+          "path": "widget\\clippy-cursor.ps1",
+          "allOf": [ "Screenshot", "imagePath" ]
+        }
+      ]
+    },
+    {
+      "id": "level-6-context-courier",
+      "level": 6,
+      "quest": "Context Courier",
+      "badge": "Context Courier",
+      "xp": 250,
+      "objective": "Dispatch screenshot, JSON, and Markdown context into the hosted Clippy/Copilot prompt.",
+      "checks": [
+        {
+          "id": "prompt-evidence",
+          "title": "Prompt explains all evidence sources",
+          "kind": "fileContains",
+          "path": "widget\\clippy-widget.ps1",
+          "allOf": [ "three synchronized sources", "JSON runtime scan", "Markdown screen-context report" ]
+        },
+        {
+          "id": "json-attachment",
+          "title": "JSON context is attached when present",
+          "kind": "fileContains",
+          "path": "widget\\clippy-widget.ps1",
+          "allOf": [ "ContextJsonPath", "$attachments += $ContextJsonPath" ]
+        },
+        {
+          "id": "markdown-attachment",
+          "title": "Markdown context is attached when present",
+          "kind": "fileContains",
+          "path": "widget\\clippy-widget.ps1",
+          "allOf": [ "ContextMarkdownPath", "$attachments += $ContextMarkdownPath" ]
+        }
+      ]
+    },
+    {
+      "id": "level-7-tilewright",
+      "level": 7,
+      "quest": "Tilewright",
+      "badge": "Tilewright",
+      "xp": 150,
+      "objective": "Expose semanifest paths and counts through the adaptive-card response layer.",
+      "checks": [
+        {
+          "id": "card-schema-fields",
+          "title": "Cursor card schema exposes context fields",
+          "kind": "fileContains",
+          "path": "widget\\adaptive-cards\\cursor-analysis.data.schema.json",
+          "allOf": [ "contextJsonPath", "contextMarkdownPath", "windowCount", "interactableCount" ]
+        },
+        {
+          "id": "card-template-facts",
+          "title": "Cursor card template renders context paths",
+          "kind": "fileContains",
+          "path": "widget\\adaptive-cards\\cursor-analysis.template.json",
+          "allOf": [ "Context JSON", "Context MD", "${contextJsonPath}", "${contextMarkdownPath}" ]
+        },
+        {
+          "id": "agent-card-deck-present",
+          "title": "Agent card deck exists",
+          "kind": "fileExists",
+          "path": "widget\\adaptive-cards\\darbit-agent-card-deck.json"
+        }
+      ]
+    },
+    {
+      "id": "level-8-bundle-squire",
+      "level": 8,
+      "quest": "Bundle Squire",
+      "badge": "Bundle Squire",
+      "xp": 250,
+      "objective": "Package screenshot, JSON, Markdown, and lineage into a Paperboy bundle.",
+      "checks": [
+        {
+          "id": "paperboy-zip-reference",
+          "title": "Paperboy bundle output is referenced",
+          "kind": "fileContains",
+          "path": "docs\\mcp-apps\\darbit-semanifest-prd.md",
+          "allOf": [ ".paperboy.zip", "Paperboy bundle output" ]
+        },
+        {
+          "id": "paperboy-implementation",
+          "title": "Runtime creates a Paperboy bundle",
+          "kind": "fileContains",
+          "path": "widget\\clippy-cursor.ps1",
+          "allOf": [ ".paperboy.zip", "manifest.json", "CreateFromDirectory" ]
+        },
+        {
+          "id": "paperboy-affordance",
+          "title": "UI exposes open or toss bundle affordance",
+          "kind": "fileContains",
+          "path": "widget\\adaptive-cards\\cursor-analysis.template.json",
+          "anyOf": [ "Open Bundle", "Toss Bundle", "paperboy" ]
+        }
+      ]
+    },
+    {
+      "id": "level-9-contract-knight",
+      "level": 9,
+      "quest": "Contract Knight",
+      "badge": "Contract Knight",
+      "xp": 300,
+      "objective": "Give each cursor action an evidence-aware response contract.",
+      "checks": [
+        {
+          "id": "action-labels",
+          "title": "Primary action labels exist",
+          "kind": "fileContains",
+          "path": "widget\\clippy-cursor.ps1",
+          "allOf": [ "Explain This", "Summarize Screen", "Extract Text", "Debug UI", "Accessibility Check" ]
+        },
+        {
+          "id": "action-contracts",
+          "title": "Action contracts exist",
+          "kind": "fileContains",
+          "path": "widget\\clippy-cursor.ps1",
+          "allOf": [ "function script:Get-ClippyActionContract", "foreground app", "UI Automation", "layout risks", "focusability" ]
+        },
+        {
+          "id": "no-fake-instruction",
+          "title": "Prompt discourages invented controls",
+          "kind": "fileContains",
+          "path": "widget\\clippy-widget.ps1",
+          "allOf": [ "Use the JSON/Markdown context", "reference interactable UI elements when relevant" ]
+        }
+      ]
+    },
+    {
+      "id": "level-10-darbit-awakened",
+      "level": 10,
+      "quest": "Darbit Awakened",
+      "badge": "Darbit Awakened",
+      "xp": 500,
+      "objective": "Run an end-to-end boss gate that reviews and grades the CDG from evidence.",
+      "checks": [
+        {
+          "id": "cdg-runner",
+          "title": "CDG runner exists",
+          "kind": "fileExists",
+          "path": "widget\\darbit-card-deck-game.ps1"
+        },
+        {
+          "id": "cdg-launcher",
+          "title": "CMD launcher exists",
+          "kind": "fileExists",
+          "path": "widget\\Launch-DarbitCardDeckGame.cmd"
+        },
+        {
+          "id": "cdg-grades",
+          "title": "Runner produces grade and review",
+          "kind": "fileContains",
+          "path": "widget\\darbit-card-deck-game.ps1",
+          "allOf": [ "grade", "review", "earnedXp", "totalXp" ]
+        },
+        {
+          "id": "e2e-harness-exists",
+          "title": "E2E boss gate harness exists",
+          "kind": "fileExists",
+          "path": "widget\\darbit-e2e.ps1"
+        },
+        {
+          "id": "live-action-explain",
+          "title": "Live action 'explain' produces real artifacts",
+          "kind": "liveAction",
+          "actionId": "explain"
+        },
+        {
+          "id": "live-action-summarize",
+          "title": "Live action 'summarize' produces real artifacts",
+          "kind": "liveAction",
+          "actionId": "summarize"
+        },
+        {
+          "id": "live-action-extract",
+          "title": "Live action 'extract' produces real artifacts",
+          "kind": "liveAction",
+          "actionId": "extract"
+        },
+        {
+          "id": "live-action-debug",
+          "title": "Live action 'debug' produces real artifacts",
+          "kind": "liveAction",
+          "actionId": "debug"
+        },
+        {
+          "id": "live-action-accessibility",
+          "title": "Live action 'accessibility' produces real artifacts",
+          "kind": "liveAction",
+          "actionId": "accessibility"
+        }
+      ]
+    }
+  ]
+}

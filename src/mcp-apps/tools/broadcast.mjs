@@ -1,0 +1,215 @@
+/**
+ * L4-2 — clippy.broadcast tool.
+ *
+ * Fan a single prompt out to multiple terminal tabs at once. Used when
+ * Clippy's Commander decides the same instruction should hit every terminal
+ * in a group (e.g., "build the project" across six tabs running different
+ * repos), or a specific explicit subset.
+ *
+ * Target selection precedence:
+ *   1. Explicit `tabKeys`: send only to these widget tab keys
+ *   2. Legacy `sessionIds`: send to Copilot resume session IDs
+ *   3. `group`: resolve group label from fleet state and broadcast to members
+ *   4. Default (no selector): broadcast to every known terminal tab
+ *
+ * Intent log contract (consumed by widget in L4-9 toolbar retrofit):
+ *   { id, kind: "broadcast.send", principal, session, prompt, targets: { mode, ids|label }, force, enqueuedAt }
+ *
+ * The widget's CommanderHub.BroadcastAsync is the sink. Tools here validate,
+ * stamp a uuid, and queue. No fire-and-hope — every intent is durable until
+ * the widget picks it up (append-only JSONL, dedup by id on the widget side).
+ */
+import { z } from "zod";
+import {
+  registerAppTool,
+  registerAppResource,
+  RESOURCE_MIME_TYPE,
+} from "@modelcontextprotocol/ext-apps/server";
+import { appendIntent, buildIntentEnvelope } from "../intent-envelope.mjs";
+import { wrapToolWithPrincipal } from "../principal.mjs";
+import { wrapToolWithTelemetry } from "../telemetry.mjs";
+
+const BROADCAST_VIEW_URI = "ui://clippy/broadcast.html";
+const MAX_PROMPT_LEN = 16_384;
+const MAX_TARGETS = 64;
+
+export function registerBroadcast(server, { state, intentsPath, env = process.env } = {}) {
+  const resolvedIntents = intentsPath || env.CLIPPY_COMMANDER_INTENTS_PATH || null;
+
+  registerAppTool(
+    server,
+    "clippy.broadcast",
+    {
+      title: "Clippy Broadcast",
+      description:
+        "Fan a prompt out to multiple terminal tabs simultaneously. Select targets by explicit tabKeys, by legacy sessionIds, by group label, or leave empty to hit every tab.",
+      inputSchema: {
+        prompt: z
+          .string()
+          .min(1)
+          .max(MAX_PROMPT_LEN)
+          .describe("The prompt to dispatch to every selected tab."),
+        tabKeys: z
+          .array(z.string().min(1).max(128))
+          .max(MAX_TARGETS)
+          .optional()
+          .describe("Canonical widget tabKeys to target. Prefer this over sessionIds."),
+        sessionIds: z
+          .array(z.string().min(1).max(256))
+          .max(MAX_TARGETS)
+          .optional()
+          .describe("Legacy Copilot resume sessionIds to target. Mutually exclusive with `tabKeys` and `group`."),
+        group: z
+          .string()
+          .min(1)
+          .max(128)
+          .optional()
+          .describe("Link-group label. Resolves to its current members on the widget side."),
+        force: z
+          .boolean()
+          .optional()
+          .describe("Dispatch even if a tab is currently busy (default false)."),
+      },
+      _meta: { ui: { resourceUri: BROADCAST_VIEW_URI } },
+    },
+    wrapToolWithTelemetry(
+      "clippy.broadcast",
+      wrapToolWithPrincipal(async ({ prompt, tabKeys, sessionIds, group, force = false } = {}, extra) => {
+        if (!resolvedIntents) {
+          throw buildToolError(
+            "clippy.broadcast.intents.unavailable",
+            "Broadcast intents path is not configured. Set CLIPPY_COMMANDER_INTENTS_PATH or pass intentsPath when constructing the server.",
+          );
+        }
+
+        const explicitSelectors = [
+          Array.isArray(tabKeys) && tabKeys.length > 0,
+          Array.isArray(sessionIds) && sessionIds.length > 0,
+          Boolean(group),
+        ].filter(Boolean).length;
+        if (explicitSelectors > 1) {
+          throw buildToolError(
+            "clippy.broadcast.selector.conflict",
+            "Specify only one target selector: tabKeys, sessionIds, or group.",
+          );
+        }
+
+        const targets = buildTargetSelector(tabKeys, sessionIds, group);
+        const resolution = await previewResolution(state, targets);
+
+        const intent = buildIntentEnvelope(
+          "broadcast.send",
+          {
+            prompt: String(prompt).slice(0, MAX_PROMPT_LEN),
+            targets,
+            force: Boolean(force),
+          },
+          extra,
+        );
+        await appendIntent(resolvedIntents, intent);
+
+        const payload = {
+          accepted: true,
+          intentId: intent.id,
+          targets,
+          resolvedTargetCount: resolution.count,
+          resolvedTargetMode: resolution.mode,
+          intentsPath: resolvedIntents,
+        };
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Broadcast queued (id=${intent.id}, mode=${resolution.mode}, targets~${resolution.count}).`,
+            },
+          ],
+          structuredContent: payload,
+        };
+      }),
+    ),
+  );
+
+  registerAppResource(
+    server,
+    "Clippy Broadcast View",
+    BROADCAST_VIEW_URI,
+    {
+      description:
+        "Select targets (explicit tabs or a group) and dispatch a prompt to them in one keystroke.",
+      _meta: { ui: { csp: { resourceDomains: [], connectDomains: [] } } },
+    },
+    async () => ({
+      contents: [
+        {
+          uri: BROADCAST_VIEW_URI,
+          mimeType: RESOURCE_MIME_TYPE,
+          text: BROADCAST_FALLBACK_HTML,
+        },
+      ],
+    }),
+  );
+}
+
+function buildTargetSelector(tabKeys, sessionIds, group) {
+  if (Array.isArray(tabKeys) && tabKeys.length > 0) {
+    return { mode: "tabKeys", tabKeys: tabKeys.slice(0, MAX_TARGETS) };
+  }
+  if (Array.isArray(sessionIds) && sessionIds.length > 0) {
+    return {
+      mode: "ids",
+      sessionIds: sessionIds.slice(0, MAX_TARGETS),
+      ids: sessionIds.slice(0, MAX_TARGETS),
+    };
+  }
+  if (typeof group === "string" && group.trim().length > 0) {
+    return { mode: "group", label: group.trim() };
+  }
+  return { mode: "all" };
+}
+
+async function previewResolution(state, targets) {
+  if (targets.mode === "tabKeys") {
+    return { mode: "tabKeys", count: targets.tabKeys.length };
+  }
+  if (targets.mode === "ids") {
+    return { mode: "sessionIds", count: targets.sessionIds.length };
+  }
+  if (!state || typeof state.snapshot !== "function") {
+    return { mode: targets.mode, count: 0 };
+  }
+  try {
+    const snap = await state.snapshot({ includeEvents: false });
+    if (targets.mode === "all") {
+      return { mode: "all", count: Array.isArray(snap?.tabs?.list) ? snap.tabs.list.length : 0 };
+    }
+    if (targets.mode === "group") {
+      const groupList = Array.isArray(snap?.groups?.list) ? snap.groups.list : [];
+      const found = groupList.find(
+        (g) => g && typeof g === "object" && g.label === targets.label,
+      );
+      if (found && Array.isArray(found.members)) {
+        return { mode: "group", count: found.members.length };
+      }
+      return { mode: "group", count: 0 };
+    }
+  } catch {
+    return { mode: targets.mode, count: 0 };
+  }
+  return { mode: targets.mode, count: 0 };
+}
+
+function buildToolError(code, message) {
+  const err = new Error(`[${code}] ${message}`);
+  err.code = code;
+  return err;
+}
+
+const BROADCAST_FALLBACK_HTML = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"/><title>Clippy Broadcast</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'"/>
+<style>body{font:13px/1.4 "Segoe UI",sans-serif;margin:12px;color:#111}</style>
+</head><body><h1 style="font-size:14px">Clippy Broadcast</h1>
+<p style="color:#666;font-size:11px">View bundle pending. Use <code>clippy.broadcast</code> tool to dispatch.</p>
+</body></html>`;
+
+export { BROADCAST_VIEW_URI, MAX_PROMPT_LEN, MAX_TARGETS };
