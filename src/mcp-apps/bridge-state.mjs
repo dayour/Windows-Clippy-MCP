@@ -20,6 +20,7 @@ import { readFile } from "node:fs/promises";
 import { statSync } from "node:fs";
 
 const DEFAULT_SNAPSHOT = Object.freeze({
+  schemaVersion: "fleet-state/v1",
   principal: "clippy",
   sessionId: null,
   tabs: {
@@ -35,9 +36,14 @@ const DEFAULT_SNAPSHOT = Object.freeze({
   agents: {
     catalogSize: 0,
     active: null,
+    catalog: [],
   },
   events: {
     recent: [],
+  },
+  adaptiveManifestProtocol: {
+    schemaVersion: "adaptive-manifest/v1",
+    manifests: [],
   },
 });
 
@@ -107,12 +113,11 @@ export class FleetState {
     const recentEvents = Array.isArray(partial.events?.recent)
       ? partial.events.recent.slice(0, MAX_EVENTS).map((v) => safeShallow(v))
       : [];
-    const agentCatalog = Array.isArray(partial.agents?.catalog)
-      ? partial.agents.catalog.slice(0, MAX_AGENTS).map((v) => safeShallow(v))
-      : [];
+    const agentCatalog = normalizeAgentCatalog(partial.agents);
     const commanderSlice = safeShallow(partial.commander);
     return {
       principal: "clippy",
+      schemaVersion: safeString(partial.schemaVersion) ?? "fleet-state/v1",
       sessionId: safeString(partial.sessionId),
       tabs: {
         total: num(partial.tabs?.total),
@@ -129,7 +134,7 @@ export class FleetState {
         list: groupList,
       },
       agents: {
-        catalogSize: num(partial.agents?.catalogSize),
+        catalogSize: num(partial.agents?.catalogSize) || agentCatalog.length,
         active: safeString(partial.agents?.active),
         catalog: agentCatalog,
       },
@@ -137,6 +142,9 @@ export class FleetState {
       events: {
         recent: recentEvents,
       },
+      adaptiveManifestProtocol: normalizeAdaptiveManifestProtocol(
+        partial.adaptiveManifestProtocol,
+      ),
     };
   }
 }
@@ -178,4 +186,75 @@ function safeShallow(obj, depth = 0) {
   return out;
 }
 
-export { DEFAULT_SNAPSHOT, MAX_TABS, MAX_GROUPS, MAX_EVENTS };
+function normalizeAgentCatalog(agentsSlice) {
+  const raw = Array.isArray(agentsSlice?.catalog)
+    ? agentsSlice.catalog
+    : Array.isArray(agentsSlice?.list)
+      ? agentsSlice.list
+      : [];
+  const active = safeString(agentsSlice?.active);
+  return raw
+    .slice(0, MAX_AGENTS)
+    .map((entry) => normalizeAgentEntry(entry, active))
+    .filter(Boolean);
+}
+
+function normalizeAgentEntry(entry, activeAgentId) {
+  if (typeof entry === "string") {
+    const id = safeString(entry);
+    if (!id) return null;
+    return {
+      id,
+      displayName: id,
+      filePath: "",
+      source: "unknown",
+      isActive: activeAgentId === id,
+    };
+  }
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+    return null;
+  }
+
+  const id = safeString(entry.id) ?? safeString(entry.agentId);
+  if (!id) return null;
+
+  const source = safeString(entry.source);
+  const normalizedSource =
+    source === "user" || source === "bundled" ? source : "unknown";
+  const isActive =
+    entry.isActive === true || (activeAgentId !== null && activeAgentId === id);
+
+  const out = {
+    id,
+    displayName: safeString(entry.displayName) ?? id,
+    filePath: safeString(entry.filePath) ?? "",
+    source: normalizedSource,
+    isActive,
+  };
+
+  const relativePath = safeString(entry.relativePath);
+  if (relativePath) out.relativePath = relativePath;
+
+  const contentHash = safeString(entry.contentHash);
+  if (contentHash) out.contentHash = contentHash;
+
+  if (Array.isArray(entry.pathPatterns)) {
+    const pathPatterns = entry.pathPatterns.slice(0, 16).map(safeString).filter(Boolean);
+    if (pathPatterns.length > 0) out.pathPatterns = pathPatterns;
+  }
+
+  return out;
+}
+
+function normalizeAdaptiveManifestProtocol(slice) {
+  const manifests = Array.isArray(slice?.manifests)
+    ? slice.manifests.slice(0, MAX_TABS + MAX_AGENTS + 1).map((v) => safeShallow(v))
+    : [];
+  return {
+    schemaVersion:
+      safeString(slice?.schemaVersion) ?? DEFAULT_SNAPSHOT.adaptiveManifestProtocol.schemaVersion,
+    manifests: manifests.filter(Boolean),
+  };
+}
+
+export { DEFAULT_SNAPSHOT, MAX_TABS, MAX_GROUPS, MAX_EVENTS, MAX_AGENTS };

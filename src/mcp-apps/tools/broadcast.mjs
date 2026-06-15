@@ -7,26 +7,25 @@
  * repos), or a specific explicit subset.
  *
  * Target selection precedence:
- *   1. Explicit `sessionIds`: send only to these tab sessionIds
- *   2. `group`: resolve group label from fleet state and broadcast to members
- *   3. Default (no selector): broadcast to every known terminal tab
+ *   1. Explicit `tabKeys`: send only to these widget tab keys
+ *   2. Legacy `sessionIds`: send to Copilot resume session IDs
+ *   3. `group`: resolve group label from fleet state and broadcast to members
+ *   4. Default (no selector): broadcast to every known terminal tab
  *
  * Intent log contract (consumed by widget in L4-9 toolbar retrofit):
- *   { id, kind: "broadcast.send", prompt, targets: { mode, ids|label }, force, enqueuedAt }
+ *   { id, kind: "broadcast.send", principal, session, prompt, targets: { mode, ids|label }, force, enqueuedAt }
  *
  * The widget's CommanderHub.BroadcastAsync is the sink. Tools here validate,
  * stamp a uuid, and queue. No fire-and-hope — every intent is durable until
  * the widget picks it up (append-only JSONL, dedup by id on the widget side).
  */
 import { z } from "zod";
-import { appendFile, mkdir } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
-import { dirname } from "node:path";
 import {
   registerAppTool,
   registerAppResource,
   RESOURCE_MIME_TYPE,
 } from "@modelcontextprotocol/ext-apps/server";
+import { appendIntent, buildIntentEnvelope } from "../intent-envelope.mjs";
 import { wrapToolWithPrincipal } from "../principal.mjs";
 import { wrapToolWithTelemetry } from "../telemetry.mjs";
 
@@ -43,18 +42,23 @@ export function registerBroadcast(server, { state, intentsPath, env = process.en
     {
       title: "Clippy Broadcast",
       description:
-        "Fan a prompt out to multiple terminal tabs simultaneously. Select targets by explicit sessionIds, by group label, or leave empty to hit every tab.",
+        "Fan a prompt out to multiple terminal tabs simultaneously. Select targets by explicit tabKeys, by legacy sessionIds, by group label, or leave empty to hit every tab.",
       inputSchema: {
         prompt: z
           .string()
           .min(1)
           .max(MAX_PROMPT_LEN)
           .describe("The prompt to dispatch to every selected tab."),
+        tabKeys: z
+          .array(z.string().min(1).max(128))
+          .max(MAX_TARGETS)
+          .optional()
+          .describe("Canonical widget tabKeys to target. Prefer this over sessionIds."),
         sessionIds: z
           .array(z.string().min(1).max(256))
           .max(MAX_TARGETS)
           .optional()
-          .describe("Explicit tab sessionIds to target. Mutually exclusive with `group`."),
+          .describe("Legacy Copilot resume sessionIds to target. Mutually exclusive with `tabKeys` and `group`."),
         group: z
           .string()
           .min(1)
@@ -70,7 +74,7 @@ export function registerBroadcast(server, { state, intentsPath, env = process.en
     },
     wrapToolWithTelemetry(
       "clippy.broadcast",
-      wrapToolWithPrincipal(async ({ prompt, sessionIds, group, force = false } = {}, extra) => {
+      wrapToolWithPrincipal(async ({ prompt, tabKeys, sessionIds, group, force = false } = {}, extra) => {
         if (!resolvedIntents) {
           throw buildToolError(
             "clippy.broadcast.intents.unavailable",
@@ -78,32 +82,35 @@ export function registerBroadcast(server, { state, intentsPath, env = process.en
           );
         }
 
-        if (Array.isArray(sessionIds) && sessionIds.length > 0 && group) {
+        const explicitSelectors = [
+          Array.isArray(tabKeys) && tabKeys.length > 0,
+          Array.isArray(sessionIds) && sessionIds.length > 0,
+          Boolean(group),
+        ].filter(Boolean).length;
+        if (explicitSelectors > 1) {
           throw buildToolError(
             "clippy.broadcast.selector.conflict",
-            "Specify either `sessionIds` or `group`, not both.",
+            "Specify only one target selector: tabKeys, sessionIds, or group.",
           );
         }
 
-        const targets = buildTargetSelector(sessionIds, group);
+        const targets = buildTargetSelector(tabKeys, sessionIds, group);
         const resolution = await previewResolution(state, targets);
 
-        const id = randomUUID();
-        const session = readSessionFromExtra(extra);
-        const intent = {
-          id,
-          kind: "broadcast.send",
-          prompt: String(prompt).slice(0, MAX_PROMPT_LEN),
-          targets,
-          force: Boolean(force),
-          session,
-          enqueuedAt: new Date().toISOString(),
-        };
+        const intent = buildIntentEnvelope(
+          "broadcast.send",
+          {
+            prompt: String(prompt).slice(0, MAX_PROMPT_LEN),
+            targets,
+            force: Boolean(force),
+          },
+          extra,
+        );
         await appendIntent(resolvedIntents, intent);
 
         const payload = {
           accepted: true,
-          intentId: id,
+          intentId: intent.id,
           targets,
           resolvedTargetCount: resolution.count,
           resolvedTargetMode: resolution.mode,
@@ -113,7 +120,7 @@ export function registerBroadcast(server, { state, intentsPath, env = process.en
           content: [
             {
               type: "text",
-              text: `Broadcast queued (id=${id}, mode=${resolution.mode}, targets~${resolution.count}).`,
+              text: `Broadcast queued (id=${intent.id}, mode=${resolution.mode}, targets~${resolution.count}).`,
             },
           ],
           structuredContent: payload,
@@ -143,9 +150,16 @@ export function registerBroadcast(server, { state, intentsPath, env = process.en
   );
 }
 
-function buildTargetSelector(sessionIds, group) {
+function buildTargetSelector(tabKeys, sessionIds, group) {
+  if (Array.isArray(tabKeys) && tabKeys.length > 0) {
+    return { mode: "tabKeys", tabKeys: tabKeys.slice(0, MAX_TARGETS) };
+  }
   if (Array.isArray(sessionIds) && sessionIds.length > 0) {
-    return { mode: "ids", ids: sessionIds.slice(0, MAX_TARGETS) };
+    return {
+      mode: "ids",
+      sessionIds: sessionIds.slice(0, MAX_TARGETS),
+      ids: sessionIds.slice(0, MAX_TARGETS),
+    };
   }
   if (typeof group === "string" && group.trim().length > 0) {
     return { mode: "group", label: group.trim() };
@@ -154,8 +168,11 @@ function buildTargetSelector(sessionIds, group) {
 }
 
 async function previewResolution(state, targets) {
+  if (targets.mode === "tabKeys") {
+    return { mode: "tabKeys", count: targets.tabKeys.length };
+  }
   if (targets.mode === "ids") {
-    return { mode: "ids", count: targets.ids.length };
+    return { mode: "sessionIds", count: targets.sessionIds.length };
   }
   if (!state || typeof state.snapshot !== "function") {
     return { mode: targets.mode, count: 0 };
@@ -179,27 +196,6 @@ async function previewResolution(state, targets) {
     return { mode: targets.mode, count: 0 };
   }
   return { mode: targets.mode, count: 0 };
-}
-
-function readSessionFromExtra(extra) {
-  if (!extra || typeof extra !== "object") return null;
-  const meta = extra._meta;
-  if (!meta || typeof meta !== "object") return null;
-  const clippy = meta.clippy;
-  if (!clippy || typeof clippy !== "object") return null;
-  const session = clippy.session;
-  return typeof session === "string" && session.length > 0 && session.length <= 256
-    ? session
-    : null;
-}
-
-async function appendIntent(path, intent) {
-  try {
-    await mkdir(dirname(path), { recursive: true });
-  } catch {
-    /* dir exists or cannot be created; let appendFile surface the error */
-  }
-  await appendFile(path, JSON.stringify(intent) + "\n", "utf8");
 }
 
 function buildToolError(code, message) {

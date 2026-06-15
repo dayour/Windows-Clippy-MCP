@@ -3,6 +3,15 @@
 All notable changes to **Windows Clippy MCP** will be recorded here.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.2.1 - Cursor Mode Package Release
+
+### Added
+- Clippy Cursor Mode package files, including the standalone cursor launcher, cursor module, and cursor analysis adaptive-card templates.
+- Fleet status live tile in the WidgetHost tab strip with commander, tab, group, and activity details.
+
+### Changed
+- Widget cursor analysis streams now mirror Copilot assistant deltas into a floating response widget and mark completion when the prompt stream ends.
+
 ## 0.2.0 - MCP Apps Native Release
 
 ### Added

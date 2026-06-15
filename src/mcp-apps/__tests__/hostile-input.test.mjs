@@ -8,7 +8,7 @@
 
 import { describe, it, expect } from "vitest";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { FleetState, MAX_TABS, MAX_GROUPS } from "../bridge-state.mjs";
+import { FleetState, MAX_TABS, MAX_GROUPS, MAX_AGENTS } from "../bridge-state.mjs";
 import { registerFleetStatus } from "../tools/fleet-status.mjs";
 
 function makeServer() {
@@ -108,6 +108,66 @@ describe("FleetState hostile-input merge (L3-FW-1)", () => {
     expect(snap.tabs.byState.idle).toBe(0);
     expect(snap.tabs.byState.running).toBe(0);
     expect(snap.tabs.byState.exited).toBe(0);
+  });
+
+  it("normalizes agent catalogs to structured entries and backfills legacy string lists", async () => {
+    const s = new FleetState({
+      source: async () => ({
+        principal: "clippy",
+        agents: {
+          active: "assistant",
+          list: ["assistant", { id: "builder", displayName: "Builder", source: "bundled" }],
+        },
+      }),
+    });
+    const snap = await s.snapshot();
+    expect(snap.agents.catalogSize).toBe(2);
+    expect(snap.agents.catalog).toEqual([
+      {
+        id: "assistant",
+        displayName: "assistant",
+        filePath: "",
+        source: "unknown",
+        isActive: true,
+      },
+      {
+        id: "builder",
+        displayName: "Builder",
+        filePath: "",
+        source: "bundled",
+        isActive: false,
+      },
+    ]);
+  });
+
+  it("caps agent catalog length and strips malformed entries", async () => {
+    const s = new FleetState({
+      source: async () => ({
+        principal: "clippy",
+        agents: {
+          catalog: [
+            ...Array.from({ length: MAX_AGENTS + 25 }, (_, i) => ({
+              id: `agent-${i}`,
+              displayName: `Agent ${i}`,
+              filePath: `/agents/${i}.md`,
+              source: i % 2 === 0 ? "user" : "bundled",
+            })),
+            null,
+            42,
+            { displayName: "missing-id" },
+          ],
+        },
+      }),
+    });
+    const snap = await s.snapshot();
+    expect(snap.agents.catalog.length).toBe(MAX_AGENTS);
+    expect(snap.agents.catalog[0]).toEqual({
+      id: "agent-0",
+      displayName: "Agent 0",
+      filePath: "/agents/0.md",
+      source: "user",
+      isActive: false,
+    });
   });
 });
 

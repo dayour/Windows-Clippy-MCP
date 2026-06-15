@@ -58,6 +58,7 @@ async function testPackageIntegrity() {
       !packageJson.bin ||
       !packageJson.bin.clippy ||
       !packageJson.bin['clippy-widget'] ||
+      !packageJson.bin['clippy-cursor'] ||
       !packageJson.bin.clippy_widget_refresh ||
       !packageJson.bin.clippy_widget_restart
     ) {
@@ -74,6 +75,7 @@ async function testPackageIntegrity() {
       'scripts/clippy-session.js',
       'scripts/clippy-widget-refresh.js',
       'scripts/clippy-widget-restart.js',
+      'scripts/start-cursor.js',
       'scripts/clippy_widget_service.js',
       'scripts/service-runner.js',
       'scripts/setup.js',
@@ -81,7 +83,9 @@ async function testPackageIntegrity() {
       'scripts/install-service.js',
       'scripts/uninstall-service.js',
       'widget/Launch-ClippyWidget.cmd',
+      'widget/Launch-ClippyCursor.cmd',
       'widget/clippy-widget.ps1',
+      'widget/clippy-cursor.ps1',
       'widget/WidgetHost/WidgetHost.csproj',
       'widget/WidgetHost/App.xaml',
       'widget/WidgetHost/App.xaml.cs',
@@ -293,6 +297,8 @@ async function testNPMCommands() {
       'start',
       'start:widget',
       'start:widget:debug',
+      'start:cursor',
+      'start:cursor:debug',
       'refresh:widget',
       'restart:widget',
       'start:mcp',
@@ -312,7 +318,7 @@ async function testNPMCommands() {
 
     // Test that NPM pack would work
     try {
-      await execAsync('npm pack --dry-run > /dev/null 2>&1');
+      await execAsync('npm pack --dry-run --json');
       logSuccess('NPM pack test passed');
     } catch (error) {
       logWarning('NPM pack test had issues (may work in real environment)');
@@ -331,7 +337,7 @@ async function testInstallationWorkflow() {
 
   try {
     // Simulate the steps a user would go through
-    logSuccess(' User runs: npm install -g @clippymcp/windows-clippy-mcp');
+    logSuccess(' User runs: npm install -g @dayour/windows-clippy-mcp');
     logSuccess(' NPM downloads and extracts package');
     logSuccess(' NPM runs postinstall script (scripts/setup.js)');
     logSuccess(' Setup script checks platform (Windows required)');
@@ -342,6 +348,7 @@ async function testInstallationWorkflow() {
     logSuccess(' Setup script validates installation');
     logSuccess(' User restarts VS Code');
     logSuccess(' User launches the Clippy widget with: clippy-widget');
+    logSuccess(' User launches Clippy Cursor Mode with: clippy-cursor');
     logSuccess(' User refreshes widget hosts with: clippy_widget_refresh');
     logSuccess(' User restarts the widget service with: clippy_widget_restart');
     logSuccess(' User launches a terminal session with an attached widget using: clippy');

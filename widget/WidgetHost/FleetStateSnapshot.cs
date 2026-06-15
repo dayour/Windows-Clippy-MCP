@@ -20,8 +20,9 @@ internal sealed record FleetStateSnapshot(
     FleetCounts Fleet,
     FleetTabs Tabs,
     FleetGroups Groups,
-    IReadOnlyList<string> Agents,
-    CommanderSnapshot? Commander = null
+    FleetAgents Agents,
+    CommanderSnapshot? Commander = null,
+    IReadOnlyList<AdaptiveManifestEnvelope>? Manifests = null
 );
 
 internal sealed record CommanderSnapshot(
@@ -57,9 +58,31 @@ internal sealed record FleetTab(
 
 internal sealed record FleetTabs(IReadOnlyList<FleetTab> List);
 
-internal sealed record FleetGroup(string Label, IReadOnlyList<string> Members);
+internal sealed record FleetGroup(string Label, IReadOnlyList<FleetGroupMember> Members);
+
+internal sealed record FleetGroupMember(
+    string TabKey,
+    string SessionId,
+    string DisplayName);
 
 internal sealed record FleetGroups(IReadOnlyList<FleetGroup> List);
+
+internal sealed record FleetAgentCatalogEntry(
+    string Id,
+    string DisplayName,
+    string FilePath,
+    string Source,
+    string RelativePath,
+    string ContentHash,
+    IReadOnlyList<string> PathPatterns,
+    bool IsActive
+);
+
+internal sealed record FleetAgents(
+    int CatalogSize,
+    string Active,
+    IReadOnlyList<FleetAgentCatalogEntry> Catalog
+);
 
 internal static class FleetStateSerializer
 {
@@ -67,6 +90,7 @@ internal static class FleetStateSerializer
     public const int MaxTabs = 256;
     public const int MaxGroups = 64;
     public const int MaxGroupMembers = 256;
+    public const int MaxAgents = 500;
     public const int MaxStringLength = 1024;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -80,6 +104,7 @@ internal static class FleetStateSerializer
         // Principal is never configurable — coerce to literal "clippy".
         var normalized = new
         {
+            schemaVersion = AdaptiveManifestProtocol.FleetStateSchemaVersion,
             principal = "clippy",
             sessionId = Clamp(snapshot.Session),
             tabs = new
@@ -110,14 +135,29 @@ internal static class FleetStateSerializer
                 list = snapshot.Groups.List.Take(MaxGroups).Select(g => new
                 {
                     label = Clamp(g.Label),
-                    members = g.Members.Take(MaxGroupMembers).Select(Clamp).ToArray(),
+                    members = g.Members.Take(MaxGroupMembers).Select(m => new
+                    {
+                        tabKey = Clamp(m.TabKey),
+                        sessionId = Clamp(m.SessionId),
+                        displayName = Clamp(m.DisplayName),
+                    }).ToArray(),
                 }).ToArray(),
             },
             agents = new
             {
-                catalogSize = snapshot.Agents.Count,
-                active = (string?)null,
-                list = snapshot.Agents.Take(MaxTabs).Select(Clamp).ToArray(),
+                catalogSize = snapshot.Agents.CatalogSize,
+                active = NullIfEmpty(snapshot.Agents.Active),
+                catalog = snapshot.Agents.Catalog.Take(MaxAgents).Select(agent => new
+                {
+                    id = Clamp(agent.Id),
+                    displayName = Clamp(agent.DisplayName),
+                    filePath = Clamp(agent.FilePath),
+                    source = Clamp(agent.Source),
+                    relativePath = Clamp(agent.RelativePath),
+                    contentHash = Clamp(agent.ContentHash),
+                    pathPatterns = agent.PathPatterns.Take(16).Select(Clamp).ToArray(),
+                    isActive = agent.IsActive,
+                }).ToArray(),
             },
             commander = snapshot.Commander is null ? null : (object)new
             {
@@ -140,6 +180,14 @@ internal static class FleetStateSerializer
                     at = Clamp(h.At),
                 }).ToArray(),
             },
+            adaptiveManifestProtocol = new
+            {
+                schemaVersion = AdaptiveManifestProtocol.SchemaVersion,
+                manifests = (snapshot.Manifests ?? Array.Empty<AdaptiveManifestEnvelope>())
+                    .Take(MaxTabs + MaxAgents + 1)
+                    .Select(ToManifest)
+                    .ToArray(),
+            },
             events = new { recent = Array.Empty<object>() },
             capturedAt = Clamp(snapshot.CapturedAt),
         };
@@ -151,5 +199,65 @@ internal static class FleetStateSerializer
     {
         if (string.IsNullOrEmpty(value)) return string.Empty;
         return value.Length <= MaxStringLength ? value : value[..MaxStringLength];
+    }
+
+    private static string? NullIfEmpty(string? value)
+    {
+        var clamped = Clamp(value);
+        return string.IsNullOrEmpty(clamped) ? null : clamped;
+    }
+
+    private static object ToManifest(AdaptiveManifestEnvelope manifest)
+    {
+        return new
+        {
+            schemaVersion = Clamp(manifest.SchemaVersion),
+            manifestType = Clamp(manifest.ManifestType),
+            entityId = Clamp(manifest.EntityId),
+            source = Clamp(manifest.Source),
+            capturedAt = Clamp(manifest.CapturedAt),
+            state = new
+            {
+                lifecycle = Clamp(manifest.State.Lifecycle),
+                mode = Clamp(manifest.State.Mode),
+                agentId = Clamp(manifest.State.AgentId),
+                modelId = Clamp(manifest.State.ModelId),
+                isBusy = manifest.State.IsBusy,
+                error = Clamp(manifest.State.Error),
+                latestPrompt = Clamp(manifest.State.LatestPrompt),
+                latestReply = Clamp(manifest.State.LatestReply),
+                latestToolSummary = Clamp(manifest.State.LatestToolSummary),
+            },
+            card = new
+            {
+                cardId = Clamp(manifest.Card.CardId),
+                cardType = Clamp(manifest.Card.CardType),
+                defaultFace = Clamp(manifest.Card.DefaultFace),
+                front = manifest.Card.Front.Take(32).Select(ToField).ToArray(),
+                back = manifest.Card.Back.Take(32).Select(ToField).ToArray(),
+            },
+            refs = manifest.Refs.Take(32).Select(r => new
+            {
+                kind = Clamp(r.Kind),
+                value = Clamp(r.Value),
+            }).ToArray(),
+            attachments = manifest.Attachments.Take(32).Select(a => new
+            {
+                kind = Clamp(a.Kind),
+                name = Clamp(a.Name),
+                relativePath = Clamp(a.RelativePath),
+                contentHash = Clamp(a.ContentHash),
+                pathPatterns = a.PathPatterns.Take(16).Select(Clamp).ToArray(),
+            }).ToArray(),
+        };
+    }
+
+    private static object ToField(AdaptiveFlipCardField field)
+    {
+        return new
+        {
+            label = Clamp(field.Label),
+            value = Clamp(field.Value),
+        };
     }
 }

@@ -5,7 +5,7 @@ Status: PASS. Build green, smoke test green, bundle served from dist.
 ## Scope
 
 - L2-6: Vite single-file build pipeline for MCP Apps Views.
-- L2-3: First View (`clippy.fleet-status`) implemented as a React 18 app
+- L2-3: First View (`clippy.fleet-status`) implemented as a React 19 app
   consuming the real `@modelcontextprotocol/ext-apps/react` surface.
 
 ## Files created
@@ -13,7 +13,7 @@ Status: PASS. Build green, smoke test green, bundle served from dist.
 - `src/mcp-apps/views/fleet-status/fleet-status.html` - Vite HTML entry. Named
   `fleet-status.html` (not `index.html`) so the emitted artifact lands at
   `dist/mcp-apps/views/fleet-status.html` without any rename step.
-- `src/mcp-apps/views/fleet-status/main.tsx` - React 18 `createRoot` bootstrap.
+- `src/mcp-apps/views/fleet-status/main.tsx` - React 19 `createRoot` bootstrap.
 - `src/mcp-apps/views/fleet-status/App.tsx` - Single-component View. Uses
   `useApp` and registers `app.ontoolresult` + `app.onerror` inside
   `onAppCreated`. Renders Clippy Fleet Status header, connection pill, and a
@@ -23,7 +23,7 @@ Status: PASS. Build green, smoke test green, bundle served from dist.
   styling via an inline `<style>` element (theme-aware via
   `prefers-color-scheme` and `--mcp-ui-color-*` CSS vars so it picks up the
   MCP Apps host theme when present).
-- `src/mcp-apps/views/fleet-status/vite.config.ts` - Vite 5 config with
+- `src/mcp-apps/views/fleet-status/vite.config.ts` - Vite 8 config with
   `@vitejs/plugin-react` and `vite-plugin-singlefile`. Output pinned to
   `<repo>/dist/mcp-apps/views`, `emptyOutDir: false`, `assetsInlineLimit:
   100_000_000`, `cssCodeSplit: false`, `target: es2020`,
@@ -31,12 +31,12 @@ Status: PASS. Build green, smoke test green, bundle served from dist.
 - `src/mcp-apps/views/tsconfig.json` - scoped tsconfig (jsx `react-jsx`,
   moduleResolution `bundler`, target `ES2020`, `strict: true`).
 - `src/mcp-apps/views/fleet-status/README.md` - View-local notes (including
-  the Node >= 20 requirement inherited from ext-apps).
+  the Node 25.7.0 runtime target used by the Apps surface).
 
 ## ext-apps/react hooks used
 
 Only `useApp` from `@modelcontextprotocol/ext-apps/react`. That is the entire
-React surface actually exposed by ext-apps 1.6.0:
+React surface actually exposed by ext-apps 1.7.2:
 
 - `useApp` (used here)
 - `useAutoResize` (not needed - `useApp` enables `autoResize: true` by default)
@@ -54,12 +54,12 @@ callback exactly as documented in `useApp.d.ts`, and store the
 
 - Added scripts: `build:views`, `build` (aliases `build:views`),
   `mcp-apps:server`, `mcp-apps:smoke`.
-- Added devDependencies: `vite@^5.4.10`, `@vitejs/plugin-react@^4.3.4`,
-  `vite-plugin-singlefile@^2.0.3`, `react@^18.3.1`, `react-dom@^18.3.1`,
-  `@types/react@^18.3.12`, `@types/react-dom@^18.3.1`, `typescript@^5.6.3`.
-- `engines.node` intentionally NOT bumped (still `>=16.0.0` for the Python /
-  widget entry points). The Node >= 20 requirement for anything touching
-  ext-apps is documented in `src/mcp-apps/views/fleet-status/README.md`.
+- Added devDependencies: `vite@^8.0.14`, `@vitejs/plugin-react@^6.0.2`,
+  `vite-plugin-singlefile@^2.3.3`, `react@^19.2.6`, `react-dom@^19.2.6`,
+  `@types/react@^19.2.15`, `@types/react-dom@^19.2.3`, `typescript@^6.0.3`,
+  `vitest@^4.1.7`, and `esbuild@^0.28.0`.
+- `engines.node` is intentionally pinned to the modern showcase floor:
+  `>=25.7.0`.
 - No `"type": "module"` added at root. React view files are `.tsx`; Vite
   config is `.ts` (Vite handles ESM loading natively).
 
@@ -109,7 +109,6 @@ exactly that path. No change to `fleet-status.mjs` was required.
 
 ## Bundle size budget
 
-269,829 bytes. Budget was 500 KB. Headroom: ~240 KB. React 18 + JSX runtime
-is the dominant cost (~140 KB minified, ~45 KB gzipped). If the View grows
-significantly, switch to preact/compat via alias before bloating past the
-budget.
+533 KB after React 19/Vite 8 single-file bundling. React + JSX runtime remains
+the dominant cost. If the View grows significantly, switch to preact/compat via
+alias or split host-provided shared runtime assets before bloating further.

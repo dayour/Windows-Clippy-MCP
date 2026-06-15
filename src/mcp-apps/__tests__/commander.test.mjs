@@ -131,6 +131,7 @@ describe("clippy.commander tools", () => {
       expect(lines.length).toBe(1);
       const entry = JSON.parse(lines[0]);
       expect(entry.kind).toBe("commander.submit");
+      expect(entry.principal).toBe("clippy");
       expect(entry.prompt).toBe("launch a build");
       expect(entry.session).toBe("cmd-abc");
       expect(entry.id).toBe(result.structuredContent.intentId);
@@ -170,6 +171,45 @@ describe("clippy.commander tools", () => {
         name: "clippy.commander.submit",
         arguments: { prompt: "no-principal" },
         // no _meta.clippy — should be rejected by wrapToolWithPrincipal
+      });
+      expect(result.isError).toBe(true);
+      expect(existsSync(intentsPath)).toBe(false);
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+
+  it("clippy.commander.submit accepts Swarm as a canonical mode", async () => {
+    const state = new FleetState();
+    const server = await buildServer({ state, intentsPath });
+    const client = await connect(server);
+    try {
+      const result = await client.callTool({
+        name: "clippy.commander.submit",
+        arguments: { prompt: "coordinate the fleet", mode: "Swarm" },
+        _meta: { clippy: { principal: "clippy", session: "cmd-swarm" } },
+      });
+      expect(result.isError).not.toBe(true);
+      const entry = JSON.parse(readFileSync(intentsPath, "utf8").trim());
+      expect(entry.mode).toBe("Swarm");
+      expect(entry.session).toBe("cmd-swarm");
+      expect(entry.principal).toBe("clippy");
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+
+  it("clippy.commander.submit rejects legacy code mode", async () => {
+    const state = new FleetState();
+    const server = await buildServer({ state, intentsPath });
+    const client = await connect(server);
+    try {
+      const result = await client.callTool({
+        name: "clippy.commander.submit",
+        arguments: { prompt: "legacy mode", mode: "code" },
+        _meta: { clippy: { principal: "clippy", session: "cmd-legacy" } },
       });
       expect(result.isError).toBe(true);
       expect(existsSync(intentsPath)).toBe(false);

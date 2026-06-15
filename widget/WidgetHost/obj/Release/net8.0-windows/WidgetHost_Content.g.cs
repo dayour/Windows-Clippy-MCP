@@ -9,6 +9,8 @@
 
 [assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("clippy-commander.md")]
 [assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("clippy-swe.md")]
+[assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("agent-catalog.html")]
+[assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("commander.html")]
 [assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("fleet-status.html")]
 [assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("webview2loader.dll")]
 

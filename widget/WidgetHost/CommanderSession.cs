@@ -38,6 +38,7 @@ internal sealed class CommanderSession : IDisposable
     private TerminalSessionCardSnapshot? _sessionCard;
     private CommanderTranscriptEntry? _pendingReasoning;
     private CommanderTranscriptEntry? _pendingAssistant;
+    private string? _completedAssistantTextForCurrentTurn;
     private bool _disposed;
 
     public CommanderSession(string repoRoot, string copilotConfigDir)
@@ -49,6 +50,8 @@ internal sealed class CommanderSession : IDisposable
     public event EventHandler? MetadataChanged;
 
     public event EventHandler? Exited;
+
+    public event EventHandler<string>? AssistantTurnCompleted;
 
     public string SessionId { get; } = Guid.NewGuid().ToString();
 
@@ -112,9 +115,14 @@ internal sealed class CommanderSession : IDisposable
         await _lifecycleGate.WaitAsync().ConfigureAwait(false);
         try
         {
-            if (_connection is not null)
+            if (_connection is not null && IsReady)
             {
                 return;
+            }
+
+            if (_connection is not null && !IsReady)
+            {
+                DisposeConnection();
             }
 
             var connection = CreateConnection();
@@ -180,6 +188,7 @@ internal sealed class CommanderSession : IDisposable
         }
 
         var prompt = BuildCommanderPrompt(text);
+        _completedAssistantTextForCurrentTurn = null;
         _connection.SubmitPrompt(prompt);
         _sessionCard = new TerminalSessionCardSnapshot
         {
@@ -259,6 +268,7 @@ internal sealed class CommanderSession : IDisposable
     private void DisposeConnection()
     {
         IsReady = false;
+        ClearEphemeralState();
 
         if (_connection is null)
         {
@@ -275,8 +285,16 @@ internal sealed class CommanderSession : IDisposable
     private void OnConnectionExited(object? sender, int? e)
     {
         IsReady = false;
+        ClearEphemeralState();
         MetadataChanged?.Invoke(this, EventArgs.Empty);
         Exited?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ClearEphemeralState()
+    {
+        _sessionCard = null;
+        _pendingAssistant = null;
+        _pendingReasoning = null;
     }
 
     private void OnSessionCardUpdated(object? sender, TerminalSessionCardSnapshot snapshot)
@@ -286,7 +304,21 @@ internal sealed class CommanderSession : IDisposable
             return;
         }
 
+        var previous = _sessionCard;
         _sessionCard = snapshot;
+        if (previous?.WaitingForResponse == true && !snapshot.WaitingForResponse)
+        {
+            var completionText = SelectAssistantCompletionText(snapshot);
+            if (string.IsNullOrWhiteSpace(completionText))
+            {
+                WidgetHostLogger.Log(
+                    $"Commander terminal-card turn ended without assistant text. errorChars={snapshot.LastError.Length}; toolChars={snapshot.LatestToolSummary.Length}");
+            }
+            else
+            {
+                PublishAssistantTurnCompleted(completionText, "terminal-card");
+            }
+        }
         MetadataChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -313,6 +345,7 @@ internal sealed class CommanderSession : IDisposable
                     AddHistoryEntry("User", content, TryGetEventTimestamp(e.RawEvent));
                     _pendingAssistant = null;
                     _pendingReasoning = null;
+                    _completedAssistantTextForCurrentTurn = null;
                 }
 
                 break;
@@ -348,9 +381,20 @@ internal sealed class CommanderSession : IDisposable
 
             case "assistant.turn_end":
             case "result":
-                _pendingAssistant = null;
-                _pendingReasoning = null;
-                break;
+                {
+                    var finalText = _pendingAssistant?.Content;
+                    _pendingAssistant = null;
+                    _pendingReasoning = null;
+                    if (!string.IsNullOrWhiteSpace(finalText))
+                    {
+                        PublishAssistantTurnCompleted(finalText!, "copilot-event");
+                    }
+                    else
+                    {
+                        WidgetHostLogger.Log($"Commander copilot event '{e.EventType}' ended without pending assistant text.");
+                    }
+                    break;
+                }
         }
     }
 
@@ -444,6 +488,39 @@ internal sealed class CommanderSession : IDisposable
                 _history.RemoveAt(0);
             }
         }
+    }
+
+    private void PublishAssistantTurnCompleted(string text, string source)
+    {
+        var normalized = NormalizeHistoryText(text);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return;
+        }
+
+        if (string.Equals(_completedAssistantTextForCurrentTurn, normalized, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _completedAssistantTextForCurrentTurn = normalized;
+        WidgetHostLogger.Log($"Commander assistant turn completed via {source}; chars={normalized.Length}");
+        AssistantTurnCompleted?.Invoke(this, normalized);
+    }
+
+    private static string SelectAssistantCompletionText(TerminalSessionCardSnapshot snapshot)
+    {
+        if (!string.IsNullOrWhiteSpace(snapshot.LatestAssistantText))
+        {
+            return snapshot.LatestAssistantText;
+        }
+
+        if (!string.IsNullOrWhiteSpace(snapshot.LatestPlainText))
+        {
+            return snapshot.LatestPlainText;
+        }
+
+        return string.Empty;
     }
 
     private string BuildCommanderPrompt(string promptText)

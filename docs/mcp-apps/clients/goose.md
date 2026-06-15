@@ -3,6 +3,10 @@
 Status: v0.2.0. Requires Goose >= 1.0 with MCP Apps extension support.
 See https://block.github.io/goose/ for installation.
 
+Evidence status: configuration guidance only. The repo currently proves the
+generic headless/non-UI host contract, but does not yet contain executable
+Goose product-host validation. See `../host-conformance.md`.
+
 ## Install prerequisite
 
 ```powershell
@@ -31,7 +35,7 @@ Reload Goose:
 goose configure
 ```
 
-## Expected behavior
+## Target behavior (not yet product-verified)
 
 Goose discovers the 8 Clippy tools registered in v0.2.0
 (`clippy.fleet-status`, `clippy.commander.state`, `clippy.commander.submit`,

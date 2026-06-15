@@ -70,7 +70,19 @@ describe("registerFleetStatus", () => {
       sessionId: "s1",
       tabs: { total: 3, byState: { idle: 1, running: 2, exited: 0 } },
       groups: { total: 1, active: "g1" },
-      agents: { catalogSize: 5 },
+      agents: {
+        catalogSize: 5,
+        active: "clippy-commander",
+        catalog: [
+          {
+            id: "clippy-commander",
+            displayName: "Clippy Commander",
+            filePath: "C:\\Users\\dayour\\.copilot\\agents\\clippy-commander.md",
+            source: "bundled",
+            isActive: true,
+          },
+        ],
+      },
       events: { recent: [] },
     };
     const state = { snapshot: async () => fakeSnap };
@@ -82,6 +94,7 @@ describe("registerFleetStatus", () => {
     expect(sc.sessionId).toBe("s1");
     expect(sc.tabs.total).toBe(3);
     expect(sc.agents.catalogSize).toBe(5);
+    expect(sc.agents.catalog[0].id).toBe("clippy-commander");
     expect(typeof sc.capturedAt).toBe("string");
     expect(new Date(sc.capturedAt).toString()).not.toBe("Invalid Date");
     expect(sc.error).toBeUndefined();

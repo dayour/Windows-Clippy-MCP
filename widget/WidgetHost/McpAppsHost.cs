@@ -373,9 +373,9 @@ internal sealed class McpAppsHost : UserControl, IDisposable
         sb.Append("{\"jsonrpc\":\"2.0\",\"id\":").Append(requestId)
           .Append(",\"result\":{")
           .Append("\"protocolVersion\":\"2026-01-26\",")
-          .Append("\"hostInfo\":{\"name\":\"windows-clippy-widget\",\"version\":\"0.2.0-alpha.1\"},")
+          .Append("\"hostInfo\":{\"name\":\"windows-clippy-widget\",\"version\":\"0.2.1\"},")
           .Append("\"hostCapabilities\":{},")
-          .Append("\"hostContext\":{\"platform\":\"desktop\",\"userAgent\":\"windows-clippy-widget/0.2.0-alpha.1\",\"colorScheme\":\"dark\"},")
+          .Append("\"hostContext\":{\"platform\":\"desktop\",\"userAgent\":\"windows-clippy-widget/0.2.1\",\"colorScheme\":\"dark\"},")
           .Append("\"principal\":{\"kind\":\"agent\",\"id\":\"clippy\",\"session\":")
           .Append(JsonSerializer.Serialize(_commanderSessionId))
           .Append("}}}");

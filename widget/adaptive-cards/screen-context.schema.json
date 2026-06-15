@@ -1,0 +1,271 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://darbotlabs.github.io/windows-clippy-mcp/screen-context/v1",
+  "title": "Darbit Screen Context",
+  "description": "Machine-readable semanifest emitted by Windows Clippy cursor actions.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema",
+    "schemaVersion",
+    "capture",
+    "action",
+    "screen",
+    "windows",
+    "layerModel",
+    "uiAutomation",
+    "accessibility",
+    "ocr",
+    "lineage"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "type": "string"
+    },
+    "capture": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "imagePath",
+        "imageBytes",
+        "timestamp",
+        "captureMode",
+        "cursor"
+      ],
+      "properties": {
+        "imagePath": { "type": "string" },
+        "imageBytes": { "type": "integer", "minimum": 0 },
+        "timestamp": { "type": "string" },
+        "captureMode": { "type": "string" },
+        "cursor": {
+          "type": "object",
+          "required": [ "x", "y" ],
+          "properties": {
+            "x": { "type": "integer" },
+            "y": { "type": "integer" }
+          }
+        },
+        "primaryDisplayBounds": {
+          "$ref": "#/$defs/bounds"
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "label",
+        "prompt",
+        "contract"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "prompt": { "type": "string" },
+        "contract": { "type": "string" }
+      }
+    },
+    "screen": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "width",
+        "height",
+        "left",
+        "top"
+      ],
+      "properties": {
+        "width": { "type": "integer", "minimum": 0 },
+        "height": { "type": "integer", "minimum": 0 },
+        "left": { "type": "integer" },
+        "top": { "type": "integer" }
+      }
+    },
+    "windows": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/windowLayer"
+      }
+    },
+    "layerModel": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "foreground": { "anyOf": [ { "$ref": "#/$defs/windowLayer" }, { "type": "null" } ] },
+        "visibleWindowCount": { "type": "integer", "minimum": 0 },
+        "offscreenCandidateCount": { "type": "integer", "minimum": 0 },
+        "minimizedCandidateCount": { "type": "integer", "minimum": 0 },
+        "backgroundVisibleApps": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/windowLayer" }
+        }
+      }
+    },
+    "uiAutomation": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "elementCount",
+        "interactableCount",
+        "elements"
+      ],
+      "properties": {
+        "elementCount": { "type": "integer", "minimum": 0 },
+        "interactableCount": { "type": "integer", "minimum": 0 },
+        "scan": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "elements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/uiaElement"
+          }
+        }
+      }
+    },
+    "accessibility": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "issueCount"
+      ],
+      "properties": {
+        "issueCount": { "type": "integer", "minimum": 0 },
+        "violationCount": { "type": "integer", "minimum": 0 },
+        "missingAccessibleName": { "type": "array", "items": { "$ref": "#/$defs/accessibilityIssue" } },
+        "missingAutomationId": { "type": "array", "items": { "$ref": "#/$defs/accessibilityIssue" } },
+        "focusableUnnamed": { "type": "array", "items": { "$ref": "#/$defs/accessibilityIssue" } },
+        "clickableUnnamed": { "type": "array", "items": { "$ref": "#/$defs/accessibilityIssue" } },
+        "disabledVisibleControls": { "type": "array", "items": { "$ref": "#/$defs/accessibilityIssue" } },
+        "tinyOrZeroSizeControls": { "type": "array", "items": { "$ref": "#/$defs/accessibilityIssue" } },
+        "textValueWithoutReadableText": { "type": "array", "items": { "$ref": "#/$defs/accessibilityIssue" } }
+      }
+    },
+    "ocr": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": { "type": "string" },
+        "provider": { "type": [ "string", "null" ] },
+        "text": { "type": [ "string", "null" ] },
+        "blocks": { "type": "array" },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "source",
+        "outputs"
+      ],
+      "properties": {
+        "source": { "type": "string" },
+        "outputs": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "screenshot": { "type": "string" },
+            "json": { "type": "string" },
+            "markdown": { "type": "string" },
+            "paperboyBundle": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "bounds": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "x": { "type": "integer" },
+        "y": { "type": "integer" },
+        "width": { "type": "integer" },
+        "height": { "type": "integer" },
+        "right": { "type": "integer" },
+        "bottom": { "type": "integer" }
+      }
+    },
+    "windowLayer": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "zOrder",
+        "hwnd",
+        "title",
+        "className",
+        "processId",
+        "isForeground",
+        "bounds"
+      ],
+      "properties": {
+        "zOrder": { "type": "integer" },
+        "hwnd": { "type": "integer" },
+        "title": { "type": "string" },
+        "className": { "type": "string" },
+        "processId": { "type": "integer" },
+        "processName": { "type": [ "string", "null" ] },
+        "isForeground": { "type": "boolean" },
+        "isMinimized": { "type": "boolean" },
+        "visibility": { "type": "string" },
+        "bounds": { "$ref": "#/$defs/bounds" }
+      }
+    },
+    "uiaElement": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "index",
+        "name",
+        "automationId",
+        "controlType",
+        "processId",
+        "isEnabled",
+        "isKeyboardFocusable",
+        "isInteractable",
+        "patterns",
+        "bounds"
+      ],
+      "properties": {
+        "index": { "type": "integer" },
+        "name": { "type": "string" },
+        "automationId": { "type": "string" },
+        "controlType": { "type": "string" },
+        "className": { "type": "string" },
+        "processId": { "type": "integer" },
+        "isEnabled": { "type": "boolean" },
+        "isKeyboardFocusable": { "type": "boolean" },
+        "isInteractable": { "type": "boolean" },
+        "patterns": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "value": { "type": [ "string", "null" ] },
+        "bounds": { "$ref": "#/$defs/bounds" }
+      }
+    },
+    "accessibilityIssue": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "index": { "type": "integer" },
+        "label": { "type": "string" },
+        "controlType": { "type": "string" },
+        "automationId": { "type": "string" },
+        "bounds": { "$ref": "#/$defs/bounds" }
+      }
+    }
+  }
+}

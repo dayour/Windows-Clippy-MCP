@@ -1,0 +1,80 @@
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "fallbackText": "Clippy AI analysis: ${title}",
+  "body": [
+    {
+      "type": "ColumnSet",
+      "columns": [
+        {
+          "type": "Column",
+          "width": "auto",
+          "items": [
+            {
+              "type": "Image",
+              "url": "${icon}",
+              "size": "Small",
+              "style": "Person"
+            }
+          ]
+        },
+        {
+          "type": "Column",
+          "width": "stretch",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "${title}",
+              "weight": "Bolder",
+              "size": "Medium",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "${subtitle}",
+              "spacing": "None",
+              "isSubtle": true,
+              "wrap": true,
+              "size": "Small"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "Container",
+      "style": "emphasis",
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "${analysis}",
+          "wrap": true,
+          "size": "Default"
+        }
+      ]
+    },
+    {
+      "type": "FactSet",
+      "separator": true,
+      "facts": [
+        { "title": "Action",   "value": "${action}" },
+        { "title": "Position", "value": "(${cursorX}, ${cursorY})" },
+        { "title": "Captured", "value": "${timestamp}" },
+        { "title": "Context JSON", "value": "${contextJsonPath}" },
+        { "title": "Context MD", "value": "${contextMarkdownPath}" },
+        { "title": "Paperboy", "value": "${contextBundlePath}" },
+        { "title": "Windows", "value": "${windowCount}" },
+        { "title": "Interactables", "value": "${interactableCount}" },
+        { "title": "Accessibility issues", "value": "${accessibilityIssueCount}" },
+        { "title": "OCR", "value": "${ocrStatus}" }
+      ]
+    }
+  ],
+  "actions": [
+    { "type": "Action.Submit", "title": "Copy",          "data": { "action": "copy" } },
+    { "type": "Action.Submit", "title": "Ask Follow-up", "data": { "action": "followup" } },
+    { "type": "Action.Submit", "title": "Open Bundle",   "data": { "action": "open_bundle" } },
+    { "type": "Action.Submit", "title": "Open in Bench", "data": { "action": "open_bench" } }
+  ]
+}

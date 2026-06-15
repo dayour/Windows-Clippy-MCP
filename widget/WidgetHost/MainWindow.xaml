@@ -284,6 +284,64 @@
             </Setter>
         </Style>
 
+        <Style x:Key="FleetLiveTileButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="104" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="Background" Value="#FF0F1F1B" />
+            <Setter Property="BorderBrush" Value="#FF267A4A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="FleetLiveTileBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8">
+                            <Grid Margin="{TemplateBinding Padding}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Ellipse Grid.Column="0"
+                                         Width="6"
+                                         Height="6"
+                                         Fill="#FF3DEB7D"
+                                         VerticalAlignment="Center"
+                                         Margin="0,0,6,0" />
+                                <StackPanel Grid.Column="1"
+                                            Orientation="Vertical"
+                                            VerticalAlignment="Center">
+                                    <TextBlock Text="FLEET"
+                                               Foreground="#FF7FE2A2"
+                                               FontFamily="Segoe UI Semibold"
+                                               FontSize="8.5" />
+                                    <TextBlock Text="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=FleetTile.Summary}"
+                                               Foreground="#FFE8FFF0"
+                                               FontFamily="Segoe UI Semibold"
+                                               FontSize="10.5"
+                                               LineHeight="11"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="FleetLiveTileBorder" Property="Background" Value="#FF132A22" />
+                                <Setter TargetName="FleetLiveTileBorder" Property="BorderBrush" Value="#FF3DEB7D" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="FleetLiveTileBorder" Property="Background" Value="#FF1A3A2E" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="BenchTabCloseButtonStyle" TargetType="Button">
             <Setter Property="Width" Value="20" />
             <Setter Property="Height" Value="20" />
@@ -406,11 +464,131 @@
                                                 Orientation="Horizontal"
                                                 HorizontalAlignment="Right"
                                                 VerticalAlignment="Center">
-                                        <Button x:Name="TabStripNewTabButton"
-                                                Content="+"
-                                                Style="{StaticResource TabStripButtonStyle}"
-                                                Click="OnNewTabClick"
-                                                ToolTip="Open a new tab" />
+                                       <Button x:Name="TabStripFleetStatusButton"
+                                               Style="{StaticResource FleetLiveTileButtonStyle}"
+                                               Click="OnFleetStatusBtnClick"
+                                               Tag="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
+                                               ToolTipService.InitialShowDelay="3000"
+                                               ToolTipService.BetweenShowDelay="3000"
+                                               ToolTipService.ShowDuration="60000">
+                                           <Button.ToolTip>
+                                               <ToolTip Placement="Bottom"
+                                                        HorizontalOffset="-190"
+                                                        Background="Transparent"
+                                                        BorderThickness="0"
+                                                        Padding="0"
+                                                        HasDropShadow="True">
+                                                   <Border Width="360"
+                                                           Background="#FF10101F"
+                                                           BorderBrush="#FF3DEB7D"
+                                                           BorderThickness="1"
+                                                           CornerRadius="14"
+                                                           Padding="14">
+                                                       <StackPanel>
+                                                           <Grid Margin="0,0,0,10">
+                                                               <Grid.ColumnDefinitions>
+                                                                   <ColumnDefinition Width="*" />
+                                                                   <ColumnDefinition Width="Auto" />
+                                                               </Grid.ColumnDefinitions>
+                                                               <StackPanel Grid.Column="0">
+                                                                   <TextBlock Text="Clippy Fleet Status"
+                                                                              Foreground="#FFF4FFF7"
+                                                                              FontFamily="Segoe UI Semibold"
+                                                                              FontSize="15" />
+                                                                   <TextBlock Text="{Binding PlacementTarget.Tag.FleetTile.Subtitle, RelativeSource={RelativeSource AncestorType=ToolTip}}"
+                                                                              Foreground="#FF94B7A1"
+                                                                              FontFamily="Segoe UI"
+                                                                              FontSize="11"
+                                                                              TextTrimming="CharacterEllipsis" />
+                                                               </StackPanel>
+                                                               <Border Grid.Column="1"
+                                                                       Background="#263DEB7D"
+                                                                       BorderBrush="#553DEB7D"
+                                                                       BorderThickness="1"
+                                                                       CornerRadius="999"
+                                                                       Padding="8,3"
+                                                                       VerticalAlignment="Top">
+                                                                   <TextBlock Text="{Binding PlacementTarget.Tag.FleetTile.Connection, RelativeSource={RelativeSource AncestorType=ToolTip}}"
+                                                                              Foreground="#FFB8FFD0"
+                                                                              FontFamily="Segoe UI Semibold"
+                                                                              FontSize="10" />
+                                                               </Border>
+                                                           </Grid>
+
+                                                           <UniformGrid Columns="5"
+                                                                        Rows="1"
+                                                                        Margin="0,0,0,10">
+                                                               <Border Background="#1414142A" BorderBrush="#FF2A2A44" BorderThickness="1" CornerRadius="8" Padding="8,6" Margin="0,0,5,0">
+                                                                   <StackPanel>
+                                                                       <TextBlock Text="{Binding PlacementTarget.Tag.FleetTile.TabsTotal, RelativeSource={RelativeSource AncestorType=ToolTip}}" Foreground="#FFFFFFFF" FontFamily="Segoe UI Semibold" FontSize="17" />
+                                                                       <TextBlock Text="TOTAL" Foreground="#FF94B7A1" FontSize="9" />
+                                                                   </StackPanel>
+                                                               </Border>
+                                                               <Border Background="#1414142A" BorderBrush="#FF2A2A44" BorderThickness="1" CornerRadius="8" Padding="8,6" Margin="0,0,5,0">
+                                                                   <StackPanel>
+                                                                       <TextBlock Text="{Binding PlacementTarget.Tag.FleetTile.TabsIdle, RelativeSource={RelativeSource AncestorType=ToolTip}}" Foreground="#FFFFFFFF" FontFamily="Segoe UI Semibold" FontSize="17" />
+                                                                       <TextBlock Text="IDLE" Foreground="#FF94B7A1" FontSize="9" />
+                                                                   </StackPanel>
+                                                               </Border>
+                                                               <Border Background="#1414142A" BorderBrush="#FF2A2A44" BorderThickness="1" CornerRadius="8" Padding="8,6" Margin="0,0,5,0">
+                                                                   <StackPanel>
+                                                                       <TextBlock Text="{Binding PlacementTarget.Tag.FleetTile.TabsRunning, RelativeSource={RelativeSource AncestorType=ToolTip}}" Foreground="#FFFFFFFF" FontFamily="Segoe UI Semibold" FontSize="17" />
+                                                                       <TextBlock Text="RUNNING" Foreground="#FF94B7A1" FontSize="9" />
+                                                                   </StackPanel>
+                                                               </Border>
+                                                               <Border Background="#1414142A" BorderBrush="#FF2A2A44" BorderThickness="1" CornerRadius="8" Padding="8,6" Margin="0,0,5,0">
+                                                                   <StackPanel>
+                                                                       <TextBlock Text="{Binding PlacementTarget.Tag.FleetTile.TabsExited, RelativeSource={RelativeSource AncestorType=ToolTip}}" Foreground="#FFFFFFFF" FontFamily="Segoe UI Semibold" FontSize="17" />
+                                                                       <TextBlock Text="EXITED" Foreground="#FF94B7A1" FontSize="9" />
+                                                                   </StackPanel>
+                                                               </Border>
+                                                               <Border Background="#1414142A" BorderBrush="#FF2A2A44" BorderThickness="1" CornerRadius="8" Padding="8,6">
+                                                                   <StackPanel>
+                                                                       <TextBlock Text="{Binding PlacementTarget.Tag.FleetTile.Groups, RelativeSource={RelativeSource AncestorType=ToolTip}}" Foreground="#FFFFFFFF" FontFamily="Segoe UI Semibold" FontSize="17" />
+                                                                       <TextBlock Text="GROUPS" Foreground="#FF94B7A1" FontSize="9" />
+                                                                   </StackPanel>
+                                                               </Border>
+                                                           </UniformGrid>
+
+                                                           <Border Background="#18181832"
+                                                                   BorderBrush="#FF2A2A44"
+                                                                   BorderThickness="1"
+                                                                   CornerRadius="10"
+                                                                   Padding="10">
+                                                               <Grid>
+                                                                   <Grid.RowDefinitions>
+                                                                       <RowDefinition Height="Auto" />
+                                                                       <RowDefinition Height="Auto" />
+                                                                       <RowDefinition Height="Auto" />
+                                                                       <RowDefinition Height="Auto" />
+                                                                       <RowDefinition Height="Auto" />
+                                                                   </Grid.RowDefinitions>
+                                                                   <Grid.ColumnDefinitions>
+                                                                       <ColumnDefinition Width="84" />
+                                                                       <ColumnDefinition Width="*" />
+                                                                   </Grid.ColumnDefinitions>
+                                                                   <TextBlock Grid.Row="0" Grid.Column="0" Text="AGENT" Foreground="#FF94B7A1" FontSize="10" />
+                                                                   <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding PlacementTarget.Tag.FleetTile.Agent, RelativeSource={RelativeSource AncestorType=ToolTip}}" Foreground="#FFE8FFF0" FontSize="11" TextTrimming="CharacterEllipsis" />
+                                                                   <TextBlock Grid.Row="1" Grid.Column="0" Text="MODEL" Foreground="#FF94B7A1" FontSize="10" Margin="0,6,0,0" />
+                                                                   <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PlacementTarget.Tag.FleetTile.Model, RelativeSource={RelativeSource AncestorType=ToolTip}}" Foreground="#FFE8FFF0" FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,6,0,0" />
+                                                                   <TextBlock Grid.Row="2" Grid.Column="0" Text="COMMANDER" Foreground="#FF94B7A1" FontSize="10" Margin="0,6,0,0" />
+                                                                   <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding PlacementTarget.Tag.FleetTile.Commander, RelativeSource={RelativeSource AncestorType=ToolTip}}" Foreground="#FFE8FFF0" FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,6,0,0" />
+                                                                   <TextBlock Grid.Row="3" Grid.Column="0" Text="UPDATED" Foreground="#FF94B7A1" FontSize="10" Margin="0,6,0,0" />
+                                                                   <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding PlacementTarget.Tag.FleetTile.Captured, RelativeSource={RelativeSource AncestorType=ToolTip}}" Foreground="#FFE8FFF0" FontSize="11" Margin="0,6,0,0" />
+                                                                   <TextBlock Grid.Row="4" Grid.Column="0" Text="ACTIVITY" Foreground="#FF94B7A1" FontSize="10" Margin="0,6,0,0" />
+                                                                   <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding PlacementTarget.Tag.FleetTile.Activity, RelativeSource={RelativeSource AncestorType=ToolTip}}" Foreground="#FFE8FFF0" FontSize="11" TextWrapping="Wrap" MaxHeight="48" Margin="0,6,0,0" />
+                                                               </Grid>
+                                                           </Border>
+                                                       </StackPanel>
+                                                   </Border>
+                                               </ToolTip>
+                                           </Button.ToolTip>
+                                       </Button>
+                                       <Button x:Name="TabStripNewTabButton"
+                                               Content="+"
+                                               Style="{StaticResource TabStripButtonStyle}"
+                                               Click="OnNewTabClick"
+                                               ToolTip="Open a new tab" />
                                         <Button x:Name="TabStripOverflowButton"
                                                 Content="v"
                                                 Margin="0"
@@ -519,7 +697,7 @@
                                   Margin="0,0,6,0"
                                   Style="{StaticResource ToolbarComboBoxStyle}"
                                   SelectionChanged="OnAgentSelectionChanged"
-                                  ToolTip="Choose the active Copilot agent for this tab" />
+                                  ToolTip="Set the Commander agent and default agent for newly opened tabs" />
 
                         <ComboBox x:Name="ModelSelector"
                                   Grid.Column="1"
@@ -527,7 +705,7 @@
                                   Margin="0,0,6,0"
                                   Style="{StaticResource ToolbarComboBoxStyle}"
                                   SelectionChanged="OnModelSelectionChanged"
-                                  ToolTip="Choose the active Copilot model for this tab" />
+                                  ToolTip="Set the Commander model and default model for newly opened tabs" />
 
                         <Button x:Name="ToolsBtn"
                                 Grid.Column="2"
@@ -551,28 +729,28 @@
                                       Style="{StaticResource ModeToggleStyle}"
                                       Checked="OnModeToggleChecked"
                                       Tag="Agent"
-                                      ToolTip="Agent mode" />
+                                      ToolTip="Agent mode for Commander and new-tab defaults" />
                         <ToggleButton x:Name="ModePlanToggle"
                                       Grid.Column="6"
                                       Content="P"
                                       Style="{StaticResource ModeToggleStyle}"
                                       Checked="OnModeToggleChecked"
                                       Tag="Plan"
-                                      ToolTip="Plan mode" />
+                                      ToolTip="Plan mode for Commander and new-tab defaults" />
                         <ToggleButton x:Name="ModeSwarmToggle"
                                       Grid.Column="7"
                                       Content="S"
                                       Style="{StaticResource ModeToggleStyle}"
                                       Checked="OnModeToggleChecked"
                                       Tag="Swarm"
-                                      ToolTip="Swarm mode" />
+                                      ToolTip="Swarm mode for Commander and new-tab defaults" />
                     </Grid>
 
-                    <!-- Session metadata: collapsed by default; live fleet renders in the MCP Apps WebView2 slot below. -->
+                    <!-- Optional inline MCP Apps host for /apps mount; Fleet Status lives in the top live tile. -->
                     <Grid Margin="0,0,0,4">
                         <Border x:Name="AppsHostSlot"
-                                Height="140"
-                                Margin="2,0,0,0"
+                                Visibility="Collapsed"
+                                Height="0"
                                 Background="#110E0E28"
                                 BorderBrush="#FF2A2A44"
                                 BorderThickness="1"
@@ -597,6 +775,8 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock x:Name="PromptLabel"
@@ -683,8 +863,102 @@
                                 </ListBox>
                             </Border>
                         </Popup>
-                        <Button x:Name="SendBtn"
-                                Grid.Column="2"
+                        <ToggleButton x:Name="MicToggle"
+                                      Grid.Column="2"
+                                      Content="&#xE720;"
+                                      FontFamily="Segoe MDL2 Assets"
+                                      FontSize="15"
+                                      Width="38"
+                                      Height="34"
+                                      Background="#FF222244"
+                                      Foreground="#FFB0B0D0"
+                                      BorderThickness="0"
+                                      Cursor="Hand"
+                                      Margin="8,0,0,0"
+                                      Checked="OnMicToggleChecked"
+                                      Unchecked="OnMicToggleUnchecked"
+                                      ToolTip="Transcribe speech to the input box (manual review). Click Send to dispatch. Requires VOICELIVE_API_KEY.">
+                            <ToggleButton.Resources>
+                                <Style TargetType="Border">
+                                    <Setter Property="CornerRadius" Value="6" />
+                                </Style>
+                            </ToggleButton.Resources>
+                            <ToggleButton.Style>
+                                <Style TargetType="ToggleButton">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ToggleButton">
+                                                <Border Background="{TemplateBinding Background}"
+                                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                                        CornerRadius="6">
+                                                    <ContentPresenter HorizontalAlignment="Center"
+                                                                      VerticalAlignment="Center" />
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter Property="Background" Value="#FFD24747" />
+                                            <Setter Property="Foreground" Value="White" />
+                                        </Trigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#FF333366" />
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ToggleButton.Style>
+                        </ToggleButton>
+                         <ToggleButton x:Name="LiveAICommanderToggle"
+                                      Grid.Column="4"
+                                      Content="LiveAI"
+                                      FontFamily="Segoe UI Semibold"
+                                      FontSize="11.5"
+                                      Width="58"
+                                      Height="34"
+                                      Background="#FF222244"
+                                      Foreground="#FFB0B0D0"
+                                      BorderThickness="0"
+                                      Cursor="Hand"
+                                      Margin="10,0,0,0"
+                                      Checked="OnLiveAiToggleChecked"
+                                      Unchecked="OnLiveAiToggleUnchecked"
+                                      ToolTip="LiveAI Commander: two-way Voice Live audio wired to the full Windows-Clippy-MCP tool suite. Speak to Commander; replies are spoken back. Requires VOICELIVE_API_KEY. Headphones recommended.">
+                            <ToggleButton.Resources>
+                                <Style TargetType="Border">
+                                    <Setter Property="CornerRadius" Value="6" />
+                                </Style>
+                            </ToggleButton.Resources>
+                            <ToggleButton.Style>
+                                <Style TargetType="ToggleButton">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ToggleButton">
+                                                <Border Background="{TemplateBinding Background}"
+                                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                                        CornerRadius="6">
+                                                    <ContentPresenter HorizontalAlignment="Center"
+                                                                      VerticalAlignment="Center" />
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter Property="Background" Value="#FF8B5CF6" />
+                                            <Setter Property="Foreground" Value="White" />
+                                        </Trigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#FF333366" />
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ToggleButton.Style>
+                        </ToggleButton>
+                         <Button x:Name="SendBtn"
+                                Grid.Column="3"
                                 Content="&#xE768;"
                                 FontFamily="Segoe MDL2 Assets"
                                 FontSize="15"

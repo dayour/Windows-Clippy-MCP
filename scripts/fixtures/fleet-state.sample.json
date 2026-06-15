@@ -21,7 +21,23 @@
   },
   "agents": {
     "catalogSize": 7,
-    "active": "clippy-commander"
+    "active": "clippy-commander",
+    "catalog": [
+      {
+        "id": "clippy-commander",
+        "displayName": "Clippy Commander",
+        "filePath": "C:\\Users\\dayour\\.copilot\\agents\\clippy-commander.md",
+        "source": "bundled",
+        "isActive": true
+      },
+      {
+        "id": "dayour-swe",
+        "displayName": "DAYOURBOT SWE",
+        "filePath": "C:\\Users\\dayour\\.copilot\\agents\\dayour-swe.md",
+        "source": "user",
+        "isActive": false
+      }
+    ]
   },
   "events": {
     "recent": [

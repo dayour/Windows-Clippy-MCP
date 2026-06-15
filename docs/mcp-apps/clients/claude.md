@@ -4,6 +4,10 @@ Status: v0.2.0. Requires Claude Desktop with MCP Apps extension support
 (Anthropic's `@modelcontextprotocol/ext-apps/host` must be available in
 the Claude Desktop runtime).
 
+Evidence status: configuration guidance only. The repo currently proves the
+generic UI-capable MCP Apps host contract, but does not yet contain executable
+Claude Desktop product-host validation. See `../host-conformance.md`.
+
 ## Install prerequisite
 
 ```powershell
@@ -27,7 +31,7 @@ Edit `%APPDATA%\Claude\claude_desktop_config.json`:
 
 Restart Claude Desktop.
 
-## Expected behavior
+## Target behavior (not yet product-verified)
 
 All 8 Clippy tools registered in v0.2.0 appear in the tool picker
 (`clippy.fleet-status`, `clippy.commander.state`, `clippy.commander.submit`,

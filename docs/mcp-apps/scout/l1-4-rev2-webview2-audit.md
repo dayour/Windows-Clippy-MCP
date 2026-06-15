@@ -5,6 +5,9 @@
 **Focus:** WebView2 integration readiness for WidgetHost and MCP Apps Views  
 **Scope:** net8.0-windows WPF widget pipeline, BrowserHost proof-of-concept
 
+> Historical audit note: this document captures the pre-modernization state.
+> The active widget hosts now target net10.0-windows and WebView2 1.0.3967.48.
+
 ---
 
 ## Executive Summary

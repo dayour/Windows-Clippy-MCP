@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerAgentCatalog } from "../tools/agent-catalog.mjs";
 import { registerBroadcast } from "../tools/broadcast.mjs";
 import { registerLinkGroup } from "../tools/link-group.mjs";
 import { registerSessionInspector } from "../tools/session-inspector.mjs";
@@ -66,6 +67,8 @@ describe("clippy.broadcast", () => {
       const lines = readFileSync(intentsPath, "utf8").trim().split("\n");
       const entry = JSON.parse(lines[0]);
       expect(entry.kind).toBe("broadcast.send");
+      expect(entry.principal).toBe("clippy");
+      expect(entry.session).toBe("s-test");
       expect(entry.targets.mode).toBe("all");
       expect(entry.prompt).toBe("build everything");
     } finally {
@@ -86,6 +89,8 @@ describe("clippy.broadcast", () => {
       });
       expect(result.isError).not.toBe(true);
       const entry = JSON.parse(readFileSync(intentsPath, "utf8").trim());
+      expect(entry.principal).toBe("clippy");
+      expect(entry.session).toBe("s-test");
       expect(entry.targets.mode).toBe("ids");
       expect(entry.targets.ids).toEqual(["tab-a", "tab-b"]);
     } finally {
@@ -207,6 +212,8 @@ describe("clippy.link-group", () => {
       expect(result.structuredContent.kind).toBe("linkgroup.link");
       const entry = JSON.parse(readFileSync(intentsPath, "utf8").trim());
       expect(entry.kind).toBe("linkgroup.link");
+      expect(entry.principal).toBe("clippy");
+      expect(entry.session).toBe("s-test");
       expect(entry.sessionId).toBe("tab-42");
       expect(entry.label).toBe("ops");
     } finally {
@@ -340,6 +347,112 @@ describe("clippy.session-inspector", () => {
       });
       expect(result.structuredContent.found).toBe(true);
       expect(result.structuredContent.entity.displayName).toBe("Asst");
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+});
+
+describe("clippy.agent-catalog", () => {
+  let tmp;
+
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), "clippy-agentcatalog-"));
+  });
+  afterEach(() => rmSync(tmp, { recursive: true, force: true }));
+
+  it("returns structured catalog entries with active metadata", async () => {
+    const fleetPath = join(tmp, "fleet.json");
+    writeFileSync(fleetPath, JSON.stringify({
+      agents: {
+        active: "clippy-commander",
+        catalog: [
+          {
+            id: "clippy-commander",
+            displayName: "Clippy Commander",
+            filePath: "C:\\Users\\dayour\\.copilot\\agents\\clippy-commander.md",
+            source: "bundled",
+            isActive: true,
+          },
+          {
+            id: "dayour-swe",
+            displayName: "DAYOURBOT SWE",
+            filePath: "C:\\Users\\dayour\\.copilot\\agents\\dayour-swe.md",
+            source: "user",
+            isActive: false,
+          },
+        ],
+      },
+    }));
+    const state = new FleetState({ path: fleetPath });
+    const server = await buildServer(registerAgentCatalog, { state });
+    const client = await connect(server);
+    try {
+      const result = await client.callTool({
+        name: "clippy.agent-catalog",
+        arguments: {},
+        _meta: CLIPPY_META,
+      });
+      expect(result.isError).not.toBe(true);
+      expect(result.structuredContent.active).toBe("clippy-commander");
+      expect(result.structuredContent.catalogSize).toBe(2);
+      expect(result.structuredContent.agents).toEqual([
+        {
+          id: "clippy-commander",
+          displayName: "Clippy Commander",
+          filePath: "C:\\Users\\dayour\\.copilot\\agents\\clippy-commander.md",
+          source: "bundled",
+          isActive: true,
+        },
+        {
+          id: "dayour-swe",
+          displayName: "DAYOURBOT SWE",
+          filePath: "C:\\Users\\dayour\\.copilot\\agents\\dayour-swe.md",
+          source: "user",
+          isActive: false,
+        },
+      ]);
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+
+  it("filters on filePath and source in addition to id/displayName", async () => {
+    const fleetPath = join(tmp, "fleet.json");
+    writeFileSync(fleetPath, JSON.stringify({
+      agents: {
+        catalog: [
+          {
+            id: "clippy-commander",
+            displayName: "Clippy Commander",
+            filePath: "C:\\bundle\\clippy-commander.md",
+            source: "bundled",
+            isActive: false,
+          },
+          {
+            id: "dayour-swe",
+            displayName: "DAYOURBOT SWE",
+            filePath: "C:\\users\\dayour\\.copilot\\agents\\dayour-swe.md",
+            source: "user",
+            isActive: false,
+          },
+        ],
+      },
+    }));
+    const state = new FleetState({ path: fleetPath });
+    const server = await buildServer(registerAgentCatalog, { state });
+    const client = await connect(server);
+    try {
+      const result = await client.callTool({
+        name: "clippy.agent-catalog",
+        arguments: { filter: "bundled" },
+        _meta: CLIPPY_META,
+      });
+      expect(result.structuredContent.catalogSize).toBe(2);
+      expect(result.structuredContent.returned).toBe(1);
+      expect(result.structuredContent.agents[0].id).toBe("clippy-commander");
     } finally {
       await client.close();
       await server.close();

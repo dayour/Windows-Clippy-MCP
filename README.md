@@ -19,11 +19,11 @@
 
 ---
 
-Windows Clippy MCP is your friendly AI assistant that brings the helpful spirit of the classic Microsoft Office assistant to modern desktop automation. This lightweight, open-source **Model Context Protocol (MCP)** server enables any MCP-aware client (VS Code agent-mode, Claude Desktop, Gemini CLI, custom LLM agents, etc.) to control Windows and interact with Microsoft 365 services, just like a human would.
+Windows Clippy MCP is a Windows 11-first **Model Context Protocol (MCP)** server and native Clippy widget host. It combines desktop automation, Microsoft 365 integration, and bundled MCP Apps surfaces so Clippy can operate through the same tool and view contracts it exposes to external hosts.
 
-It exposes **49 tools total: 42 Desktop Automation tools + 7 M365/Power Platform tools** that cover everyday desktop automation--launching apps, clicking, typing, scrolling, getting UI state, managing windows, controlling volume, taking screenshots, and more--while hiding all the Windows Accessibility and input-synthesis complexity behind a simple HTTP/stdio interface.
+It exposes **49 tools total: 42 Desktop Automation tools + 7 M365/Power Platform tools** that cover everyday desktop automation--launching apps, clicking, typing, scrolling, getting UI state, managing windows, controlling volume, taking screenshots, and more--while hiding the Windows Accessibility, input-synthesis, and widget-host plumbing behind a simple stdio interface.
 
-**All tools have been validated and are working in VS Code agent mode!**
+**Current evidence bar:** the in-repo widget host is end-to-end proven for Fleet Status, Commander, and Agent Catalog. Generic UI-capable and headless host classes are covered by `npm run mcp-apps:host-conformance`. Product-specific configs remain documented guidance unless separately proven; see [`docs/mcp-apps/host-conformance.md`](docs/mcp-apps/host-conformance.md).
 
 ---
 
@@ -33,7 +33,8 @@ It exposes **49 tools total: 42 Desktop Automation tools + 7 M365/Power Platform
 • **Microsoft 365 integration** – Built-in tools for Graph API, Power Platform, and Copilot Studio.
 • **Zero CV / Vision optional** – Works with *any* LLM; screenshot attachment is optional.
 • **Fast** – Typical end-to-end latency 1.5 – 2.3 s per action.
-• **MCP-compliant** – Validates against the official JSON schema; ready for VS Code, Claude, Gemini CLI.
+• **MCP-compliant** – Validates against the official JSON schema and ships with MCP Apps host-conformance checks.
+• **Clippy Cursor intelligence layer** – `clippy-cursor` turns right-click into a Clippy Click context menu with Explain, Summarize, Extract Text, Debug UI, Accessibility Check, semanifest JSON/Markdown, and Paperboy bundles.
 • **Extensible** – Add your own Python tools in `main.py`.
 • **MIT-licensed** – Fork, embed, or commercialize freely.
 
@@ -173,13 +174,43 @@ That's it! The setup automatically:
 After installation:
 1. **Restart VS Code completely**
 2. Run `clippy-widget` to launch the floating widget.
-3. Run `clippy-live-tile` to launch the dedicated native adaptive live tile for icon and widget review.
-4. Run `clippy_widget_refresh` to relaunch running widget hosts after changes.
-5. Run `clippy_widget_restart` to restart the widget service and relaunch widget hosts.
-6. Run `clippy` to open a Copilot terminal session that automatically attaches a widget.
-7. Start using Windows Clippy tools in agent mode.
+3. Run `clippy-cursor` to launch Clippy Cursor Mode; right-click anywhere for the Clippy Click intelligence context menu.
+4. Run `clippy-live-tile` to launch the dedicated native adaptive live tile for icon and widget review.
+5. Run `clippy_widget_refresh` to relaunch running widget hosts after changes.
+6. Run `clippy_widget_restart` to restart the widget service and relaunch widget hosts.
+7. Run `clippy` to open a Copilot terminal session that automatically attaches a widget.
+8. Start using Windows Clippy tools in agent mode.
 
 **[Complete NPM Installation Guide →](NPM-INSTALL.md)**
+
+---
+
+## Clippy Cursor Mode
+
+Clippy Cursor Mode is the local desktop intelligence layer for screen-aware help:
+
+```shell
+clippy-cursor
+```
+
+When active, Clippy replaces the normal cursor and right-click opens the **Clippy Click** context menu anywhere on screen. The menu can run:
+
+- **Explain This**
+- **Summarize Screen**
+- **Extract Text**
+- **Read Aloud**
+- **Debug UI**
+- **Accessibility Check**
+
+Each action captures the screen or cursor region, enumerates Win32 windows, scans UI Automation elements, classifies accessibility concerns, writes `screen-context.json` and `screen-context.md`, and optionally creates a `.paperboy.zip` bundle under `%APPDATA%\Windows-Clippy-MCP\captures`.
+
+From the widget, use **Cursor Mode → Activate Clippy Cursor**. The widget menu also exposes **Open Clippy Click Context**, **Right-click anywhere opens Clippy**, **Ctrl+Right-click safe mode**, and direct actions like **Explain This Here**. Use **Restore Default Cursor** to stop cursor mode.
+
+For foreground debugging:
+
+```shell
+clippy-cursor --debug
+```
 
 ---
 
@@ -252,7 +283,7 @@ Create or update `.vscode/settings.json` in the root your workspace:
 
 ### Global Installation (All Workspaces) - Manual Method
 
-**For NPM users:** Use `npm install -g @clippymcp/windows-clippy-mcp` instead for easier global installation.
+**For NPM users:** Use `npm install -g @dayour/windows-clippy-mcp` instead for easier global installation.
 
 For global installation using the manual method that works across all VS Code workspaces:
 
@@ -324,11 +355,67 @@ uv sync --reinstall
 
 ---
 
+## Clippy Widget and MCP Apps
+
+The package ships a native WPF/WebView2 widget host plus three bundled MCP Apps views that are backed by the same Clippy tool surface used by external hosts.
+
+| View | Resource URI | Backing tool(s) | Status |
+|------|--------------|-----------------|--------|
+| Fleet Status | `ui://clippy/fleet-status.html` | `clippy.fleet-status` | Proven in the widget host and protocol-class conformance harness |
+| Commander | `ui://clippy/commander.html` | `clippy.commander.state`, `clippy.commander.submit` | Proven in the widget host |
+| Agent Catalog | `ui://clippy/agent-catalog.html` | `clippy.agent-catalog` | Proven in the widget host |
+
+### Launch a specific bundled view
+
+Use the packaged widget host to boot directly into a specific Clippy view:
+
+```shell
+clippy-widget --no-welcome --apps-view ui://clippy/fleet-status.html
+clippy-widget --no-welcome --apps-view ui://clippy/commander.html
+clippy-widget --no-welcome --apps-view ui://clippy/agent-catalog.html
+```
+
+### Rebuild and verify the MCP Apps surfaces
+
+```shell
+npm run build:views
+npm run mcp-apps:host-conformance
+```
+
+The host-conformance command currently proves:
+
+- a generic UI-capable MCP Apps host profile
+- a generic headless MCP host profile
+- the real in-repo widget host rendering Fleet Status, Commander, and Agent Catalog
+
+For the full proof matrix and the distinction between protocol-class evidence and product-host evidence, see [`docs/mcp-apps/host-conformance.md`](docs/mcp-apps/host-conformance.md).
+
+---
+
+## Documentation
+
+### Windows Surface &amp; Agent Extensibility — Reference Wiki
+
+A single-file, fully portable HTML reference covering every surface this project sits on top of:
+
+- **Ch.1 – Widgets (C#)** – End-to-end `IWidgetProvider` walkthrough, Adaptive Cards templates, MSIX packaging, COM CLSID registration, customization mode.
+- **Ch.2 – Live Tiles** – History, Adaptive Tile XML, notification pipelines (Local / Scheduled / Periodic / WNS push), Win11 deprecation, Tiles vs Widgets contrast.
+- **Ch.3 – Clippy &amp; Microsoft Agent** – 1995–2025 lineage, MS Agent COM interfaces, ACS/ACD format, Copilot lineage, modern equivalents.
+- **Ch.4 – Windows Terminal** – conhost-to-Terminal history, ConPTY, `settings.json`, fragment extensions, hosting AI agents.
+- **Ch.5 – NT Kernel &amp; COM** – User/kernel architecture, Object Manager, syscall path, COM activation flavors, MSIX/AppContainer, the `windows.appExtension` contract.
+- **Ch.6 – Windows Clippy MCP** – What MCP is, server architecture, tool catalogue, install, VS Code wiring, tool-authoring template, security notes.
+- **Ch.7 – Comparison Matrix** – All five surfaces read sideways against eight dimensions.
+
+> [`docs/widget_wiki.html`](docs/widget_wiki.html) — open directly in any browser. No build step, no external dependencies (all CSS and JS inline).
+
+---
+
 ## Other Clients
 
-• **Claude Desktop** – Build `.dxt` then load in *Settings → Extensions*.
-• **Gemini CLI** – Add `windows-clippy-mcp` entry in `%USERPROFILE%/.gemini/settings.json`.
-• Any HTTP or stdio MCP client.
+• **VS Code Agent Mode** – See [`docs/mcp-apps/clients/vscode.md`](docs/mcp-apps/clients/vscode.md).
+• **Claude Desktop** – See [`docs/mcp-apps/clients/claude.md`](docs/mcp-apps/clients/claude.md).
+• **Goose** – See [`docs/mcp-apps/clients/goose.md`](docs/mcp-apps/clients/goose.md).
+• Any HTTP or stdio MCP client can still use the server directly.
 
 ---
 
@@ -336,8 +423,10 @@ uv sync --reinstall
 
 ### Core Requirements
 • Windows 10/11
-• Node.js 16+ for the one-click `npm install` flow
+• Node.js 25.7.0+ and npm 11.7.0+ for the one-click `npm install` flow
 • Python 3.13+ and [UV](https://github.com/astral-sh/uv) `pip install uv` for manual setup, or let `npm install` provision them automatically
+• PowerShell 7+ for `clippy-cursor`, legacy widget launch, and Darbit validation scripts
+• .NET desktop runtime/SDK matching the packaged native hosts for native `clippy-widget` and `clippy-live-tile`; `clippy-cursor` can run through the PowerShell standalone path
 • English Windows locale (for consistent UI Automation tree)
 
 ### Microsoft 365 & Power Platform Tools (Optional)
