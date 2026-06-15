@@ -240,8 +240,8 @@ $ScriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyI
 $script:RepoRoot = Split-Path $ScriptDir
 $AssetsDir = Join-Path $script:RepoRoot "assets"
 $terminalHostCandidates = @(
-    (Join-Path $script:RepoRoot 'widget\TerminalHost\bin\Release\net8.0-windows\TerminalHost.exe'),
-    (Join-Path $script:RepoRoot 'widget\TerminalHost\bin\Debug\net8.0-windows\TerminalHost.exe')
+    (Join-Path $script:RepoRoot 'widget\TerminalHost\bin\Release\net10.0-windows\TerminalHost.exe'),
+    (Join-Path $script:RepoRoot 'widget\TerminalHost\bin\Debug\net10.0-windows\TerminalHost.exe')
 )
 $script:TerminalHostExe = $terminalHostCandidates |
     Where-Object { Test-Path $_ -PathType Leaf } |
@@ -256,6 +256,9 @@ $script:AgentcardAdaptiveCardSchemaPath = Join-Path $script:RepoRoot 'widget\ada
 $script:AgentcardAdaptiveCardDataPath = Join-Path $script:RepoRoot 'widget\adaptive-cards\agentcard-icon.data.json'
 $script:AgentcardPackageManifestPath = Join-Path $script:RepoRoot 'widget\adaptive-cards\agentcard-icon.package-manifest.json'
 $script:AgentcardSpecPath = Join-Path $script:RepoRoot 'widget\adaptive-cards\agentcard-icon.spec.json'
+$script:CursorAnalysisTemplatePath = Join-Path $script:RepoRoot 'widget\adaptive-cards\cursor-analysis.template.json'
+$script:CursorAnalysisSchemaPath = Join-Path $script:RepoRoot 'widget\adaptive-cards\cursor-analysis.data.schema.json'
+$script:ClippyCursorScriptPath = Join-Path $script:RepoRoot 'widget\clippy-cursor.ps1'
 $script:AgentcardHeroAssetPath = Join-Path $AssetsDir 'agentcard_192.png'
 $script:AgentcardDefaultAssetPath = Join-Path $AssetsDir 'agentcard_32.png'
 $script:AgentcardFocusedAssetPath = Join-Path $AssetsDir 'agentcard_focused_32.png'
@@ -328,6 +331,8 @@ $script:ActiveCopilotProcess = $null
 $script:ClippyTabs = [ordered]@{}
 $script:ClippyTabOrder = [System.Collections.Generic.List[string]]::new()
 $script:ActiveClippyTabId = $null
+$script:CursorContextTabId = $null
+$script:ClippyTabRoleCursorContext = 'cursor-context'
 $script:ClippyTabStrip = $null
 $script:ClippyAddTabButton = $null
 $script:cOutputHost = $null
@@ -1046,6 +1051,22 @@ function script:Get-ActiveClippyTab {
     return script:Get-ClippyTab -TabId $script:ActiveClippyTabId
 }
 
+function script:Get-ClippyTabRole {
+    param([hashtable]$Tab)
+
+    if ($Tab -and $Tab.ContainsKey('Role') -and -not [string]::IsNullOrWhiteSpace([string]$Tab.Role)) {
+        return [string]$Tab.Role
+    }
+
+    return $null
+}
+
+function script:Test-ClippyCursorContextTab {
+    param([hashtable]$Tab)
+
+    return ((script:Get-ClippyTabRole -Tab $Tab) -eq $script:ClippyTabRoleCursorContext)
+}
+
 function script:Get-BusyClippyTabs {
     $busyTabs = [System.Collections.Generic.List[object]]::new()
     foreach ($tabId in @($script:ClippyTabOrder)) {
@@ -1711,7 +1732,8 @@ function script:New-ClippyTabState {
         [string]$Model,
         [string]$Agent,
         [string]$Runtime,
-        [string]$SurfaceKind
+        [string]$SurfaceKind,
+        [string]$Role
     )
 
     $resolvedSessionId = if ([string]::IsNullOrWhiteSpace($SessionId)) {
@@ -1733,6 +1755,7 @@ function script:New-ClippyTabState {
         Agent = $resolvedAgent
         Runtime = $resolvedRuntime
         SurfaceKind = $resolvedSurfaceKind
+        Role = $Role
         HostTransportKind = $script:ClippyHostTransportNone
         TerminalSurface = $(script:New-ClippyTerminalSurfaceState)
         BrowserSurface = $(script:New-ClippyBrowserSurfaceState)
@@ -2979,8 +3002,9 @@ function script:Start-ClippyTabHost {
     $nodeCommand = Get-Command 'node' -ErrorAction SilentlyContinue
     $nodeBridgeError = $null
     $embeddedTerminalError = $null
+    $requiresPromptBridge = ((script:Get-TabRuntime -Tab $Tab) -eq $script:ClippyRuntimeCopilot)
 
-    if (script:Test-ClippyTerminalHostAvailable) {
+    if (-not $requiresPromptBridge -and (script:Test-ClippyTerminalHostAvailable)) {
         try {
             if (script:Start-ClippyTerminalHost -Tab $Tab) {
                 return
@@ -2992,6 +3016,8 @@ function script:Start-ClippyTabHost {
             $Tab.HostProcess = $null
             [void](script:Set-TabHostTransportKind -Tab $Tab -HostTransportKind $script:ClippyHostTransportNone)
         }
+    } elseif ($requiresPromptBridge) {
+        $embeddedTerminalError = 'Embedded terminal host is disabled for prompt-backed Copilot tabs because cursor-context streaming requires the node bridge.'
     } else {
         $embeddedTerminalError = "Embedded terminal host was not found at $($script:TerminalHostExe)."
     }
@@ -3008,7 +3034,7 @@ function script:Start-ClippyTabHost {
         $arguments.Add('--json')
         $arguments.Add('--bridge-stdio')
         $arguments.Add('--runtime')
-        $arguments.Add('terminal')
+        $arguments.Add($(if ($requiresPromptBridge) { 'copilot' } else { 'terminal' }))
         $arguments.Add("--session-id=$([string]$Tab.SessionId)")
         $arguments.Add('--working-directory')
         $arguments.Add($script:RepoRoot)
@@ -3049,7 +3075,8 @@ function script:Start-ClippyTabHost {
             $Tab.HostState = 'error'
             [void](script:Set-TabHostTransportKind -Tab $Tab -HostTransportKind $script:ClippyHostTransportNone)
             $nodeBridgeError = "Session host could not be started. $($_.Exception.Message)"
-            script:Write-WidgetDebugLog "Node bridge launch failed [$($Tab.TabId)] $nodeBridgeError; falling back to embedded terminal."
+            $fallbackMessage = if ($requiresPromptBridge) { 'embedded terminal fallback is disabled for prompt-backed Copilot tabs.' } else { 'falling back to embedded terminal.' }
+            script:Write-WidgetDebugLog "Node bridge launch failed [$($Tab.TabId)] $nodeBridgeError; $fallbackMessage"
         }
 
         if ($started) {
@@ -3064,7 +3091,8 @@ function script:Start-ClippyTabHost {
             $Tab.HostState = 'error'
             [void](script:Set-TabHostTransportKind -Tab $Tab -HostTransportKind $script:ClippyHostTransportNone)
             $nodeBridgeError = 'Session host could not be started.'
-            script:Write-WidgetDebugLog "Node bridge launch failed [$($Tab.TabId)] $nodeBridgeError; falling back to embedded terminal."
+            $fallbackMessage = if ($requiresPromptBridge) { 'embedded terminal fallback is disabled for prompt-backed Copilot tabs.' } else { 'falling back to embedded terminal.' }
+            script:Write-WidgetDebugLog "Node bridge launch failed [$($Tab.TabId)] $nodeBridgeError; $fallbackMessage"
         }
     }
 
@@ -4011,14 +4039,22 @@ function script:New-ClippyTab {
         [string]$SessionId,
         [string]$Runtime,
         [string]$SurfaceKind,
+        [string]$Role,
+        [string]$DisplayName,
         [switch]$Activate,
         [switch]$LaunchHost
     )
 
     $resolvedSurfaceKind = script:Normalize-ClippySurfaceKind -SurfaceKind $SurfaceKind -Runtime $Runtime
-    $tab = script:New-ClippyTabState -SessionId $SessionId -Mode $script:WidgetSettings.Mode -Model $script:WidgetSettings.Model -Agent $script:WidgetSettings.Agent -Runtime $Runtime -SurfaceKind $resolvedSurfaceKind
+    $tab = script:New-ClippyTabState -SessionId $SessionId -Mode $script:WidgetSettings.Mode -Model $script:WidgetSettings.Model -Agent $script:WidgetSettings.Agent -Runtime $Runtime -SurfaceKind $resolvedSurfaceKind -Role $Role
+    if (-not [string]::IsNullOrWhiteSpace($DisplayName)) {
+        $tab.DisplayName = $DisplayName
+    }
     $script:ClippyTabs[$tab.TabId] = $tab
     $script:ClippyTabOrder.Add([string]$tab.TabId)
+    if (script:Test-ClippyCursorContextTab -Tab $tab) {
+        $script:CursorContextTabId = [string]$tab.TabId
+    }
 
     if ($LaunchHost) {
         [void](script:Start-ClippyTabHostSafely -Tab $tab)
@@ -4064,6 +4100,9 @@ function script:Close-ClippyTab {
 
     $script:ClippyTabOrder.Remove($TabId)
     [void]$script:ClippyTabs.Remove($TabId)
+    if ([string]$script:CursorContextTabId -eq [string]$TabId) {
+        $script:CursorContextTabId = $null
+    }
     script:Stop-ClippyTabHost -Tab $tab
 
     if ($script:ActiveClippyTabId -eq $TabId) {
@@ -4093,7 +4132,7 @@ function script:Initialize-ClippyTabs {
 
     if ($restoredState) {
         foreach ($savedTab in @($restoredState.Tabs)) {
-            $tab = script:New-ClippyTabState -SessionId $savedTab.SessionId -Mode $savedTab.Mode -Model $savedTab.Model -Agent $savedTab.Agent -Runtime $savedTab.Runtime -SurfaceKind $(if ($savedTab.PSObject.Properties.Name -contains 'SurfaceKind') { [string]$savedTab.SurfaceKind } else { $null })
+            $tab = script:New-ClippyTabState -SessionId $savedTab.SessionId -Mode $savedTab.Mode -Model $savedTab.Model -Agent $savedTab.Agent -Runtime $savedTab.Runtime -SurfaceKind $(if ($savedTab.PSObject.Properties.Name -contains 'SurfaceKind') { [string]$savedTab.SurfaceKind } else { $null }) -Role $(if ($savedTab.PSObject.Properties.Name -contains 'Role') { [string]$savedTab.Role } else { $null })
             if (-not [string]::IsNullOrWhiteSpace($savedTab.DisplayName)) {
                 $tab.DisplayName = [string]$savedTab.DisplayName
             }
@@ -4102,6 +4141,9 @@ function script:Initialize-ClippyTabs {
             }
             $script:ClippyTabs[$tab.TabId] = $tab
             $script:ClippyTabOrder.Add([string]$tab.TabId)
+            if (script:Test-ClippyCursorContextTab -Tab $tab) {
+                $script:CursorContextTabId = [string]$tab.TabId
+            }
             [void](script:Start-ClippyTabHostSafely -Tab $tab)
             if (-not (script:Test-ClippyKernelTab -Tab $tab) -and [string]$tab.HostState -ne 'error') {
                 script:Render-TranscriptWelcome -TabId $tab.TabId
@@ -4703,6 +4745,7 @@ function script:Load-CopilotSessionState {
             Agent = if ($savedTab.PSObject.Properties.Name -contains 'Agent') { [string]$savedTab.Agent } else { $null }
             Runtime = if ($savedTab.PSObject.Properties.Name -contains 'Runtime') { [string]$savedTab.Runtime } else { $script:ClippyRuntimeKernel }
             SurfaceKind = if ($savedTab.PSObject.Properties.Name -contains 'SurfaceKind') { [string]$savedTab.SurfaceKind } else { $script:ClippySurfaceTerminal }
+            Role = if ($savedTab.PSObject.Properties.Name -contains 'Role') { [string]$savedTab.Role } else { $null }
             CreatedAt = if ($savedTab.PSObject.Properties.Name -contains 'CreatedAt') { [string]$savedTab.CreatedAt } else { $null }
         })
     }
@@ -4762,6 +4805,8 @@ function script:Save-CopilotSessionStateImmediate {
             Model = $tab.Model
             Agent = $tab.Agent
             Runtime = $tab.Runtime
+            SurfaceKind = $tab.SurfaceKind
+            Role = $tab.Role
             HostState = $tab.HostState
             HostPid = $tab.HostPid
             CreatedAt = $tab.CreatedAt
@@ -4813,6 +4858,169 @@ function script:New-ClippyKernelSession {
     $tab = script:New-ClippyTab -SessionId (script:Resolve-RequestedSessionId) -Runtime $script:ClippyRuntimeKernel -SurfaceKind $script:ClippySurfaceTerminal -Activate -LaunchHost
     script:Update-WidgetStatus
     return $tab
+}
+
+function script:Find-ClippyCursorContextTab {
+    if (-not [string]::IsNullOrWhiteSpace([string]$script:CursorContextTabId)) {
+        $tab = script:Get-ClippyTab -TabId $script:CursorContextTabId
+        if ($tab -and (script:Test-ClippyCursorContextTab -Tab $tab)) {
+            return $tab
+        }
+    }
+
+    foreach ($tabId in @($script:ClippyTabOrder)) {
+        $tab = script:Get-ClippyTab -TabId $tabId
+        if ($tab -and (script:Test-ClippyCursorContextTab -Tab $tab)) {
+            $script:CursorContextTabId = [string]$tab.TabId
+            return $tab
+        }
+    }
+
+    foreach ($tabId in @($script:ClippyTabOrder)) {
+        $tab = script:Get-ClippyTab -TabId $tabId
+        if ($tab -and (script:Get-TabRuntime -Tab $tab) -eq $script:ClippyRuntimeCopilot -and [string]$tab.DisplayName -eq 'Cursor Context') {
+            $tab.Role = $script:ClippyTabRoleCursorContext
+            $script:CursorContextTabId = [string]$tab.TabId
+            return $tab
+        }
+    }
+
+    return $null
+}
+
+function script:Get-OrCreate-ClippyCursorContextTab {
+    $tab = script:Find-ClippyCursorContextTab
+    if (-not $tab) {
+        $tab = script:New-ClippyTab -SessionId (script:Resolve-RequestedSessionId) -Runtime $script:ClippyRuntimeCopilot -SurfaceKind $script:ClippySurfaceTerminal -Role $script:ClippyTabRoleCursorContext -DisplayName 'Cursor Context' -LaunchHost
+    }
+
+    if ((-not $tab.HostProcess) -or $tab.HostProcess.HasExited -or ([string]$tab.HostState -in @('closed', 'stopped', 'error'))) {
+        [void](script:Start-ClippyTabHostSafely -Tab $tab)
+    }
+
+    if ([string]$tab.HostState -eq 'error') {
+        throw 'Cursor Context session host is in an error state.'
+    }
+
+    $script:CursorContextTabId = [string]$tab.TabId
+    return $tab
+}
+
+function script:New-ClippyCursorContextPrompt {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Prompt,
+        [Parameter(Mandatory)]
+        [string]$CapturePath,
+        [Parameter(Mandatory)]
+        [string]$Label,
+        [Parameter(Mandatory)]
+        [string]$ActionId,
+        [Parameter(Mandatory)]
+        [int]$ScreenX,
+        [Parameter(Mandatory)]
+        [int]$ScreenY,
+        [Parameter(Mandatory)]
+        [string]$AnalysisId,
+        [string]$ContextJsonPath,
+        [string]$ContextMarkdownPath
+    )
+
+    $timestamp = (Get-Date).ToString('o')
+    return @(
+        'Clippy cursor context request'
+        ''
+        'Treat this request as input from the persistent Clippy context cursor. Use the attached screenshot as the cursor visual context for this turn and retain useful observations in this session for follow-up cursor requests.'
+        ''
+        "Analysis ID: $AnalysisId"
+        "Action: $ActionId"
+        "Label: $Label"
+        "Cursor position: ($ScreenX, $ScreenY)"
+        "Captured: $timestamp"
+        "Screenshot path: $CapturePath"
+        "Screen context JSON: $ContextJsonPath"
+        "Screen context Markdown: $ContextMarkdownPath"
+        ''
+        'You have three synchronized sources: screenshot pixels, a JSON runtime scan, and a Markdown screen-context report.'
+        'Use the JSON/Markdown context for window layers, UI Automation controls, bounds, supported interaction patterns, and accessibility/focusability.'
+        'Use the screenshot for visual-only interpretation such as layout, color, overlap, and text not exposed through UI Automation.'
+        'Use the action-specific response contract in the Markdown/JSON context as mandatory output structure.'
+        'Do not invent controls, apps, text, OCR results, or accessibility issues that are not present in the screenshot, JSON, or Markdown evidence. If evidence is missing or uncertain, say so.'
+        ''
+        $Prompt
+        ''
+        'Return a concise, useful response for the floating cursor card. Include actionable findings and reference interactable UI elements when relevant.'
+    ) -join "`n"
+}
+
+function script:Invoke-ClippyCursorContextPrompt {
+    param(
+        [Parameter(Mandatory)]
+        [string]$CapturePath,
+        [Parameter(Mandatory)]
+        [string]$Prompt,
+        [Parameter(Mandatory)]
+        [string]$Label,
+        [Parameter(Mandatory)]
+        [string]$ActionId,
+        [Parameter(Mandatory)]
+        [int]$ScreenX,
+        [Parameter(Mandatory)]
+        [int]$ScreenY,
+        [Parameter(Mandatory)]
+        [string]$AnalysisId,
+        [string]$ContextJsonPath,
+        [string]$ContextMarkdownPath
+    )
+
+    if (-not (Test-Path $CapturePath -PathType Leaf)) {
+        throw "Cursor capture does not exist: $CapturePath"
+    }
+
+    $tab = script:Get-OrCreate-ClippyCursorContextTab
+    if ($tab.StreamState -and $tab.StreamState.WaitingForResponse) {
+        throw 'Cursor Context is still processing the previous cursor request. Try again after it finishes.'
+    }
+
+    $attachments = @($CapturePath)
+    if (-not [string]::IsNullOrWhiteSpace($ContextJsonPath) -and (Test-Path $ContextJsonPath -PathType Leaf)) {
+        $attachments += $ContextJsonPath
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ContextMarkdownPath) -and (Test-Path $ContextMarkdownPath -PathType Leaf)) {
+        $attachments += $ContextMarkdownPath
+    }
+
+    $cursorPrompt = script:New-ClippyCursorContextPrompt -Prompt $Prompt -CapturePath $CapturePath -Label $Label -ActionId $ActionId -ScreenX $ScreenX -ScreenY $ScreenY -AnalysisId $AnalysisId -ContextJsonPath $ContextJsonPath -ContextMarkdownPath $ContextMarkdownPath
+    $promptText = script:Build-CopilotPrompt -Prompt $cursorPrompt -AttachedFiles $attachments -Mode ([string]$tab.Mode)
+
+    [void](script:Reset-TabCopilotStreamState -Tab $tab)
+    $tab.StreamState.WaitingForResponse = $true
+    $tab.StreamState.CursorAnalysisId = $AnalysisId
+
+    script:Write-Term "Cursor Context analyzing '$Label' at ($ScreenX, $ScreenY)..." "#6B6B8D" -TabId $tab.TabId
+    script:Flush-TerminalUi
+    script:Set-CopilotBusyState $true
+
+    try {
+        script:Send-ClippyTabHostMessage -Tab $tab -Payload (
+            script:New-TerminalBridgeCommandPayload -Command 'session.input' -LegacyAction 'input' -Payload @{
+                text = $promptText
+            }
+        )
+    } catch {
+        $tab.StreamState.WaitingForResponse = $false
+        $tab.StreamState.CursorAnalysisId = $null
+        script:Set-CopilotBusyState $false
+        throw
+    }
+
+    script:Save-CopilotSessionState
+
+    return [pscustomobject]@{
+        TabId = [string]$tab.TabId
+        SessionId = [string]$tab.SessionId
+        AnalysisId = $AnalysisId
+    }
 }
 
 function script:Get-UniqueDirectories {
@@ -5880,17 +6088,21 @@ function script:Get-VsCodePromptContextLines {
 function script:Build-CopilotPrompt {
     param(
         [Parameter(Mandatory)]
-        [string]$Prompt
+        [string]$Prompt,
+        [string[]]$AttachedFiles,
+        [string]$Mode
     )
 
     $lines = [System.Collections.Generic.List[string]]::new()
-    if ((script:Get-ActiveTabMode) -eq 'Plan') {
+    $resolvedMode = if (-not [string]::IsNullOrWhiteSpace($Mode)) { $Mode } else { script:Get-ActiveTabMode }
+    if ($resolvedMode -eq 'Plan') {
         $lines.Add('[[PLAN]]')
     }
 
-    if ($script:AttachedFiles.Count -gt 0) {
+    $filesForPrompt = if ($PSBoundParameters.ContainsKey('AttachedFiles')) { @($AttachedFiles) } else { @($script:AttachedFiles) }
+    if ($filesForPrompt.Count -gt 0) {
         $lines.Add('Attached files for this turn:')
-        foreach ($file in $script:AttachedFiles) {
+        foreach ($file in $filesForPrompt) {
             $lines.Add("@$file")
         }
         $lines.Add('')
@@ -6198,6 +6410,11 @@ function script:Handle-CopilotEvent {
                 $State.HadAssistantOutput = $true
                 $State.StreamedAssistantText = [string]$State.StreamedAssistantText + $delta
                 script:Append-TermStream -Text $delta -Color "#4EC9B0" -TabId $State.TabId
+                # Mirror delta to the cursor analysis floating widget if active
+                if (Get-Command 'script:Intercept-CursorAnalysisStream' -ErrorAction SilentlyContinue) {
+                    $cursorAnalysisId = if ($State.ContainsKey('CursorAnalysisId')) { [string]$State.CursorAnalysisId } else { $null }
+                    script:Intercept-CursorAnalysisStream -Text $delta -Color "#4EC9B0" -TabId ([string]$State.TabId) -AnalysisId $cursorAnalysisId | Out-Null
+                }
             }
             return
         }
@@ -6209,6 +6426,10 @@ function script:Handle-CopilotEvent {
                     $State.HadAssistantOutput = $true
                     $State.StreamedAssistantText = $content
                     script:Append-TermStream -Text $content -Color "#4EC9B0" -TabId $State.TabId
+                    if (Get-Command 'script:Intercept-CursorAnalysisStream' -ErrorAction SilentlyContinue) {
+                        $cursorAnalysisId = if ($State.ContainsKey('CursorAnalysisId')) { [string]$State.CursorAnalysisId } else { $null }
+                        script:Intercept-CursorAnalysisStream -Text $content -Color "#4EC9B0" -TabId ([string]$State.TabId) -AnalysisId $cursorAnalysisId | Out-Null
+                    }
                 } elseif ($content.StartsWith([string]$State.StreamedAssistantText)) {
                     $streamedLen = ([string]$State.StreamedAssistantText).Length
                     if ($streamedLen -le $content.Length) {
@@ -6219,6 +6440,10 @@ function script:Handle-CopilotEvent {
                     if ($suffix) {
                         $State.StreamedAssistantText = $content
                         script:Append-TermStream -Text $suffix -Color "#4EC9B0" -TabId $State.TabId
+                        if (Get-Command 'script:Intercept-CursorAnalysisStream' -ErrorAction SilentlyContinue) {
+                            $cursorAnalysisId = if ($State.ContainsKey('CursorAnalysisId')) { [string]$State.CursorAnalysisId } else { $null }
+                            script:Intercept-CursorAnalysisStream -Text $suffix -Color "#4EC9B0" -TabId ([string]$State.TabId) -AnalysisId $cursorAnalysisId | Out-Null
+                        }
                     }
                 }
             }
@@ -6425,9 +6650,17 @@ function script:Complete-CopilotPromptStream {
     }
 
     script:Write-Term "" -TabId $targetTabId
+    # Signal cursor analysis completion if active
+    if (Get-Command 'script:Complete-CursorAnalysis' -ErrorAction SilentlyContinue) {
+        $cursorAnalysisId = if ($State.ContainsKey('CursorAnalysisId')) { [string]$State.CursorAnalysisId } else { $null }
+        script:Complete-CursorAnalysis -TabId $targetTabId -AnalysisId $cursorAnalysisId
+    }
     if ($tab) {
         $tab.ActiveAssistantStream = $null
         $tab.ActiveThoughtStream = $null
+        if ($tab.StreamState -and $tab.StreamState.ContainsKey('CursorAnalysisId')) {
+            $tab.StreamState.CursorAnalysisId = $null
+        }
         $tab.StreamState.WaitingForResponse = $false
     }
     script:Set-CopilotBusyState $false
@@ -8816,6 +9049,95 @@ $miSysinternals.Items.Add($miSysDiag) | Out-Null
 
 $ctx.Items.Add($miSysinternals) | Out-Null
 
+# ── Cursor Mode submenu ────────────────────────────────────────────
+$miCursorMode = script:New-ToolbarMenuItem -Header 'Cursor Mode'
+$miCursorActivate = script:New-ToolbarMenuItem -Header 'Activate Clippy Cursor'
+$miCursorActivate.Add_Click({
+    if (Get-Command 'script:Start-ClippyCursorMode' -ErrorAction SilentlyContinue) {
+        [void](script:Start-ClippyCursorMode)
+        if (Get-Command 'script:Install-ClippyCursorHooks' -ErrorAction SilentlyContinue) {
+            script:Install-ClippyCursorHooks
+        }
+        script:Write-Term 'Clippy cursor mode activated. Right-click anywhere for the Clippy AI context menu.' '#4EC9B0'
+        script:Write-Term ''
+    } else {
+        script:Write-Term 'Cursor module not loaded.' '#F48771'
+        script:Write-Term ''
+    }
+})
+$miCursorMode.Items.Add($miCursorActivate) | Out-Null
+
+$miCursorOpenContext = script:New-ToolbarMenuItem -Header 'Open Clippy Click Context'
+$miCursorOpenContext.Add_Click({
+    if (Get-Command 'script:Show-ClippyCursorContextMenu' -ErrorAction SilentlyContinue) {
+        if (-not $script:CursorContextMenu) {
+            [void](script:Start-ClippyCursorMode)
+        }
+        $pos = [System.Windows.Forms.Cursor]::Position
+        script:Show-ClippyCursorContextMenu -ScreenX $pos.X -ScreenY $pos.Y
+    } else {
+        script:Write-Term 'Cursor context menu is not loaded.' '#F48771'
+        script:Write-Term ''
+    }
+})
+$miCursorMode.Items.Add($miCursorOpenContext) | Out-Null
+
+$miCursorClickAnywhere = script:New-ToolbarMenuItem -Header 'Right-click anywhere opens Clippy' -Checkable -StayOpen
+$miCursorClickAnywhere.Add_Click({
+    if (Get-Command 'script:Set-ClippyCursorClickMode' -ErrorAction SilentlyContinue) {
+        script:Set-ClippyCursorClickMode -RequireCtrl $false
+    }
+})
+$miCursorMode.Items.Add($miCursorClickAnywhere) | Out-Null
+
+$miCursorCtrlOnly = script:New-ToolbarMenuItem -Header 'Ctrl+Right-click safe mode' -Checkable -StayOpen
+$miCursorCtrlOnly.Add_Click({
+    if (Get-Command 'script:Set-ClippyCursorClickMode' -ErrorAction SilentlyContinue) {
+        script:Set-ClippyCursorClickMode -RequireCtrl $true
+    }
+})
+$miCursorMode.Items.Add($miCursorCtrlOnly) | Out-Null
+
+$miCursorExplain = script:New-ToolbarMenuItem -Header 'Explain This Here'
+$miCursorExplain.Add_Click({
+    if (Get-Command 'script:Invoke-ClippyAnalysis' -ErrorAction SilentlyContinue) {
+        $pos = [System.Windows.Forms.Cursor]::Position
+        script:Invoke-ClippyAnalysis -ScreenX $pos.X -ScreenY $pos.Y -ActionId 'explain'
+    }
+})
+$miCursorMode.Items.Add($miCursorExplain) | Out-Null
+
+$miCursorSummarize = script:New-ToolbarMenuItem -Header 'Summarize Screen Now'
+$miCursorSummarize.Add_Click({
+    if (Get-Command 'script:Invoke-ClippyAnalysis' -ErrorAction SilentlyContinue) {
+        $pos = [System.Windows.Forms.Cursor]::Position
+        script:Invoke-ClippyAnalysis -ScreenX $pos.X -ScreenY $pos.Y -ActionId 'summarize'
+    }
+})
+$miCursorMode.Items.Add($miCursorSummarize) | Out-Null
+
+$miCursorExtract = script:New-ToolbarMenuItem -Header 'Extract Text Here'
+$miCursorExtract.Add_Click({
+    if (Get-Command 'script:Invoke-ClippyAnalysis' -ErrorAction SilentlyContinue) {
+        $pos = [System.Windows.Forms.Cursor]::Position
+        script:Invoke-ClippyAnalysis -ScreenX $pos.X -ScreenY $pos.Y -ActionId 'extract'
+    }
+})
+$miCursorMode.Items.Add($miCursorExtract) | Out-Null
+
+$miCursorDeactivate = script:New-ToolbarMenuItem -Header 'Restore Default Cursor'
+$miCursorDeactivate.Add_Click({
+    if (Get-Command 'script:Stop-ClippyCursorMode' -ErrorAction SilentlyContinue) {
+        script:Stop-ClippyCursorMode
+        script:Write-Term 'Default cursor restored.' '#4EC9B0'
+        script:Write-Term ''
+    }
+})
+$miCursorMode.Items.Add($miCursorDeactivate) | Out-Null
+$ctx.Items.Add($miCursorMode) | Out-Null
+
+$ctx.Items.Add([Windows.Controls.Separator]::new()) | Out-Null
+
 $miAbout = script:New-ToolbarMenuItem -Header 'About'
 $miAbout.Add_Click({ script:Show-AboutDialog })
 $ctx.Items.Add($miAbout) | Out-Null
@@ -8865,6 +9187,22 @@ $ctx.Add_Opened({
     $miAbout.InputGestureText = if ([string]::IsNullOrWhiteSpace($widgetVersion)) { '' } else { "v$widgetVersion" }
     $miSysinternals.IsEnabled = [bool](script:Resolve-SysinternalsTool 'Autoruns.exe')
     $miSysinternals.InputGestureText = if ($miSysinternals.IsEnabled) { 'installed' } else { 'not found' }
+    $cursorLoaded = [bool](Get-Command 'script:Start-ClippyCursorMode' -ErrorAction SilentlyContinue)
+    $miCursorMode.IsEnabled = $cursorLoaded
+    $cursorHooksActive = $cursorLoaded -and $script:MouseHookInstance
+    $cursorModeActive = $cursorLoaded -and ($script:ClippyCursorActive -or $cursorHooksActive)
+    $clickMode = if ($cursorLoaded -and $script:ClippyCursorRequireCtrlForMenu) { 'Ctrl+Right' } else { 'Right-click' }
+    $miCursorMode.InputGestureText = if (-not $cursorLoaded) { 'not loaded' } elseif ($cursorModeActive) { "active: $clickMode" } else { 'off' }
+    $miCursorActivate.IsEnabled = $cursorLoaded -and (-not $cursorHooksActive)
+    $miCursorOpenContext.IsEnabled = $cursorLoaded
+    $miCursorClickAnywhere.IsEnabled = $cursorLoaded
+    $miCursorClickAnywhere.IsChecked = $cursorLoaded -and (-not $script:ClippyCursorRequireCtrlForMenu)
+    $miCursorCtrlOnly.IsEnabled = $cursorLoaded
+    $miCursorCtrlOnly.IsChecked = $cursorLoaded -and [bool]$script:ClippyCursorRequireCtrlForMenu
+    $miCursorExplain.IsEnabled = $cursorLoaded
+    $miCursorSummarize.IsEnabled = $cursorLoaded
+    $miCursorExtract.IsEnabled = $cursorLoaded
+    $miCursorDeactivate.IsEnabled = $cursorModeActive
 })
 
 $script:Widget.ContextMenu = $ctx
@@ -9063,6 +9401,9 @@ $script:Widget.Add_Closing({
     script:Write-WidgetDebugLog "LIFECYCLE: Widget.Closing fired (IsApplicationClosing was $($script:IsApplicationClosing))"
     $script:IsApplicationClosing = $true
     script:Set-SnippingTileOpen $false
+    if (Get-Command 'script:Stop-ClippyCursorMode' -ErrorAction SilentlyContinue) {
+        try { script:Stop-ClippyCursorMode } catch {}
+    }
     if ($script:ActiveCopilotProcess -and -not $script:ActiveCopilotProcess.HasExited) {
         try {
             $script:ActiveCopilotProcess.Kill()
@@ -9084,6 +9425,16 @@ $script:Widget.Add_Closing({
     try { $_widgetMutex.ReleaseMutex() } catch { }
     try { $_widgetMutex.Dispose() } catch { }
 })
+
+# ── Cursor module (dot-sourced for integration) ──────────────────
+if (Test-Path $script:ClippyCursorScriptPath) {
+    try {
+        . $script:ClippyCursorScriptPath -AssetsDir $AssetsDir
+        script:Write-WidgetDebugLog "CURSOR: clippy-cursor.ps1 loaded"
+    } catch {
+        script:Write-WidgetDebugLog "CURSOR: Failed to load clippy-cursor.ps1: $($_.Exception.Message)"
+    }
+}
 
 # ── Run application ───────────────────────────────────────────────
 $app = [Windows.Application]::new()

@@ -286,7 +286,7 @@ public partial class LauncherWindow : Window
             {
                 Header = agent.DisplayName,
                 Tag = agent.Id,
-                ToolTip = agent.FilePath,
+                ToolTip = AgentCatalog.BuildPortableTooltip(agent),
                 IsCheckable = true,
                 StaysOpenOnClick = true
             };

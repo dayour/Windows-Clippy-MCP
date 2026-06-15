@@ -45,3 +45,12 @@ E:\Windows-Clippy-MCP\widget\WidgetHost\obj\Debug\net8.0-windows\WidgetHost.genr
 E:\Windows-Clippy-MCP\widget\WidgetHost\obj\Debug\net8.0-windows\ref\WidgetHost.dll
 E:\Windows-Clippy-MCP\widget\WidgetHost\bin\Debug\net8.0-windows\mcp-apps\views\agent-catalog.html
 E:\Windows-Clippy-MCP\widget\WidgetHost\bin\Debug\net8.0-windows\mcp-apps\views\commander.html
+E:\Windows-Clippy-MCP\widget\WidgetHost\bin\Debug\net8.0-windows\NAudio.dll
+E:\Windows-Clippy-MCP\widget\WidgetHost\bin\Debug\net8.0-windows\NAudio.Asio.dll
+E:\Windows-Clippy-MCP\widget\WidgetHost\bin\Debug\net8.0-windows\NAudio.Core.dll
+E:\Windows-Clippy-MCP\widget\WidgetHost\bin\Debug\net8.0-windows\NAudio.Midi.dll
+E:\Windows-Clippy-MCP\widget\WidgetHost\bin\Debug\net8.0-windows\NAudio.Wasapi.dll
+E:\Windows-Clippy-MCP\widget\WidgetHost\bin\Debug\net8.0-windows\NAudio.WinForms.dll
+E:\Windows-Clippy-MCP\widget\WidgetHost\bin\Debug\net8.0-windows\NAudio.WinMM.dll
+E:\Windows-Clippy-MCP\widget\WidgetHost\obj\Debug\net8.0-windows\FleetStatusWindow.baml
+E:\Windows-Clippy-MCP\widget\WidgetHost\obj\Debug\net8.0-windows\FleetStatusWindow.g.cs

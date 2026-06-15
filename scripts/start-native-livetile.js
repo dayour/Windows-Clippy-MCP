@@ -124,7 +124,7 @@ function getExePath(configuration) {
     'LiveTileHost',
     'bin',
     configuration,
-    'net8.0-windows',
+    'net10.0-windows',
     'LiveTileHost.exe'
   );
 }

@@ -13,7 +13,7 @@ wire envelope every tool must honor.
 
 ## Prerequisites
 
-- Node 18+ and `npm install` completed at repo root.
+- Node 25.7.0+ and `npm install` completed at repo root.
 - Windows 11 if you want to exercise the WPF widget end-to-end.
 - Familiarity with the existing tools under `src/mcp-apps/tools/`; they
   are the best templates.

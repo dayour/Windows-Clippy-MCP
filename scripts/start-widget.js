@@ -20,7 +20,7 @@ const nativeWidgetHostCandidates = [
     'WidgetHost',
     'bin',
     'Release',
-    'net8.0-windows',
+    'net10.0-windows',
     'WidgetHost.exe'
   ),
   path.join(
@@ -29,7 +29,7 @@ const nativeWidgetHostCandidates = [
     'WidgetHost',
     'bin',
     'Debug',
-    'net8.0-windows',
+    'net10.0-windows',
     'WidgetHost.exe'
   )
 ];
