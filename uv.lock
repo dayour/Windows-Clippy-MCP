@@ -1825,7 +1825,7 @@ requires-dist = [
     { name = "humancursor", specifier = ">=1.1.5" },
     { name = "markdownify", specifier = ">=1.1.0" },
     { name = "numpy", specifier = ">=1.26" },
-    { name = "pillow", specifier = ">=11.2.1" },
+    { name = "pillow", specifier = ">=12.2.0" },
     { name = "psutil", specifier = ">=7.0.0" },
     { name = "pyautogui", specifier = ">=0.9.54" },
     { name = "python-levenshtein", specifier = ">=0.27.1" },
