@@ -1,3 +1,4 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:2060e8a4e9cc998b93bd69b78d6a70929f094838354f66f4fccfb23eafe56e3f
-size 125
+{
+  "name": "Darbot Windows MCP",
+  "description": "Lightweight MCP Server that enables Claude to interact with Windows OS"
+}

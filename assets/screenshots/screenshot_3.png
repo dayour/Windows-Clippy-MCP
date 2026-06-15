@@ -1,3 +1,4 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:1ad1660077392d1cd710d86700f7d5a068a50dcca1ad6717d051dd9b44d6464c
-size 41
+{
+  "name": "Darbot Windows MCP",
+  ...
+}
