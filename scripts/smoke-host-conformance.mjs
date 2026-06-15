@@ -28,7 +28,7 @@ const WIDGET_EXE = resolve(
   "WidgetHost",
   "bin",
   "Debug",
-  "net8.0-windows",
+  "net10.0-windows",
   "WidgetHost.exe",
 );
 const APPDATA = process.env.APPDATA || join(os.homedir(), "AppData", "Roaming");
@@ -305,7 +305,8 @@ async function runWidgetProbe({
     `${profileName}: view completed ui/initialize handshake`,
   );
   assert(
-    appended.includes("PushMountedViewToolResultToViewAsync(") &&
+    (appended.includes("PushMcpAppsToolResultToViewAsync(") ||
+      appended.includes("PushMountedViewToolResultToViewAsync(")) &&
       appended.includes(`resource=${resourceUri}`),
     `${profileName}: host posted tool result into the WebView`,
   );
@@ -318,6 +319,61 @@ async function runWidgetProbe({
   summarize(profileName, [
     `Proves the in-repo WPF/WebView2 host launches, negotiates MCP Apps, pushes tool results, and renders ${resourceUri}.`,
     "This is actual product-host evidence, not just a simulated protocol client.",
+  ]);
+}
+
+async function runCommanderCardLayerProbe() {
+  if (process.platform !== "win32") {
+    console.log("SKIP widget profile: commander-card-layer: non-Windows platform");
+    return;
+  }
+  if (!existsSync(WIDGET_EXE)) {
+    assert(false, `widget profile: commander-card-layer: missing executable at ${WIDGET_EXE}`);
+    return;
+  }
+
+  const baseline = existsSync(WIDGET_LOG) ? statSync(WIDGET_LOG).size : 0;
+  const widget = spawn(WIDGET_EXE, ["--no-welcome", "--open-chat"], {
+    cwd: dirname(WIDGET_EXE),
+    stdio: "ignore",
+    windowsHide: true,
+  });
+
+  try {
+    await delay(18000);
+  } finally {
+    try {
+      widget.kill("SIGTERM");
+    } catch {
+      /* ignore */
+    }
+    await delay(500);
+  }
+
+  const appended = existsSync(WIDGET_LOG)
+    ? readFileSync(WIDGET_LOG).slice(baseline).toString("utf8")
+    : "";
+
+  assert(
+    appended.includes("CommanderCardWindow: re-seeding standalone Commander card post-handshake."),
+    "widget profile: commander-card-layer: standalone Commander card completed ui/initialize handshake",
+  );
+  assert(
+    appended.includes("PushMcpAppsToolResultToViewAsync(") &&
+      appended.includes("commander-card") &&
+      appended.includes("resource=ui://clippy/commander.html"),
+    "widget profile: commander-card-layer: host posted Commander state into the background card",
+  );
+  assert(
+    appended.includes("CommanderCardWindow: view text dump:") &&
+      appended.includes("Clippy Commander") &&
+      appended.includes("Connected to the Commander state and submit tools through the app bridge."),
+    "widget profile: commander-card-layer: background card rendered expected Commander content",
+  );
+
+  summarize("widget profile: commander-card-layer", [
+    "Proves the same-size standalone Commander card layer launches behind the main widget card.",
+    "Proves the Commander MCP App view receives host-pushed state independently from the primary card surface.",
   ]);
 }
 
@@ -349,10 +405,11 @@ async function main() {
       "Search by name, id, source, or file path.",
     ],
   });
+  await runCommanderCardLayerProbe();
 
   console.log("\nAcceptance summary");
   console.log(
-    "- Proven now: generic ui-capable host profile, generic headless host profile, widget render paths for fleet-status, commander, and agent-catalog.",
+    "- Proven now: generic ui-capable host profile, generic headless host profile, widget render paths for fleet-status, commander, agent-catalog, and the standalone Commander card layer.",
   );
   console.log(
     "- Not proven by this script: VS Code product UI, Claude Desktop product UI, Goose product UX.",

@@ -139,7 +139,7 @@ every intent is observable and replayable.
 
 ```mermaid
 flowchart LR
-  subgraph Widget["WidgetHost (WPF, .NET 8)"]
+  subgraph Widget["WidgetHost (WPF, .NET 10)"]
     MW["MainWindow.xaml.cs"]
     Bridge["McpAppsBridge.cs<br/>(stdio client)"]
     WV2["WebView2 McpAppsHost<br/>(Views render here)"]

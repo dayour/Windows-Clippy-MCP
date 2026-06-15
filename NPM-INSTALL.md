@@ -12,7 +12,9 @@ The easiest way to get started with Windows Clippy MCP:
 
 ### Prerequisites
 - Windows 10/11
-- Node.js 16+ (install from [nodejs.org](https://nodejs.org))
+- Node.js 25.7.0+ and npm 11.7.0+ (install from [nodejs.org](https://nodejs.org))
+- PowerShell 7+ for Clippy Cursor and validation scripts
+- .NET desktop runtime/SDK matching the packaged native hosts for native widget/live-tile launch; Clippy Cursor uses the PowerShell standalone path
 - Internet access for the first install (the setup bootstraps `uv` and Python 3.13 automatically if needed)
 
 ### Install & Setup
@@ -34,6 +36,9 @@ After installation:
 # Launch the floating Clippy widget
 clippy-widget
 
+# Launch Clippy Cursor Mode and right-click anywhere for Clippy Click context
+clippy-cursor
+
 # Refresh running widget hosts after changes
 clippy_widget_refresh
 
@@ -45,6 +50,12 @@ clippy
 
 # Start the MCP server manually from a repo checkout
 npm run start:mcp
+
+# Launch Clippy Cursor from a repo checkout
+npm run start:cursor
+
+# Run Clippy Cursor in the foreground for diagnostics
+npm run start:cursor:debug
 
 # Install as Windows service (requires admin privileges)
 npm run install-service
@@ -58,6 +69,33 @@ The setup automatically configures VS Code. Just:
 1. **Restart VS Code completely**
 2. Open agent mode
 3. Start using Windows Clippy tools!
+
+---
+
+## Clippy Cursor after NPM install
+
+The NPM package exposes `clippy-cursor` as a first-class command. It starts `widget\clippy-cursor.ps1` in standalone mode and keeps capture artifacts local under `%APPDATA%\Windows-Clippy-MCP\captures`.
+
+Default behavior:
+
+- **Right-click anywhere** opens the Clippy Click AI context menu.
+- **Ctrl+Right-click safe mode** is available from the widget Cursor Mode menu.
+- **Ctrl+Shift+E/S/T** trigger Explain This, Summarize Screen, and Extract Text.
+- Each action emits screenshot PNG, screen-context JSON, screen-context Markdown, and Paperboy bundle artifacts.
+
+If you launch the full widget with `clippy-widget`, right-click the widget and use **Cursor Mode → Activate Clippy Cursor**. That path installs the same mouse and keyboard hooks as the standalone launcher.
+
+Troubleshooting:
+
+```bash
+# Foreground diagnostics
+clippy-cursor --debug
+
+# Validate the Darbit semanifest and Clippy Click packaging gates
+npm run darbit:validate
+```
+
+If the cursor is active but you want Windows defaults back, use **Restore Default Cursor** from the Clippy Click context menu or the widget Cursor Mode menu.
 
 ---
 
@@ -170,7 +208,8 @@ Both installation methods provide access to all **49 tools** in Windows Clippy M
 ### NPM Installation Issues
 ```bash
 # Check Node.js version
-node --version  # Should be 16+
+node --version  # Should be 25.7.0+
+npm --version   # Should be 11.7.0+
 
 # Check if package installed correctly
 npm list -g @dayour/windows-clippy-mcp

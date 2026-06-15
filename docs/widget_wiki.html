@@ -1,0 +1,2246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Windows Surface and Agent Extensibility — Reference Wiki</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-muted: #8b949e;
+    --accent: #58a6ff;
+    --accent-dim: #1f6feb33;
+    --code-bg: #1c2128;
+    --code-border: #30363d;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --purple: #bc8cff;
+    --cyan: #79c0ff;
+    --orange: #ffa657;
+    --toc-width: 260px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; font-size: 15px; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* --- TOC sidebar --- */
+  nav#toc {
+    width: var(--toc-width);
+    min-width: var(--toc-width);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 1.5rem 1rem;
+    flex-shrink: 0;
+  }
+  nav#toc h2 {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  nav#toc ul { list-style: none; }
+  nav#toc ul li { margin: 0; }
+  nav#toc ul li a {
+    display: block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    transition: background 0.15s, color 0.15s;
+  }
+  nav#toc ul li a:hover { background: var(--accent-dim); color: var(--accent); }
+  nav#toc ul li a.active { background: var(--accent-dim); color: var(--accent); }
+  nav#toc ul li.sub a { padding-left: 1.25rem; font-size: 0.78rem; }
+  nav#toc ul li.sub2 a { padding-left: 2rem; font-size: 0.75rem; }
+
+  /* --- Main content --- */
+  main {
+    flex: 1;
+    max-width: 900px;
+    padding: 2.5rem 3rem 4rem;
+    overflow-x: auto;
+  }
+
+  /* Header */
+  .page-header {
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2rem;
+  }
+  .page-header .tag {
+    display: inline-block;
+    background: var(--accent-dim);
+    color: var(--accent);
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.2rem 0.6rem;
+    border-radius: 3px;
+    margin-bottom: 0.75rem;
+  }
+  .page-header h1 {
+    font-size: 1.9rem;
+    font-weight: 700;
+    color: #e6edf3;
+    line-height: 1.25;
+    margin-bottom: 0.75rem;
+  }
+  .page-header p {
+    color: var(--text-muted);
+    font-size: 0.92rem;
+    max-width: 680px;
+  }
+
+  /* Sections */
+  section { margin-bottom: 2.5rem; }
+  h2 {
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: #e6edf3;
+    margin: 2.5rem 0 0.75rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+  h2:first-of-type { border-top: none; margin-top: 0; }
+  h3 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--cyan);
+    margin: 1.75rem 0 0.5rem;
+  }
+  h4 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 1.25rem 0 0.4rem;
+  }
+  p { margin-bottom: 0.85rem; color: var(--text); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* Code blocks */
+  .code-block {
+    margin: 1rem 0;
+    border-radius: 6px;
+    border: 1px solid var(--code-border);
+    overflow: hidden;
+  }
+  .code-block .code-header {
+    background: #21262d;
+    padding: 0.4rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--code-border);
+  }
+  .code-block .code-header .lang {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+  }
+  .code-block .code-header .file-hint {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  .code-block pre {
+    background: var(--code-bg);
+    padding: 1rem 1.2rem;
+    overflow-x: auto;
+    font-size: 0.83rem;
+    line-height: 1.6;
+  }
+  .code-block code {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    color: var(--text);
+    white-space: pre;
+  }
+
+  /* Syntax tokens */
+  .k  { color: #ff7b72; }   /* keyword */
+  .kd { color: #ff7b72; }   /* keyword declare */
+  .t  { color: var(--cyan); }   /* type */
+  .s  { color: #a5d6ff; }   /* string */
+  .c  { color: #6e7681; font-style: italic; }   /* comment */
+  .n  { color: var(--text); }   /* name/ident */
+  .m  { color: var(--orange); }  /* number */
+  .me { color: var(--green); }   /* method */
+  .p  { color: var(--text-muted); }  /* punctuation */
+  .at { color: #d2a8ff; }   /* attribute / xml tag */
+  .av { color: #a5d6ff; }   /* xml attr value */
+  .an { color: var(--orange); }  /* xml attr name */
+
+  /* Inline code */
+  code {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    background: #21262d;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.1em 0.35em;
+    font-size: 0.85em;
+    color: var(--orange);
+  }
+  pre code {
+    background: transparent;
+    border: none;
+    padding: 0;
+    font-size: inherit;
+    color: inherit;
+  }
+
+  /* Callout boxes */
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-dim);
+    border-radius: 0 6px 6px 0;
+    padding: 0.75rem 1rem;
+    margin: 1rem 0;
+    font-size: 0.88rem;
+  }
+  .callout.note { border-color: var(--accent); }
+  .callout.warn { border-color: var(--yellow); background: rgba(210,153,34,0.08); }
+  .callout.bug  { border-color: var(--red); background: rgba(248,81,73,0.08); }
+  .callout strong { display: inline-block; margin-right: 0.4rem; }
+  .callout.note strong { color: var(--accent); }
+  .callout.warn strong { color: var(--yellow); }
+  .callout.bug  strong { color: var(--red); }
+
+  /* Steps list */
+  ol.steps { padding-left: 1.5rem; margin-bottom: 1rem; }
+  ol.steps li { margin-bottom: 0.5rem; }
+  ul.bullets { padding-left: 1.5rem; margin-bottom: 1rem; }
+  ul.bullets li { margin-bottom: 0.4rem; }
+
+  /* Table */
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.85rem; }
+  th {
+    background: #21262d;
+    color: var(--text-muted);
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  td { padding: 0.45rem 0.75rem; border: 1px solid var(--border); vertical-align: top; }
+  tr:nth-child(even) td { background: #161b22; }
+
+  /* Anchor offset for sticky header */
+  [id] { scroll-margin-top: 1.5rem; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #484f58; }
+
+  @media (max-width: 768px) {
+    nav#toc { display: none; }
+    main { padding: 1.5rem; }
+  }
+
+  /* Chapter dividers */
+  .chapter-banner {
+    margin: 3rem 0 2rem;
+    padding: 1.25rem 1.5rem;
+    background: linear-gradient(135deg, #161b22 0%, #1c2128 100%);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 6px;
+  }
+  .chapter-banner.tiles  { border-left-color: var(--cyan); }
+  .chapter-banner.clippy { border-left-color: var(--purple); }
+  .chapter-banner.term   { border-left-color: var(--green); }
+  .chapter-banner.kernel { border-left-color: var(--orange); }
+  .chapter-banner.mcp    { border-left-color: var(--yellow); }
+  .chapter-banner.cmp    { border-left-color: var(--red); }
+  .chapter-banner .chap-num {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    margin-bottom: 0.4rem;
+  }
+  .chapter-banner h2 {
+    border: none;
+    padding: 0;
+    margin: 0 0 0.4rem;
+    font-size: 1.7rem;
+  }
+  .chapter-banner p { margin: 0; color: var(--text-muted); font-size: 0.92rem; }
+
+  nav#toc ul li.chap > a {
+    color: var(--text);
+    font-weight: 600;
+    margin-top: 0.75rem;
+    font-size: 0.85rem;
+    border-top: 1px solid var(--border);
+    padding-top: 0.55rem;
+  }
+  nav#toc ul li.chap:first-child > a { border-top: none; margin-top: 0; padding-top: 0.25rem; }
+
+  /* Diagram boxes */
+  .diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem 1.25rem;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--text);
+    margin: 1rem 0;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .pill {
+    display: inline-block;
+    font-size: 0.7rem;
+    padding: 0.12rem 0.5rem;
+    border-radius: 999px;
+    background: #21262d;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    margin: 0 0.3rem 0.3rem 0;
+    font-weight: 500;
+  }
+  .pill.ok    { color: var(--green); border-color: rgba(63,185,80,0.4); }
+  .pill.warn  { color: var(--yellow); border-color: rgba(210,153,34,0.4); }
+  .pill.dep   { color: var(--red); border-color: rgba(248,81,73,0.4); text-decoration: line-through; }
+</style>
+</head>
+<body>
+
+<!-- ====== TABLE OF CONTENTS ====== -->
+<nav id="toc">
+  <h2>Contents</h2>
+  <ul>
+    <li class="chap"><a href="#hub">Hub — Surface Map</a></li>
+
+    <li class="chap"><a href="#overview">Ch.1 — Widgets (C#)</a></li>
+    <li class="sub"><a href="#prerequisites">Prerequisites</a></li>
+    <li class="sub"><a href="#create-project">Console App</a></li>
+    <li class="sub"><a href="#add-sdk">SDK Reference</a></li>
+    <li class="sub2"><a href="#widget-provider-class">WidgetProvider Class</a></li>
+    <li class="sub2"><a href="#track-widgets">Track Widgets</a></li>
+    <li class="sub2"><a href="#template-json">Template JSON</a></li>
+    <li class="sub"><a href="#iwidgetprovider-methods">IWidgetProvider</a></li>
+    <li class="sub2"><a href="#create-widget">CreateWidget</a></li>
+    <li class="sub2"><a href="#delete-widget">DeleteWidget</a></li>
+    <li class="sub2"><a href="#on-action">OnActionInvoked</a></li>
+    <li class="sub2"><a href="#context-changed">OnWidgetContextChanged</a></li>
+    <li class="sub2"><a href="#activate-deactivate">Activate / Deactivate</a></li>
+    <li class="sub"><a href="#update-widget">Update a Widget</a></li>
+    <li class="sub"><a href="#init-widgets">Initialize on Startup</a></li>
+    <li class="sub"><a href="#class-factory">Class Factory</a></li>
+    <li class="sub"><a href="#guid">CLSID GUID</a></li>
+    <li class="sub"><a href="#register-com">Register with OLE</a></li>
+    <li class="sub"><a href="#package">Package the App</a></li>
+    <li class="sub2"><a href="#msix-project">MSIX Project</a></li>
+    <li class="sub2"><a href="#sdk-ref">SDK Package Ref</a></li>
+    <li class="sub2"><a href="#manifest">Manifest</a></li>
+    <li class="sub2"><a href="#icons">Icons</a></li>
+    <li class="sub"><a href="#testing">Testing</a></li>
+    <li class="sub"><a href="#debugging">Debugging</a></li>
+    <li class="sub"><a href="#convert-app">Convert to Windows App</a></li>
+    <li class="sub"><a href="#publishing">Publishing</a></li>
+    <li class="sub"><a href="#customization">Customization</a></li>
+
+    <li class="chap"><a href="#tiles-overview">Ch.2 — Live Tiles</a></li>
+    <li class="sub"><a href="#tiles-history">History &amp; Status</a></li>
+    <li class="sub"><a href="#tiles-anatomy">Tile Anatomy</a></li>
+    <li class="sub"><a href="#tiles-templates">Templates &amp; XML</a></li>
+    <li class="sub"><a href="#tiles-notifications">Notification Pipelines</a></li>
+    <li class="sub"><a href="#tiles-secondary">Secondary Tiles</a></li>
+    <li class="sub"><a href="#tiles-deprecation">Win11 Deprecation</a></li>
+    <li class="sub"><a href="#tiles-vs-widgets">Tiles vs Widgets</a></li>
+
+    <li class="chap"><a href="#clippy-overview">Ch.3 — Clippy &amp; Microsoft Agent</a></li>
+    <li class="sub"><a href="#clippy-history">Lineage 1996–today</a></li>
+    <li class="sub"><a href="#clippy-msagent">MS Agent COM</a></li>
+    <li class="sub"><a href="#clippy-acs">ACS / ACD Files</a></li>
+    <li class="sub"><a href="#clippy-deprecation">Removal &amp; Revivals</a></li>
+    <li class="sub"><a href="#clippy-copilot">Copilot Lineage</a></li>
+    <li class="sub"><a href="#clippy-modern">Modern Equivalents</a></li>
+
+    <li class="chap"><a href="#term-overview">Ch.4 — Windows Terminal</a></li>
+    <li class="sub"><a href="#term-history">conhost &#8594; Terminal</a></li>
+    <li class="sub"><a href="#term-conpty">ConPTY</a></li>
+    <li class="sub"><a href="#term-settings">settings.json</a></li>
+    <li class="sub"><a href="#term-fragments">Fragment Extensions</a></li>
+    <li class="sub"><a href="#term-actions">Actions &amp; Keybindings</a></li>
+    <li class="sub"><a href="#term-agents">Hosting AI Agents</a></li>
+
+    <li class="chap"><a href="#kernel-overview">Ch.5 — NT Kernel &amp; COM</a></li>
+    <li class="sub"><a href="#kernel-arch">Architecture</a></li>
+    <li class="sub"><a href="#kernel-objects">Object Manager</a></li>
+    <li class="sub"><a href="#kernel-syscall">User / Kernel Boundary</a></li>
+    <li class="sub"><a href="#kernel-com">COM Activation</a></li>
+    <li class="sub"><a href="#kernel-msix">MSIX &amp; AppContainer</a></li>
+    <li class="sub"><a href="#kernel-appext">AppExtension Contract</a></li>
+
+    <li class="chap"><a href="#mcp-overview">Ch.6 — Windows Clippy MCP</a></li>
+    <li class="sub"><a href="#mcp-what">What is MCP</a></li>
+    <li class="sub"><a href="#mcp-arch">Server Architecture</a></li>
+    <li class="sub"><a href="#mcp-tools">Tool Catalogue</a></li>
+    <li class="sub"><a href="#mcp-install">Install &amp; Run</a></li>
+    <li class="sub"><a href="#mcp-vscode">VS Code Integration</a></li>
+    <li class="sub"><a href="#mcp-extending">Adding Tools</a></li>
+    <li class="sub"><a href="#mcp-security">Security Notes</a></li>
+
+    <li class="chap"><a href="#cmp-matrix">Ch.7 — Comparison Matrix</a></li>
+    <li class="chap"><a href="#references">References</a></li>
+  </ul>
+</nav>
+
+<!-- ====== MAIN CONTENT ====== -->
+<main>
+
+  <!-- Page header -->
+  <div class="page-header">
+    <span class="tag">Windows Platform Reference</span>
+    <h1>Windows Surface &amp; Agent Extensibility</h1>
+    <p>
+      A consolidated reference covering the user-facing surfaces that Windows exposes for
+      third-party content and assistance: <strong>Widgets</strong> on the Windows 11 Widgets Board,
+      legacy <strong>Live Tiles</strong> on the Start screen, the <strong>Microsoft Agent / Clippy</strong>
+      assistant lineage, <strong>Windows Terminal</strong> as a host for command-line agents,
+      the <strong>Windows NT kernel</strong> and COM activation model that underpins them all,
+      and finally <strong>Windows Clippy MCP</strong> — the project shipping in this repository
+      that turns the desktop itself into a tool surface for AI agents.
+    </p>
+  </div>
+
+  <section id="hub">
+    <h2>How the surfaces fit together</h2>
+    <p>
+      Every chapter in this wiki describes a distinct extensibility surface. They differ in
+      lifetime, host process, packaging story, and primary content format, but they share the
+      same activation foundations: <strong>COM</strong>, the <strong>Windows kernel</strong>,
+      <strong>MSIX</strong>, and (more recently) <strong>AppExtension</strong> contracts.
+    </p>
+    <div class="diagram">                       +--------------------------+
+                       |   Windows User Session   |
+                       +-----+----------+---------+
+                             |          |
+            +----------------+          +----------------+
+            |                                            |
+    +-------v-------+    +---------------+      +--------v--------+
+    |  Widgets Host |    |  StartMenu /  |      |  Console / Term |
+    | (Win11 Board) |    |  Live Tiles   |      | (conhost,       |
+    | dashost.exe   |    | (Win8/8.1/10) |      |  WindowsTerm)   |
+    +-------+-------+    +-------+-------+      +--------+--------+
+            |                    |                       |
+            | OOP COM            | Toast/Tile XML        | ConPTY
+            | (CLSID + AppExt)   | + WNS push            | + UIA
+            v                    v                       v
+    +-------+-------+    +-------+-------+      +--------+--------+
+    |  Provider EXE |    |  Tile XML +   |      |  Shell / agent  |
+    |  (this repo's |    |   Notif Mgr   |      |  process (e.g.  |
+    |   tutorial)   |    |               |      |  Clippy MCP)    |
+    +-------+-------+    +---------------+      +--------+--------+
+            |                                            |
+            +-----------+    Win32 / NT syscalls    +----+
+                        v                           v
+                +-------+---------------------------+--------+
+                |  ntoskrnl.exe — scheduler, object manager, |
+                |  ALPC, registry, MSIX container, security  |
+                +--------------------------------------------+
+    </div>
+    <ul class="bullets">
+      <li><strong>Widgets</strong> are short-lived Adaptive Card surfaces hosted out of process by the Widgets Board. Activation is COM-based via a CLSID registered through MSIX.</li>
+      <li><strong>Live Tiles</strong> are XML notifications rendered by the Start menu. They are deprecated on Windows 11 but still ship in maintenance mode and remain instructive as a contrast.</li>
+      <li><strong>Clippy / Microsoft Agent</strong> is the historical thread of in-process character assistants — from Office Assistant (1997) through MS Agent COM, to today's Copilot.</li>
+      <li><strong>Windows Terminal</strong> is the modern multiplexed console host. Agents like Copilot CLI run as child processes attached via ConPTY.</li>
+      <li><strong>Kernel</strong> chapter covers the NT primitives every surface above leans on: object manager, ALPC, registry, security, and the user/kernel boundary.</li>
+      <li><strong>Windows Clippy MCP</strong> is this repository — a Python MCP server exposing 49+ tools that drive the desktop on behalf of an LLM agent.</li>
+    </ul>
+  </section>
+
+  <div class="chapter-banner">
+    <div class="chap-num">Chapter 1</div>
+    <h2>Windows 11 Widgets — IWidgetProvider in C#</h2>
+    <p>End-to-end walkthrough: build a provider, define Adaptive Card templates, package as MSIX, register the COM CLSID, and ship two widgets (Weather and Counter).</p>
+  </div>
+
+  <!-- ======= OVERVIEW ======= -->
+  <section id="overview">
+    <h2>Overview</h2>
+    <p>
+      The widget host calls methods on <code>IWidgetProvider</code> to request data that
+      defines a widget or to let the provider respond to user actions. This example defines
+      two widgets:
+    </p>
+    <ul class="bullets">
+      <li>
+        <strong>Weather Widget</strong> — a mock weather card illustrating Adaptive Cards
+        formatting options, including background image, columns, and text blocks.
+      </li>
+      <li>
+        <strong>Counting Widget</strong> — demonstrates user actions and custom widget state
+        by maintaining a counter that increments when the user clicks a button.
+      </li>
+    </ul>
+    <p>
+      Sample code is adapted from the Windows App SDK Widgets Sample.
+      To implement a widget provider in C++/WinRT, see the separate C++/WinRT walkthrough.
+    </p>
+  </section>
+
+  <!-- ======= PREREQUISITES ======= -->
+  <section id="prerequisites">
+    <h2>Prerequisites</h2>
+    <ul class="bullets">
+      <li>Developer mode must be enabled on your device.</li>
+      <li>Visual Studio 2026 or later with the WinUI application development workload.</li>
+      <li>Add the optional component <strong>C++ (v143)</strong> from the WinUI workload.</li>
+    </ul>
+  </section>
+
+  <!-- ======= CREATE PROJECT ======= -->
+  <section id="create-project">
+    <h2>Create a New C# Console App</h2>
+    <ol class="steps">
+      <li>In Visual Studio, create a new project. Set language filter to <strong>C#</strong> and platform to <strong>Windows</strong>.</li>
+      <li>Select the <strong>Console App</strong> template. Name it <code>ExampleWidgetProvider</code>.</li>
+      <li>Set the target .NET version to <strong>8.0</strong>.</li>
+      <li>
+        In Solution Explorer, right-click the project, select <strong>Properties</strong>.
+        Under <strong>General</strong>, set <em>Target OS</em> to <strong>Windows</strong>
+        and <em>Target OS Version</em> to <code>10.0.19041.0</code> or later.
+      </li>
+      <li>
+        Open the project file and add the following inside <code>PropertyGroup</code>:
+      </li>
+    </ol>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">XML</span><span class="file-hint">ExampleWidgetProvider.csproj</span></div>
+      <pre><code><span class="at">&lt;RuntimeIdentifiers&gt;</span>win-x86;win-x64;win-arm64<span class="at">&lt;/RuntimeIdentifiers&gt;</span></code></pre>
+    </div>
+    <div class="callout note">
+      <strong>NOTE:</strong> This walkthrough uses a console app so the console window appears during activation for easy debugging.
+      When ready to publish, convert to a Windows app (see <a href="#convert-app">Convert your console app to a Windows app</a>).
+    </div>
+  </section>
+
+  <!-- ======= ADD SDK ======= -->
+  <section id="add-sdk">
+    <h2>Add References to the Windows App SDK</h2>
+    <ol class="steps">
+      <li>In Solution Explorer, right-click <strong>Dependencies</strong> and select <strong>Manage NuGet packages</strong>.</li>
+      <li>Browse for <code>Microsoft.WindowsAppSDK</code>.</li>
+      <li>Select the latest stable version and click <strong>Install</strong>.</li>
+    </ol>
+  </section>
+
+  <!-- ======= WIDGETPROVIDER CLASS ======= -->
+  <section id="widget-provider-class">
+    <h2>Add a WidgetProvider Class</h2>
+    <ol class="steps">
+      <li>Right-click the project in Solution Explorer, select <strong>Add &gt; Class</strong>.</li>
+      <li>Name the class <code>WidgetProvider</code> and click <strong>Add</strong>.</li>
+      <li>Update the class definition to implement <code>IWidgetProvider</code>:</li>
+    </ol>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">C#</span><span class="file-hint">WidgetProvider.cs</span></div>
+      <pre><code><span class="k">internal</span> <span class="k">class</span> <span class="t">WidgetProvider</span> : <span class="t">IWidgetProvider</span></code></pre>
+    </div>
+  </section>
+
+  <!-- ======= TRACK WIDGETS ======= -->
+  <section id="track-widgets">
+    <h3>Prepare to Track Enabled Widgets</h3>
+    <p>
+      Declare a helper structure to store the ID, name, data, and active state for each pinned widget.
+      Add this inside the <code>ExampleWidgetProvider</code> namespace, outside the <code>WidgetProvider</code> class:
+    </p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">C#</span><span class="file-hint">WidgetProvider.cs</span></div>
+      <pre><code><span class="k">public</span> <span class="k">class</span> <span class="t">CompactWidgetInfo</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="t">string</span><span class="p">?</span> widgetId <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+    <span class="k">public</span> <span class="t">string</span><span class="p">?</span> widgetName <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+    <span class="k">public</span> <span class="t">int</span> customState <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+    <span class="k">public</span> <span class="t">bool</span> isActive <span class="p">=</span> <span class="k">false</span><span class="p">;</span>
+<span class="p">}</span></code></pre>
+    </div>
+    <p>Inside the <code>WidgetProvider</code> class, add the running widgets dictionary:</p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">C#</span><span class="file-hint">WidgetProvider.cs</span></div>
+      <pre><code><span class="k">public</span> <span class="k">static</span> <span class="t">Dictionary</span><span class="p">&lt;</span><span class="t">string</span><span class="p">,</span> <span class="t">CompactWidgetInfo</span><span class="p">&gt;</span> RunningWidgets
+    <span class="p">=</span> <span class="k">new</span> <span class="t">Dictionary</span><span class="p">&lt;</span><span class="t">string</span><span class="p">,</span> <span class="t">CompactWidgetInfo</span><span class="p">&gt;();</span></code></pre>
+    </div>
+  </section>
+
+  <!-- ======= TEMPLATE JSON ======= -->
+  <section id="template-json">
+    <h3>Declare Widget Template JSON Strings</h3>
+    <p>
+      Declare static strings for each widget's JSON template. Templates can also be stored
+      as package files. For customizing the widget header, see the
+      <em>Customize the widget header area</em> docs. For HTML-based widgets, see
+      <em>Web widget providers</em>.
+    </p>
+    <h4>Weather Widget Template</h4>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">C#</span><span class="file-hint">WidgetProvider.cs — weatherWidgetTemplate</span></div>
+      <pre><code><span class="k">const</span> <span class="t">string</span> weatherWidgetTemplate <span class="p">=</span> <span class="s">"""
+{
+    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+    "type": "AdaptiveCard",
+    "version": "1.0",
+    "speak": "&lt;s&gt;The forecast for Seattle January 20 is mostly clear...&lt;/s&gt;",
+    "backgroundImage": "https://messagecardplayground.azurewebsites.net/assets/Mostly%20Cloudy-Background.jpg",
+    "body": [
+        { "type": "TextBlock", "text": "Redmond, WA", "size": "large", "isSubtle": true },
+        { "type": "TextBlock", "text": "Mon, Nov 4, 2019 6:21 PM", "spacing": "none" },
+        {
+            "type": "ColumnSet",
+            "columns": [
+                { "type": "Column", "width": "auto",
+                  "items": [{ "type": "Image",
+                               "url": "https://messagecardplayground.azurewebsites.net/assets/Mostly%20Cloudy-Square.png",
+                               "size": "small", "altText": "Mostly cloudy weather" }] },
+                { "type": "Column", "width": "auto",
+                  "items": [{ "type": "TextBlock", "text": "46", "size": "extraLarge", "spacing": "none" }] },
+                { "type": "Column", "width": "stretch",
+                  "items": [{ "type": "TextBlock", "text": "°F", "weight": "bolder", "spacing": "small" }] },
+                { "type": "Column", "width": "stretch",
+                  "items": [{ "type": "TextBlock", "text": "Hi 50", "horizontalAlignment": "left" },
+                             { "type": "TextBlock", "text": "Lo 41", "horizontalAlignment": "left", "spacing": "none" }] }
+            ]
+        }
+    ]
+}
+"""</span><span class="p">;</span></code></pre>
+    </div>
+    <h4>Counting Widget Template</h4>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">C#</span><span class="file-hint">WidgetProvider.cs — countWidgetTemplate</span></div>
+      <pre><code><span class="k">const</span> <span class="t">string</span> countWidgetTemplate <span class="p">=</span> <span class="s">"""
+{
+    "type": "AdaptiveCard",
+    "body": [
+        { "type": "TextBlock", "text": "You have clicked the button ${count} times" },
+        { "text": "Rendering Only if Small",  "type": "TextBlock",
+          "$when": "${$host.widgetSize==\"small\"}" },
+        { "text": "Rendering Only if Medium", "type": "TextBlock",
+          "$when": "${$host.widgetSize==\"medium\"}" },
+        { "text": "Rendering Only if Large",  "type": "TextBlock",
+          "$when": "${$host.widgetSize==\"large\"}" }
+    ],
+    "actions": [
+        { "type": "Action.Execute", "title": "Increment", "verb": "inc" }
+    ],
+    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+    "version": "1.5"
+}
+"""</span><span class="p">;</span></code></pre>
+    </div>
+  </section>
+
+  <!-- ======= IWIDGETPROVIDER METHODS ======= -->
+  <section id="iwidgetprovider-methods">
+    <h2>Implement the IWidgetProvider Methods</h2>
+    <div class="callout note">
+      <strong>NOTE:</strong> Objects passed into IWidgetProvider callbacks are only valid within
+      the callback. Do not store references to them — behavior outside the callback is undefined.
+    </div>
+  </section>
+
+  <!-- CreateWidget -->
+  <section id="create-widget">
+    <h3>CreateWidget</h3>
+    <p>
+      Called when the user pins one of your app's widgets. Gets the ID and name, adds a
+      <code>CompactWidgetInfo</code> entry, then calls <code>UpdateWidget</code>.
+    </p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">C#</span><span class="file-hint">WidgetProvider.cs</span></div>
+      <pre><code><span class="k">public</span> <span class="k">void</span> <span class="me">CreateWidget</span><span class="p">(</span><span class="t">WidgetContext</span> widgetContext<span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">var</span> widgetId   <span class="p">=</span> widgetContext<span class="p">.</span>Id<span class="p">;</span>
+    <span class="k">var</span> widgetName <span class="p">=</span> widgetContext<span class="p">.</span>DefinitionId<span class="p">;</span>
+    <span class="t">CompactWidgetInfo</span> runningWidgetInfo <span class="p">=</span> <span class="k">new</span> <span class="t">CompactWidgetInfo</span><span class="p">()</span>
+        <span class="p">{</span> widgetId <span class="p">=</span> widgetId<span class="p">,</span> widgetName <span class="p">=</span> widgetName <span class="p">};</span>
+    RunningWidgets<span class="p">[</span>widgetId<span class="p">]</span> <span class="p">=</span> runningWidgetInfo<span class="p">;</span>
+    <span class="me">UpdateWidget</span><span class="p">(</span>runningWidgetInfo<span class="p">);</span>
+<span class="p">}</span></code></pre>
+    </div>
+  </section>
+
+  <!-- DeleteWidget -->
+  <section id="delete-widget">
+    <h3>DeleteWidget</h3>
+    <p>
+      Called when the user unpins a widget. Removes it from the running widgets map.
+      If the map becomes empty, sets an event to allow the app to exit gracefully.
+    </p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">C#</span><span class="file-hint">WidgetProvider.cs</span></div>
+      <pre><code><span class="k">public</span> <span class="k">void</span> <span class="me">DeleteWidget</span><span class="p">(</span><span class="t">string</span> widgetId<span class="p">,</span> <span class="t">string</span> customState<span class="p">)</span>
+<span class="p">{</span>
+    RunningWidgets<span class="p">.</span><span class="me">Remove</span><span class="p">(</span>widgetId<span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span>RunningWidgets<span class="p">.</span>Count <span class="p">==</span> <span class="m">0</span><span class="p">)</span>
+        emptyWidgetListEvent<span class="p">.</span><span class="me">Set</span><span class="p">();</span>
+<span class="p">}</span>
+
+<span class="k">static</span> <span class="t">ManualResetEvent</span> emptyWidgetListEvent <span class="p">=</span> <span class="k">new</span> <span class="t">ManualResetEvent</span><span class="p">(</span><span class="k">false</span><span class="p">);</span>
+<span class="k">public</span> <span class="k">static</span> <span class="t">ManualResetEvent</span> <span class="me">GetEmptyWidgetListEvent</span><span class="p">()</span> <span class="p">=&gt;</span> emptyWidgetListEvent<span class="p">;</span></code></pre>
+    </div>
+  </section>
+
+  <!-- OnActionInvoked -->
+  <section id="on-action">
+    <h3>OnActionInvoked</h3>
+    <p>
+      Called when the user interacts with an action in the widget template. Check the
+      <code>Verb</code> property to determine which action was triggered. For the counter
+      widget, <code>"inc"</code> increments the custom state counter.
+    </p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">C#</span><span class="file-hint">WidgetProvider.cs</span></div>
+      <pre><code><span class="k">public</span> <span class="k">void</span> <span class="me">OnActionInvoked</span><span class="p">(</span><span class="t">WidgetActionInvokedArgs</span> actionInvokedArgs<span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">var</span> verb <span class="p">=</span> actionInvokedArgs<span class="p">.</span>Verb<span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span>verb <span class="p">==</span> <span class="s">"inc"</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">var</span> widgetId <span class="p">=</span> actionInvokedArgs<span class="p">.</span>WidgetContext<span class="p">.</span>Id<span class="p">;</span>
+        <span class="k">var</span> data     <span class="p">=</span> actionInvokedArgs<span class="p">.</span>Data<span class="p">;</span>
+        <span class="k">if</span> <span class="p">(</span>RunningWidgets<span class="p">.</span><span class="me">ContainsKey</span><span class="p">(</span>widgetId<span class="p">))</span>
+        <span class="p">{</span>
+            <span class="k">var</span> localWidgetInfo <span class="p">=</span> RunningWidgets<span class="p">[</span>widgetId<span class="p">];</span>
+            localWidgetInfo<span class="p">.</span>customState<span class="p">++;</span>
+            <span class="me">UpdateWidget</span><span class="p">(</span>localWidgetInfo<span class="p">);</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre>
+    </div>
+  </section>
+
+  <!-- OnWidgetContextChanged -->
+  <section id="context-changed">
+    <h3>OnWidgetContextChanged</h3>
+    <p>
+      In the current release, called when the user resizes a pinned widget. You can return
+      a different template per size, use conditional rendering in the template JSON, or use
+      this callback for telemetry only.
+    </p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">C#</span><span class="file-hint">WidgetProvider.cs</span></div>
+      <pre><code><span class="k">public</span> <span class="k">void</span> <span class="me">OnWidgetContextChanged</span><span class="p">(</span><span class="t">WidgetContextChangedArgs</span> contextChangedArgs<span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">var</span> widgetContext <span class="p">=</span> contextChangedArgs<span class="p">.</span>WidgetContext<span class="p">;</span>
+    <span class="k">var</span> widgetId      <span class="p">=</span> widgetContext<span class="p">.</span>Id<span class="p">;</span>
+    <span class="k">var</span> widgetSize    <span class="p">=</span> widgetContext<span class="p">.</span>Size<span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span>RunningWidgets<span class="p">.</span><span class="me">ContainsKey</span><span class="p">(</span>widgetId<span class="p">))</span>
+        <span class="me">UpdateWidget</span><span class="p">(</span>RunningWidgets<span class="p">[</span>widgetId<span class="p">]);</span>
+<span class="p">}</span></code></pre>
+    </div>
+  </section>
+
+  <!-- Activate / Deactivate -->
+  <section id="activate-deactivate">
+    <h3>Activate and Deactivate</h3>
+    <p>
+      <code>Activate</code> notifies the provider that the widget host is actively displaying
+      the widget and wants fresh data. <code>Deactivate</code> signals the opposite. Providers
+      can send updates at any time, but balance freshness against battery life. Both are
+      per-widget callbacks.
+    </p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">C#</span><span class="file-hint">WidgetProvider.cs</span></div>
+      <pre><code><span class="k">public</span> <span class="k">void</span> <span class="me">Activate</span><span class="p">(</span><span class="t">WidgetContext</span> widgetContext<span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">var</span> widgetId <span class="p">=</span> widgetContext<span class="p">.</span>Id<span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span>RunningWidgets<span class="p">.</span><span class="me">ContainsKey</span><span class="p">(</span>widgetId<span class="p">))</span>
+    <span class="p">{</span>
+        <span class="k">var</span> localWidgetInfo <span class="p">=</span> RunningWidgets<span class="p">[</span>widgetId<span class="p">];</span>
+        localWidgetInfo<span class="p">.</span>isActive <span class="p">=</span> <span class="k">true</span><span class="p">;</span>
+        <span class="me">UpdateWidget</span><span class="p">(</span>localWidgetInfo<span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">public</span> <span class="k">void</span> <span class="me">Deactivate</span><span class="p">(</span><span class="t">string</span> widgetId<span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span>RunningWidgets<span class="p">.</span><span class="me">ContainsKey</span><span class="p">(</span>widgetId<span class="p">))</span>
+        RunningWidgets<span class="p">[</span>widgetId<span class="p">].</span>isActive <span class="p">=</span> <span class="k">false</span><span class="p">;</span>
+<span class="p">}</span></code></pre>
+    </div>
+  </section>
+
+  <!-- ======= UPDATE WIDGET ======= -->
+  <section id="update-widget">
+    <h2>Update a Widget</h2>
+    <p>
+      The <code>UpdateWidget</code> helper constructs <code>WidgetUpdateRequestOptions</code>
+      with the appropriate template JSON, data JSON, and custom state, then calls
+      <code>WidgetManager.GetDefault().UpdateWidget()</code>.
+    </p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">C#</span><span class="file-hint">WidgetProvider.cs</span></div>
+      <pre><code><span class="k">void</span> <span class="me">UpdateWidget</span><span class="p">(</span><span class="t">CompactWidgetInfo</span> localWidgetInfo<span class="p">)</span>
+<span class="p">{</span>
+    <span class="t">WidgetUpdateRequestOptions</span> updateOptions
+        <span class="p">=</span> <span class="k">new</span> <span class="t">WidgetUpdateRequestOptions</span><span class="p">(</span>localWidgetInfo<span class="p">.</span>widgetId<span class="p">);</span>
+
+    <span class="t">string</span><span class="p">?</span> templateJson <span class="p">=</span> <span class="k">null</span><span class="p">;</span>
+    <span class="k">if</span>      <span class="p">(</span>localWidgetInfo<span class="p">.</span>widgetName <span class="p">==</span> <span class="s">"Weather_Widget"</span><span class="p">)</span>
+        templateJson <span class="p">=</span> weatherWidgetTemplate<span class="p">;</span>
+    <span class="k">else if</span> <span class="p">(</span>localWidgetInfo<span class="p">.</span>widgetName <span class="p">==</span> <span class="s">"Counting_Widget"</span><span class="p">)</span>
+        templateJson <span class="p">=</span> countWidgetTemplate<span class="p">;</span>
+
+    <span class="t">string</span><span class="p">?</span> dataJson <span class="p">=</span> <span class="k">null</span><span class="p">;</span>
+    <span class="k">if</span>      <span class="p">(</span>localWidgetInfo<span class="p">.</span>widgetName <span class="p">==</span> <span class="s">"Weather_Widget"</span><span class="p">)</span>
+        dataJson <span class="p">=</span> <span class="s">"{}"</span><span class="p">;</span>
+    <span class="k">else if</span> <span class="p">(</span>localWidgetInfo<span class="p">.</span>widgetName <span class="p">==</span> <span class="s">"Counting_Widget"</span><span class="p">)</span>
+        dataJson <span class="p">=</span> <span class="s">"{ \"count\": "</span> <span class="p">+</span> localWidgetInfo<span class="p">.</span>customState<span class="p">.</span><span class="me">ToString</span><span class="p">() +</span> <span class="s">" }"</span><span class="p">;</span>
+
+    updateOptions<span class="p">.</span>Template    <span class="p">=</span> templateJson<span class="p">;</span>
+    updateOptions<span class="p">.</span>Data        <span class="p">=</span> dataJson<span class="p">;</span>
+    updateOptions<span class="p">.</span>CustomState <span class="p">=</span> localWidgetInfo<span class="p">.</span>customState<span class="p">.</span><span class="me">ToString</span><span class="p">();</span>
+    <span class="t">WidgetManager</span><span class="p">.</span><span class="me">GetDefault</span><span class="p">().</span><span class="me">UpdateWidget</span><span class="p">(</span>updateOptions<span class="p">);</span>
+<span class="p">}</span></code></pre>
+    </div>
+  </section>
+
+  <!-- ======= INIT ON STARTUP ======= -->
+  <section id="init-widgets">
+    <h2>Initialize the List of Enabled Widgets on Startup</h2>
+    <p>
+      In the constructor, query <code>WidgetManager</code> for any already-running widgets
+      to recover state after a restart or crash.
+    </p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">C#</span><span class="file-hint">WidgetProvider.cs — constructor</span></div>
+      <pre><code><span class="k">public</span> <span class="me">WidgetProvider</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="k">var</span> runningWidgets <span class="p">=</span> <span class="t">WidgetManager</span><span class="p">.</span><span class="me">GetDefault</span><span class="p">().</span><span class="me">GetWidgetInfos</span><span class="p">();</span>
+    <span class="k">foreach</span> <span class="p">(</span><span class="k">var</span> widgetInfo <span class="k">in</span> runningWidgets<span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">var</span> widgetContext <span class="p">=</span> widgetInfo<span class="p">.</span>WidgetContext<span class="p">;</span>
+        <span class="k">var</span> widgetId      <span class="p">=</span> widgetContext<span class="p">.</span>Id<span class="p">;</span>
+        <span class="k">var</span> widgetName    <span class="p">=</span> widgetContext<span class="p">.</span>DefinitionId<span class="p">;</span>
+        <span class="k">var</span> customState   <span class="p">=</span> widgetInfo<span class="p">.</span>CustomState<span class="p">;</span>
+        <span class="k">if</span> <span class="p">(!</span>RunningWidgets<span class="p">.</span><span class="me">ContainsKey</span><span class="p">(</span>widgetId<span class="p">))</span>
+        <span class="p">{</span>
+            <span class="t">CompactWidgetInfo</span> info <span class="p">=</span> <span class="k">new</span><span class="p">()</span>
+                <span class="p">{</span> widgetId <span class="p">=</span> widgetId<span class="p">,</span> widgetName <span class="p">=</span> widgetName <span class="p">};</span>
+            <span class="k">try</span> <span class="p">{</span> info<span class="p">.</span>customState <span class="p">=</span> <span class="t">Convert</span><span class="p">.</span><span class="me">ToInt32</span><span class="p">(</span>customState<span class="p">);</span> <span class="p">}</span>
+            <span class="k">catch</span> <span class="p">{</span> <span class="p">}</span>
+            RunningWidgets<span class="p">[</span>widgetId<span class="p">]</span> <span class="p">=</span> info<span class="p">;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre>
+    </div>
+  </section>
+
+  <!-- ======= CLASS FACTORY ======= -->
+  <section id="class-factory">
+    <h2>Implement a Class Factory</h2>
+    <p>
+      <code>CoRegisterClassObject</code> requires an <code>IClassFactory</code> implementation.
+      Add a new class file <code>FactoryHelper.cs</code> and replace its contents:
+    </p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">C#</span><span class="file-hint">FactoryHelper.cs</span></div>
+      <pre><code><span class="k">using</span> Microsoft.Windows.Widgets.Providers<span class="p">;</span>
+<span class="k">using</span> System.Runtime.InteropServices<span class="p">;</span>
+<span class="k">using</span> WinRT<span class="p">;</span>
+
+<span class="k">namespace</span> COM
+<span class="p">{</span>
+    <span class="k">static class</span> <span class="t">Guids</span>
+    <span class="p">{</span>
+        <span class="k">public const string</span> IClassFactory <span class="p">=</span> <span class="s">"00000001-0000-0000-C000-000000000046"</span><span class="p">;</span>
+        <span class="k">public const string</span> IUnknown      <span class="p">=</span> <span class="s">"00000000-0000-0000-C000-000000000046"</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="p">[</span><span class="at">ComImport</span><span class="p">,</span> <span class="at">ComVisible</span><span class="p">(</span><span class="k">false</span><span class="p">),</span>
+     <span class="at">InterfaceType</span><span class="p">(</span>ComInterfaceType<span class="p">.</span>InterfaceIsIUnknown<span class="p">),</span>
+     <span class="at">Guid</span><span class="p">(</span>COM<span class="p">.</span>Guids<span class="p">.</span>IClassFactory<span class="p">)]</span>
+    <span class="k">internal interface</span> <span class="t">IClassFactory</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="at">PreserveSig</span><span class="p">]</span>
+        <span class="t">int</span> <span class="me">CreateInstance</span><span class="p">(</span><span class="t">IntPtr</span> pUnkOuter<span class="p">,</span> <span class="k">ref</span> <span class="t">Guid</span> riid<span class="p">,</span> <span class="k">out</span> <span class="t">IntPtr</span> ppvObject<span class="p">);</span>
+        <span class="p">[</span><span class="at">PreserveSig</span><span class="p">]</span>
+        <span class="t">int</span> <span class="me">LockServer</span><span class="p">(</span><span class="t">bool</span> fLock<span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="p">[</span><span class="at">ComVisible</span><span class="p">(</span><span class="k">true</span><span class="p">)]</span>
+    <span class="k">class</span> <span class="t">WidgetProviderFactory</span><span class="p">&lt;</span>T<span class="p">&gt;</span> : <span class="t">IClassFactory</span>
+        <span class="k">where</span> T : <span class="t">IWidgetProvider</span><span class="p">,</span> <span class="k">new</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">public int</span> <span class="me">CreateInstance</span><span class="p">(</span><span class="t">IntPtr</span> pUnkOuter<span class="p">,</span> <span class="k">ref</span> <span class="t">Guid</span> riid<span class="p">,</span> <span class="k">out</span> <span class="t">IntPtr</span> ppvObject<span class="p">)</span>
+        <span class="p">{</span>
+            ppvObject <span class="p">=</span> <span class="t">IntPtr</span><span class="p">.</span>Zero<span class="p">;</span>
+            <span class="k">if</span> <span class="p">(</span>pUnkOuter <span class="p">!=</span> <span class="t">IntPtr</span><span class="p">.</span>Zero<span class="p">)</span>
+                <span class="t">Marshal</span><span class="p">.</span><span class="me">ThrowExceptionForHR</span><span class="p">(</span>CLASS_E_NOAGGREGATION<span class="p">);</span>
+            <span class="k">if</span> <span class="p">(</span>riid <span class="p">==</span> <span class="k">typeof</span><span class="p">(</span>T<span class="p">).</span>GUID <span class="p">||</span> riid <span class="p">==</span> <span class="t">Guid</span><span class="p">.</span><span class="me">Parse</span><span class="p">(</span>COM<span class="p">.</span>Guids<span class="p">.</span>IUnknown<span class="p">))</span>
+                ppvObject <span class="p">=</span> <span class="t">MarshalInspectable</span><span class="p">&lt;</span><span class="t">IWidgetProvider</span><span class="p">&gt;.</span><span class="me">FromManaged</span><span class="p">(</span><span class="k">new</span> T<span class="p">());</span>
+            <span class="k">else</span>
+                <span class="t">Marshal</span><span class="p">.</span><span class="me">ThrowExceptionForHR</span><span class="p">(</span>E_NOINTERFACE<span class="p">);</span>
+            <span class="k">return</span> <span class="m">0</span><span class="p">;</span>
+        <span class="p">}</span>
+        <span class="t">int</span> <span class="t">IClassFactory</span><span class="p">.</span><span class="me">LockServer</span><span class="p">(</span><span class="t">bool</span> fLock<span class="p">)</span> <span class="p">=&gt;</span> <span class="m">0</span><span class="p">;</span>
+
+        <span class="k">private const int</span> CLASS_E_NOAGGREGATION <span class="p">=</span> <span class="p">-</span><span class="m">2147221232</span><span class="p">;</span>
+        <span class="k">private const int</span> E_NOINTERFACE        <span class="p">=</span> <span class="p">-</span><span class="m">2147467262</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre>
+    </div>
+  </section>
+
+  <!-- ======= GUID ======= -->
+  <section id="guid">
+    <h2>Create a GUID for Your Widget Provider CLSID</h2>
+    <p>
+      In Visual Studio, go to <strong>Tools &gt; Create GUID</strong>. Select the
+      <em>Registry Format</em> option, click <strong>Copy</strong>, and paste the value
+      into a text file. You will reference this GUID in subsequent steps.
+    </p>
+  </section>
+
+  <!-- ======= REGISTER COM ======= -->
+  <section id="register-com">
+    <h2>Register the Widget Provider Class Object with OLE</h2>
+    <p>
+      Replace <code>Program.cs</code> with the following. Replace the placeholder GUID with
+      the one you generated.
+    </p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">C#</span><span class="file-hint">Program.cs</span></div>
+      <pre><code><span class="k">using</span> System.Runtime.InteropServices<span class="p">;</span>
+<span class="k">using</span> ComTypes <span class="p">=</span> System.Runtime.InteropServices.ComTypes<span class="p">;</span>
+<span class="k">using</span> Microsoft.Windows.Widgets<span class="p">;</span>
+<span class="k">using</span> ExampleWidgetProvider<span class="p">;</span>
+<span class="k">using</span> COM<span class="p">;</span>
+
+<span class="p">[</span><span class="at">DllImport</span><span class="p">(</span><span class="s">"kernel32.dll"</span><span class="p">)]</span>
+<span class="k">static extern</span> <span class="t">IntPtr</span> <span class="me">GetConsoleWindow</span><span class="p">();</span>
+
+<span class="p">[</span><span class="at">DllImport</span><span class="p">(</span><span class="s">"ole32.dll"</span><span class="p">)]</span>
+<span class="k">static extern int</span> <span class="me">CoRegisterClassObject</span><span class="p">(</span>
+    <span class="p">[</span><span class="at">MarshalAs</span><span class="p">(</span>UnmanagedType<span class="p">.</span>LPStruct<span class="p">)]</span> <span class="t">Guid</span>   rclsid<span class="p">,</span>
+    <span class="p">[</span><span class="at">MarshalAs</span><span class="p">(</span>UnmanagedType<span class="p">.</span>IUnknown<span class="p">)]</span> <span class="t">object</span> pUnk<span class="p">,</span>
+    <span class="t">uint</span> dwClsContext<span class="p">,</span> <span class="t">uint</span> flags<span class="p">,</span> <span class="k">out</span> <span class="t">uint</span> lpdwRegister<span class="p">);</span>
+
+<span class="p">[</span><span class="at">DllImport</span><span class="p">(</span><span class="s">"ole32.dll"</span><span class="p">)]</span>
+<span class="k">static extern int</span> <span class="me">CoRevokeClassObject</span><span class="p">(</span><span class="t">uint</span> dwRegister<span class="p">);</span>
+
+Console<span class="p">.</span><span class="me">WriteLine</span><span class="p">(</span><span class="s">"Registering Widget Provider"</span><span class="p">);</span>
+<span class="t">uint</span> cookie<span class="p">;</span>
+<span class="t">Guid</span> CLSID_Factory <span class="p">=</span> <span class="t">Guid</span><span class="p">.</span><span class="me">Parse</span><span class="p">(</span><span class="s">"XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"</span><span class="p">);</span>
+<span class="me">CoRegisterClassObject</span><span class="p">(</span>CLSID_Factory<span class="p">,</span> <span class="k">new</span> <span class="t">WidgetProviderFactory</span><span class="p">&lt;</span><span class="t">WidgetProvider</span><span class="p">&gt;(),</span>
+    <span class="m">0x4</span><span class="p">,</span> <span class="m">0x1</span><span class="p">,</span> <span class="k">out</span> cookie<span class="p">);</span>
+
+<span class="k">if</span> <span class="p">(</span><span class="me">GetConsoleWindow</span><span class="p">() !=</span> <span class="t">IntPtr</span><span class="p">.</span>Zero<span class="p">)</span>
+<span class="p">{</span>
+    Console<span class="p">.</span><span class="me">WriteLine</span><span class="p">(</span><span class="s">"Registered successfully. Press ENTER to exit."</span><span class="p">);</span>
+    Console<span class="p">.</span><span class="me">ReadLine</span><span class="p">();</span>
+<span class="p">}</span>
+<span class="k">else</span>
+<span class="p">{</span>
+    <span class="k">using</span> <span class="p">(</span><span class="k">var</span> evt <span class="p">=</span> <span class="t">WidgetProvider</span><span class="p">.</span><span class="me">GetEmptyWidgetListEvent</span><span class="p">())</span>
+        evt<span class="p">.</span><span class="me">WaitOne</span><span class="p">();</span>
+    <span class="me">CoRevokeClassObject</span><span class="p">(</span>cookie<span class="p">);</span>
+<span class="p">}</span></code></pre>
+    </div>
+  </section>
+
+  <!-- ======= PACKAGE ======= -->
+  <section id="package">
+    <h2>Package Your Widget Provider App</h2>
+    <p>Only packaged apps can be registered as widget providers in the current release.</p>
+  </section>
+
+  <section id="msix-project">
+    <h3>Create an MSIX Packaging Project</h3>
+    <ol class="steps">
+      <li>Right-click the solution, select <strong>Add &gt; New Project</strong>.</li>
+      <li>Select the <strong>Windows Application Packaging Project</strong> template. Name it <code>ExampleWidgetProviderPackage</code>.</li>
+      <li>Set the target version to <strong>1809 or later</strong>.</li>
+      <li>Right-click the packaging project, select <strong>Add &gt; Project reference</strong>, and add <code>ExampleWidgetProvider</code>.</li>
+    </ol>
+  </section>
+
+  <section id="sdk-ref">
+    <h3>Add Windows App SDK Package Reference to the Packaging Project</h3>
+    <p>Open <code>ExampleWidgetProviderPackage.wapproj</code> and add inside the <code>Project</code> element:</p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">XML</span><span class="file-hint">ExampleWidgetProviderPackage.wapproj</span></div>
+      <pre><code><span class="at">&lt;ItemGroup&gt;</span>
+    <span class="at">&lt;PackageReference</span> <span class="an">Include</span><span class="p">=</span><span class="av">"Microsoft.WindowsAppSDK"</span>
+                       <span class="an">Version</span><span class="p">=</span><span class="av">"1.2.221116.1"</span><span class="at">&gt;</span>
+        <span class="at">&lt;IncludeAssets&gt;</span>build<span class="at">&lt;/IncludeAssets&gt;</span>
+    <span class="at">&lt;/PackageReference&gt;</span>
+<span class="at">&lt;/ItemGroup&gt;</span></code></pre>
+    </div>
+    <div class="callout note">
+      <strong>NOTE:</strong> Ensure the version matches the latest stable version you installed earlier.
+    </div>
+    <p>Alternatively, declare a package dependency in <code>Package.appxmanifest</code>:</p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">XML</span><span class="file-hint">Package.appxmanifest</span></div>
+      <pre><code><span class="at">&lt;Dependencies&gt;</span>
+    <span class="at">&lt;PackageDependency</span>
+        <span class="an">Name</span><span class="p">=</span><span class="av">"Microsoft.WindowsAppRuntime.1.2-preview2"</span>
+        <span class="an">MinVersion</span><span class="p">=</span><span class="av">"2000.638.7.0"</span>
+        <span class="an">Publisher</span><span class="p">=</span><span class="av">"CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"</span> <span class="at">/&gt;</span>
+<span class="at">&lt;/Dependencies&gt;</span></code></pre>
+    </div>
+  </section>
+
+  <section id="manifest">
+    <h3>Update the Package Manifest</h3>
+    <p>Open <code>Package.appxmanifest</code> in code view. Add namespace declarations to the top-level <code>Package</code> element:</p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">XML</span><span class="file-hint">Package.appxmanifest — Package element</span></div>
+      <pre><code><span class="at">&lt;Package</span>
+  <span class="an">xmlns:uap3</span><span class="p">=</span><span class="av">"http://schemas.microsoft.com/appx/manifest/uap/windows10/3"</span>
+  <span class="an">xmlns:com</span><span class="p">=</span><span class="av">"http://schemas.microsoft.com/appx/manifest/com/windows10"</span>
+  <span class="p">...</span><span class="at">&gt;</span></code></pre>
+    </div>
+    <p>Inside the <code>Application</code> element (after <code>uap:VisualElements</code>), add an <code>Extensions</code> element. Add the COM server extension:</p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">XML</span><span class="file-hint">Package.appxmanifest — COM server</span></div>
+      <pre><code><span class="at">&lt;com:Extension</span> <span class="an">Category</span><span class="p">=</span><span class="av">"windows.comServer"</span><span class="at">&gt;</span>
+    <span class="at">&lt;com:ComServer&gt;</span>
+        <span class="at">&lt;com:ExeServer</span> <span class="an">Executable</span><span class="p">=</span><span class="av">"ExampleWidgetProvider\ExampleWidgetProvider.exe"</span>
+                       <span class="an">DisplayName</span><span class="p">=</span><span class="av">"ExampleWidgetProvider"</span><span class="at">&gt;</span>
+            <span class="at">&lt;com:Class</span> <span class="an">Id</span><span class="p">=</span><span class="av">"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"</span>
+                       <span class="an">DisplayName</span><span class="p">=</span><span class="av">"ExampleWidgetProvider"</span> <span class="at">/&gt;</span>
+        <span class="at">&lt;/com:ExeServer&gt;</span>
+    <span class="at">&lt;/com:ComServer&gt;</span>
+<span class="at">&lt;/com:Extension&gt;</span></code></pre>
+    </div>
+    <p>Then add the widget provider extension (replace ClassId with your GUID):</p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">XML</span><span class="file-hint">Package.appxmanifest — widget provider</span></div>
+      <pre><code><span class="at">&lt;uap3:Extension</span> <span class="an">Category</span><span class="p">=</span><span class="av">"windows.appExtension"</span><span class="at">&gt;</span>
+  <span class="at">&lt;uap3:AppExtension</span> <span class="an">Name</span><span class="p">=</span><span class="av">"com.microsoft.windows.widgets"</span>
+                     <span class="an">DisplayName</span><span class="p">=</span><span class="av">"WidgetTestApp"</span>
+                     <span class="an">Id</span><span class="p">=</span><span class="av">"ContosoWidgetApp"</span>
+                     <span class="an">PublicFolder</span><span class="p">=</span><span class="av">"Public"</span><span class="at">&gt;</span>
+    <span class="at">&lt;uap3:Properties&gt;</span>
+      <span class="at">&lt;WidgetProvider&gt;</span>
+        <span class="at">&lt;ProviderIcons&gt;</span>
+          <span class="at">&lt;Icon</span> <span class="an">Path</span><span class="p">=</span><span class="av">"Images\StoreLogo.png"</span> <span class="at">/&gt;</span>
+        <span class="at">&lt;/ProviderIcons&gt;</span>
+        <span class="at">&lt;Activation&gt;</span>
+          <span class="at">&lt;CreateInstance</span> <span class="an">ClassId</span><span class="p">=</span><span class="av">"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"</span> <span class="at">/&gt;</span>
+        <span class="at">&lt;/Activation&gt;</span>
+        <span class="at">&lt;TrustedPackageFamilyNames&gt;</span>
+          <span class="at">&lt;TrustedPackageFamilyName&gt;</span>Microsoft.MicrosoftEdge.Stable_8wekyb3d8bbwe<span class="at">&lt;/TrustedPackageFamilyName&gt;</span>
+        <span class="at">&lt;/TrustedPackageFamilyNames&gt;</span>
+        <span class="at">&lt;Definitions&gt;</span>
+          <span class="at">&lt;Definition</span> <span class="an">Id</span><span class="p">=</span><span class="av">"Weather_Widget"</span>
+                      <span class="an">DisplayName</span><span class="p">=</span><span class="av">"Weather Widget"</span>
+                      <span class="an">Description</span><span class="p">=</span><span class="av">"Weather Widget Description"</span>
+                      <span class="an">AllowMultiple</span><span class="p">=</span><span class="av">"true"</span><span class="at">&gt;</span>
+            <span class="at">&lt;Capabilities&gt;</span>
+              <span class="at">&lt;Capability&gt;&lt;Size</span> <span class="an">Name</span><span class="p">=</span><span class="av">"small"</span>  <span class="at">/&gt;&lt;/Capability&gt;</span>
+              <span class="at">&lt;Capability&gt;&lt;Size</span> <span class="an">Name</span><span class="p">=</span><span class="av">"medium"</span> <span class="at">/&gt;&lt;/Capability&gt;</span>
+              <span class="at">&lt;Capability&gt;&lt;Size</span> <span class="an">Name</span><span class="p">=</span><span class="av">"large"</span>  <span class="at">/&gt;&lt;/Capability&gt;</span>
+            <span class="at">&lt;/Capabilities&gt;</span>
+            <span class="at">&lt;ThemeResources&gt;</span>
+              <span class="at">&lt;Icons&gt;&lt;Icon</span> <span class="an">Path</span><span class="p">=</span><span class="av">"ProviderAssets\Weather_Icon.png"</span> <span class="at">/&gt;&lt;/Icons&gt;</span>
+              <span class="at">&lt;Screenshots&gt;</span>
+                <span class="at">&lt;Screenshot</span> <span class="an">Path</span><span class="p">=</span><span class="av">"ProviderAssets\Weather_Screenshot.png"</span>
+                             <span class="an">DisplayAltText</span><span class="p">=</span><span class="av">"For accessibility"</span> <span class="at">/&gt;</span>
+              <span class="at">&lt;/Screenshots&gt;</span>
+              <span class="at">&lt;DarkMode /&gt;&lt;LightMode /&gt;</span>
+            <span class="at">&lt;/ThemeResources&gt;</span>
+          <span class="at">&lt;/Definition&gt;</span>
+
+          <span class="at">&lt;Definition</span> <span class="an">Id</span><span class="p">=</span><span class="av">"Counting_Widget"</span>
+                      <span class="an">DisplayName</span><span class="p">=</span><span class="av">"Microsoft Counting Widget"</span>
+                      <span class="an">Description</span><span class="p">=</span><span class="av">"Counting Widget Description"</span><span class="at">&gt;</span>
+            <span class="at">&lt;Capabilities&gt;</span>
+              <span class="at">&lt;Capability&gt;&lt;Size</span> <span class="an">Name</span><span class="p">=</span><span class="av">"small"</span> <span class="at">/&gt;&lt;/Capability&gt;</span>
+            <span class="at">&lt;/Capabilities&gt;</span>
+            <span class="at">&lt;ThemeResources&gt;</span>
+              <span class="at">&lt;Icons&gt;&lt;Icon</span> <span class="an">Path</span><span class="p">=</span><span class="av">"ProviderAssets\Counting_Icon.png"</span> <span class="at">/&gt;&lt;/Icons&gt;</span>
+              <span class="at">&lt;Screenshots&gt;</span>
+                <span class="at">&lt;Screenshot</span> <span class="an">Path</span><span class="p">=</span><span class="av">"ProviderAssets\Counting_Screenshot.png"</span>
+                             <span class="an">DisplayAltText</span><span class="p">=</span><span class="av">"For accessibility"</span> <span class="at">/&gt;</span>
+              <span class="at">&lt;/Screenshots&gt;</span>
+              <span class="at">&lt;DarkMode /&gt;&lt;LightMode /&gt;</span>
+            <span class="at">&lt;/ThemeResources&gt;</span>
+          <span class="at">&lt;/Definition&gt;</span>
+        <span class="at">&lt;/Definitions&gt;</span>
+      <span class="at">&lt;/WidgetProvider&gt;</span>
+    <span class="at">&lt;/uap3:Properties&gt;</span>
+  <span class="at">&lt;/uap3:AppExtension&gt;</span>
+<span class="at">&lt;/uap3:Extension&gt;</span></code></pre>
+    </div>
+    <p>
+      For full element descriptions, see
+      <em>Widget provider package manifest XML format</em>.
+    </p>
+  </section>
+
+  <section id="icons">
+    <h3>Add Icons and Other Images</h3>
+    <ol class="steps">
+      <li>In Solution Explorer, right-click <code>ExampleWidgetProviderPackage</code> and select <strong>Add &gt; New Folder</strong>.</li>
+      <li>Name the folder <code>ProviderAssets</code> (matching the manifest paths).</li>
+      <li>Add the icon and screenshot image files. Ensure file names match <code>Path=ProviderAssets\...</code> in the manifest exactly.</li>
+    </ol>
+    <p>
+      For design requirements and localized screenshot naming conventions, see
+      <em>Integrate with the widget picker</em>.
+    </p>
+  </section>
+
+  <!-- ======= TESTING ======= -->
+  <section id="testing">
+    <h2>Testing Your Widget Provider</h2>
+    <ol class="steps">
+      <li>Select the correct architecture from the Solution Platforms drop-down (e.g., <code>x64</code>).</li>
+      <li>Right-click the solution and select <strong>Build Solution</strong>.</li>
+      <li>Right-click <code>ExampleWidgetProviderPackage</code> and select <strong>Deploy</strong>.</li>
+      <li>Open the <strong>Widgets Board</strong> and click <strong>Add widgets</strong> in the top right.</li>
+      <li>Scroll to the bottom to find <em>Weather Widget</em> and <em>Microsoft Counting Widget</em>. Click to pin them.</li>
+    </ol>
+  </section>
+
+  <!-- ======= DEBUGGING ======= -->
+  <section id="debugging">
+    <h2>Debugging Your Widget Provider</h2>
+    <p>Two approaches:</p>
+    <h4>Attach to running process</h4>
+    <ol class="steps">
+      <li>In Visual Studio, go to <strong>Debug &gt; Attach to process</strong>.</li>
+      <li>Filter the process list to find your widget provider executable.</li>
+      <li>Attach the debugger.</li>
+    </ol>
+    <h4>Automatically attach on startup</h4>
+    <ol class="steps">
+      <li>Go to <strong>Debug &gt; Other Debug Targets &gt; Debug Installed App Package</strong>.</li>
+      <li>Filter to find your provider package.</li>
+      <li>Check <strong>Do not launch, but debug my code when it starts</strong>.</li>
+      <li>Click <strong>Attach</strong>.</li>
+    </ol>
+  </section>
+
+  <!-- ======= CONVERT ======= -->
+  <section id="convert-app">
+    <h2>Convert Your Console App to a Windows App</h2>
+    <p>
+      Right-click <code>ExampleWidgetProvider</code> in Solution Explorer and select
+      <strong>Properties</strong>. Under <strong>Application &gt; General</strong>,
+      change <em>Output type</em> from <strong>Console Application</strong>
+      to <strong>Windows Application</strong>.
+    </p>
+  </section>
+
+  <!-- ======= PUBLISHING ======= -->
+  <section id="publishing">
+    <h2>Publishing Your Widget</h2>
+    <p>
+      After development and testing, publish your app on the Microsoft Store so users can install
+      your widgets. See <em>Publish your app in the Microsoft Store</em> for step-by-step guidance.
+    </p>
+    <h3>Widgets Store Collection</h3>
+    <p>
+      After publishing, request inclusion in the Widgets Store Collection to improve discoverability.
+      Submit via <em>Submit your Widget information for addition to the Store Collection</em>.
+    </p>
+  </section>
+
+  <!-- ======= CUSTOMIZATION ======= -->
+  <section id="customization">
+    <h2>Implementing Widget Customization</h2>
+    <p>
+      Starting with Windows App SDK 1.4, widgets can support user customization. A
+      <strong>Customize widget</strong> option appears in the ellipsis menu above
+      <em>Unpin widget</em>.
+    </p>
+    <div class="callout bug">
+      <strong>KNOWN BUG:</strong> There is a known bug with the Windows Widget Board for widgets
+      built using the Windows App SDK that causes the ellipsis menu to become unresponsive
+      after the customization card is shown.
+    </div>
+    <p>Customization flow summary:</p>
+    <ol class="steps">
+      <li>The widget host calls the regular template/data payloads for normal operation.</li>
+      <li>User clicks <strong>Customize widget</strong> in the ellipsis menu.</li>
+      <li>The widget raises <code>OnCustomizationRequested</code> on the provider.</li>
+      <li>The provider sets an internal flag and sends the customization UI template instead of the regular template.</li>
+      <li><code>OnActionInvoked</code> events fire as the user interacts with the customization UI.</li>
+      <li>On the app-defined "exit customization" action, the provider clears the flag and resumes normal templates. If the user exits without clicking the exit action, <code>IWidgetProviderAnalytics.OnAnalyticsInfoReported</code> fires with <code>interactionKind: "exitCustomization"</code>.</li>
+      <li>The provider persists customization options to disk or cloud.</li>
+    </ol>
+    <div class="callout warn">
+      <strong>WARNING:</strong> Widget customization requires Windows App SDK 1.4 or later.
+      Update the NuGet package reference before implementing.
+    </div>
+  </section>
+
+  <section id="custom-manifest">
+    <h3>Update the Package Manifest to Declare Customization Support</h3>
+    <p>Add <code>IsCustomizable="true"</code> to the widget's <code>Definition</code> element:</p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">XML</span><span class="file-hint">Package.appxmanifest</span></div>
+      <pre><code><span class="at">&lt;Definition</span> <span class="an">Id</span><span class="p">=</span><span class="av">"Counting_Widget"</span>
+            <span class="an">DisplayName</span><span class="p">=</span><span class="av">"Microsoft Counting Widget"</span>
+            <span class="an">Description</span><span class="p">=</span><span class="av">"CONFIG counting widget description"</span>
+            <span class="an">IsCustomizable</span><span class="p">=</span><span class="av">"true"</span><span class="at">&gt;</span></code></pre>
+    </div>
+  </section>
+
+  <section id="custom-track">
+    <h3>Track When a Widget Is in Customization Mode</h3>
+    <p>Add the <code>inCustomization</code> field to <code>CompactWidgetInfo</code>:</p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">C#</span><span class="file-hint">WidgetProvider.cs</span></div>
+      <pre><code><span class="k">public class</span> <span class="t">CompactWidgetInfo</span>
+<span class="p">{</span>
+    <span class="k">public string</span> widgetId        <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+    <span class="k">public string</span> widgetName      <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+    <span class="k">public int</span>    customState    <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+    <span class="k">public bool</span>   isActive       <span class="p">=</span> <span class="k">false</span><span class="p">;</span>
+    <span class="k">public bool</span>   inCustomization <span class="p">=</span> <span class="k">false</span><span class="p">;</span>
+<span class="p">}</span></code></pre>
+    </div>
+  </section>
+
+  <section id="iwidgetprovider2">
+    <h3>Implement IWidgetProvider2</h3>
+    <p>Update the class declaration and implement <code>OnCustomizationRequested</code>:</p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">C#</span><span class="file-hint">WidgetProvider.cs</span></div>
+      <pre><code><span class="k">internal class</span> <span class="t">WidgetProvider</span> : <span class="t">IWidgetProvider</span><span class="p">,</span> <span class="t">IWidgetProvider2</span>
+
+<span class="c">// OnCustomizationRequested implementation:</span>
+<span class="k">public void</span> <span class="me">OnCustomizationRequested</span><span class="p">(</span><span class="t">WidgetCustomizationRequestedArgs</span> args<span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">var</span> widgetId <span class="p">=</span> args<span class="p">.</span>WidgetContext<span class="p">.</span>Id<span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span>RunningWidgets<span class="p">.</span><span class="me">ContainsKey</span><span class="p">(</span>widgetId<span class="p">))</span>
+    <span class="p">{</span>
+        <span class="k">var</span> localWidgetInfo <span class="p">=</span> RunningWidgets<span class="p">[</span>widgetId<span class="p">];</span>
+        localWidgetInfo<span class="p">.</span>inCustomization <span class="p">=</span> <span class="k">true</span><span class="p">;</span>
+        <span class="me">UpdateWidget</span><span class="p">(</span>localWidgetInfo<span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre>
+    </div>
+  </section>
+
+  <section id="custom-template">
+    <h3>Customization Template JSON</h3>
+    <p>Declare the customization UI template with <em>Reset counter</em> and <em>Exit customization</em> actions:</p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">C#</span><span class="file-hint">WidgetProvider.cs — countWidgetCustomizationTemplate</span></div>
+      <pre><code><span class="k">const string</span> countWidgetCustomizationTemplate <span class="p">=</span> <span class="s">@"
+{
+    ""type"": ""AdaptiveCard"",
+    ""actions"": [
+        { ""type"": ""Action.Execute"", ""title"": ""Reset counter"",     ""verb"": ""reset""            },
+        { ""type"": ""Action.Execute"", ""title"": ""Exit customization"", ""verb"": ""exitCustomization"" }
+    ],
+    ""$schema"": ""http://adaptivecards.io/schemas/adaptive-card.json"",
+    ""version"": ""1.5""
+}"</span><span class="p">;</span></code></pre>
+    </div>
+  </section>
+
+  <section id="custom-update">
+    <h3>Send Customization Template in UpdateWidget</h3>
+    <p>
+      Branch on <code>inCustomization</code> when selecting the template for
+      <code>Counting_Widget</code>:
+    </p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">C#</span><span class="file-hint">WidgetProvider.cs — UpdateWidget (relevant excerpt)</span></div>
+      <pre><code><span class="k">else if</span> <span class="p">(</span>localWidgetInfo<span class="p">.</span>widgetName <span class="p">==</span> <span class="s">"Counting_Widget"</span><span class="p">)</span>
+<span class="p">{</span>
+    templateJson <span class="p">=</span> localWidgetInfo<span class="p">.</span>inCustomization
+        <span class="p">?</span> countWidgetCustomizationTemplate
+        <span class="p">:</span> countWidgetTemplate<span class="p">;</span>
+<span class="p">}</span>
+<span class="p">...</span>
+updateOptions<span class="p">.</span>Template    <span class="p">=</span> templateJson<span class="p">;</span>
+updateOptions<span class="p">.</span>Data        <span class="p">=</span> dataJson<span class="p">;</span>
+updateOptions<span class="p">.</span>CustomState <span class="p">=</span> localWidgetInfo<span class="p">.</span>customState<span class="p">.</span><span class="me">ToString</span><span class="p">();</span>
+<span class="t">WidgetManager</span><span class="p">.</span><span class="me">GetDefault</span><span class="p">().</span><span class="me">UpdateWidget</span><span class="p">(</span>updateOptions<span class="p">);</span></code></pre>
+    </div>
+  </section>
+
+  <section id="custom-actions">
+    <h3>Respond to Customization Actions</h3>
+    <p>
+      Extend <code>OnActionInvoked</code> to handle the <code>"reset"</code> and
+      <code>"exitCustomization"</code> verbs:
+    </p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">C#</span><span class="file-hint">WidgetProvider.cs — OnActionInvoked (complete)</span></div>
+      <pre><code><span class="k">public void</span> <span class="me">OnActionInvoked</span><span class="p">(</span><span class="t">WidgetActionInvokedArgs</span> actionInvokedArgs<span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">var</span> verb     <span class="p">=</span> actionInvokedArgs<span class="p">.</span>Verb<span class="p">;</span>
+    <span class="k">var</span> widgetId <span class="p">=</span> actionInvokedArgs<span class="p">.</span>WidgetContext<span class="p">.</span>Id<span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">(!</span>RunningWidgets<span class="p">.</span><span class="me">ContainsKey</span><span class="p">(</span>widgetId<span class="p">))</span> <span class="k">return</span><span class="p">;</span>
+    <span class="k">var</span> info <span class="p">=</span> RunningWidgets<span class="p">[</span>widgetId<span class="p">];</span>
+
+    <span class="k">if</span> <span class="p">(</span>verb <span class="p">==</span> <span class="s">"inc"</span><span class="p">)</span>
+    <span class="p">{</span>
+        info<span class="p">.</span>customState<span class="p">++;</span>
+        <span class="me">UpdateWidget</span><span class="p">(</span>info<span class="p">);</span>
+    <span class="p">}</span>
+    <span class="k">else if</span> <span class="p">(</span>verb <span class="p">==</span> <span class="s">"reset"</span><span class="p">)</span>
+    <span class="p">{</span>
+        info<span class="p">.</span>customState    <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+        info<span class="p">.</span>inCustomization <span class="p">=</span> <span class="k">false</span><span class="p">;</span>
+        <span class="me">UpdateWidget</span><span class="p">(</span>info<span class="p">);</span>
+    <span class="p">}</span>
+    <span class="k">else if</span> <span class="p">(</span>verb <span class="p">==</span> <span class="s">"exitCustomization"</span><span class="p">)</span>
+    <span class="p">{</span>
+        info<span class="p">.</span>inCustomization <span class="p">=</span> <span class="k">false</span><span class="p">;</span>
+        <span class="me">UpdateWidget</span><span class="p">(</span>info<span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre>
+    </div>
+    <p>
+      After deploying, clicking <strong>Customize widget</strong> in the ellipsis menu displays
+      the customization template. <strong>Reset counter</strong> resets the counter to 0.
+      <strong>Exit customization</strong> returns the widget to its normal view.
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- CHAPTER 2: LIVE TILES                                         -->
+  <!-- ============================================================ -->
+  <div class="chapter-banner tiles">
+    <div class="chap-num">Chapter 2</div>
+    <h2>Live Tiles — the Start screen surface (legacy)</h2>
+    <p>The XML-driven notification system that powered Windows 8, 8.1, and 10 Start tiles. Effectively superseded by Widgets on Windows 11, but still ships and remains the clearest contrast point for understanding what Widgets replaced.</p>
+  </div>
+
+  <section id="tiles-overview">
+    <h2>Overview</h2>
+    <p>
+      A <strong>Live Tile</strong> is a rectangular surface pinned to the Windows Start screen
+      that an app can periodically update with content — text, images, badges, or peeking
+      animations. Unlike a Widget, a Tile is owned by the app's identity and is updated by
+      delivering an <strong>XML payload</strong> to the Notification Platform; the platform itself
+      renders the tile based on a fixed catalogue of templates.
+    </p>
+    <div>
+      <span class="pill warn">Status: maintenance</span>
+      <span class="pill">Introduced: Windows 8 (2012)</span>
+      <span class="pill">Peak: Windows 10 (2015)</span>
+      <span class="pill dep">Win11 Start: live updates removed</span>
+      <span class="pill">API surface: Windows.UI.Notifications</span>
+    </div>
+  </section>
+
+  <section id="tiles-history">
+    <h3>History &amp; Status</h3>
+    <table>
+      <thead><tr><th>Year</th><th>Release</th><th>Tile capability</th></tr></thead>
+      <tbody>
+        <tr><td>2012</td><td>Windows 8 / WinRT</td><td>Tiles introduced as the centerpiece of the "Metro" Start screen. Sizes: small (square 70), medium (square 150), wide (310x150).</td></tr>
+        <tr><td>2013</td><td>Windows 8.1</td><td>Adds large (square 310) tile, more granular sizing, secondary tiles, scheduled and periodic updates.</td></tr>
+        <tr><td>2015</td><td>Windows 10</td><td>Tiles return to a hybrid Start menu. Adaptive Tile templates added, replacing the fixed catalogue with a generic XML schema.</td></tr>
+        <tr><td>2019</td><td>Windows 10 19H1+</td><td>Tile updates throttled; UWP momentum slows.</td></tr>
+        <tr><td>2021</td><td>Windows 11</td><td>Start redesign drops the live tile renderer. Pinned apps show a static icon. <strong>Widgets Board</strong> ships as the supersession path.</td></tr>
+        <tr><td>2024+</td><td>Win10 EOL track</td><td>Tile APIs remain callable on Win10 LTSC and pre-2H21 servicing branches; new investment is on widgets and toasts.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="tiles-anatomy">
+    <h3>Tile Anatomy</h3>
+    <p>A tile is composed of three logically separate notification streams:</p>
+    <ul class="bullets">
+      <li><strong>Tile content</strong> — the foreground text/image surface, defined by a <code>&lt;tile&gt;</code> XML payload sent through <code>TileUpdateManager</code>.</li>
+      <li><strong>Badge</strong> — a small numeric or glyph overlay (mail count, alarm icon), sent through <code>BadgeUpdateManager</code>.</li>
+      <li><strong>Toast</strong> — transient banner notifications using a separate <code>&lt;toast&gt;</code> XML schema. Toasts and tiles share the WNS pipeline but render independently.</li>
+    </ul>
+    <p>Tiles can be the app's <em>primary</em> tile (one per app, derived from the manifest), or one of many <em>secondary</em> tiles created at runtime via <code>SecondaryTile</code>.</p>
+  </section>
+
+  <section id="tiles-templates">
+    <h3>Templates &amp; XML</h3>
+    <p>Modern Live Tiles use the <strong>Adaptive Tile</strong> schema. A single payload can contain multiple <code>&lt;binding&gt;</code> elements — one per target size — and Windows picks the binding that matches the user's current tile size.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">XML</span><span class="file-hint">Adaptive tile payload (medium + wide)</span></div>
+      <pre><code><span class="at">&lt;tile&gt;</span>
+  <span class="at">&lt;visual&gt;</span>
+    <span class="at">&lt;binding</span> <span class="an">template=</span><span class="av">"TileMedium"</span><span class="at">&gt;</span>
+      <span class="at">&lt;text</span> <span class="an">hint-style=</span><span class="av">"caption"</span><span class="at">&gt;</span>Mail<span class="at">&lt;/text&gt;</span>
+      <span class="at">&lt;text</span> <span class="an">hint-style=</span><span class="av">"captionSubtle"</span><span class="at">&gt;</span>3 unread<span class="at">&lt;/text&gt;</span>
+      <span class="at">&lt;image</span> <span class="an">src=</span><span class="av">"ms-appx:///Assets/inbox.png"</span> <span class="an">placement=</span><span class="av">"peek"</span> <span class="at">/&gt;</span>
+    <span class="at">&lt;/binding&gt;</span>
+    <span class="at">&lt;binding</span> <span class="an">template=</span><span class="av">"TileWide"</span><span class="at">&gt;</span>
+      <span class="at">&lt;group&gt;</span>
+        <span class="at">&lt;subgroup&gt;</span>
+          <span class="at">&lt;text</span> <span class="an">hint-style=</span><span class="av">"subtitle"</span><span class="at">&gt;</span>Inbox<span class="at">&lt;/text&gt;</span>
+          <span class="at">&lt;text</span> <span class="an">hint-style=</span><span class="av">"captionSubtle"</span><span class="at">&gt;</span>3 unread &#183; 12 today<span class="at">&lt;/text&gt;</span>
+        <span class="at">&lt;/subgroup&gt;</span>
+      <span class="at">&lt;/group&gt;</span>
+    <span class="at">&lt;/binding&gt;</span>
+  <span class="at">&lt;/visual&gt;</span>
+<span class="at">&lt;/tile&gt;</span></code></pre>
+    </div>
+    <div class="callout note">
+      <strong>NOTE:</strong> The legacy fixed-template names (e.g. <code>TileSquare150x150Image</code>,
+      <code>TileWide310x150ImageAndText01</code>) still validate but should not be used in new
+      payloads. Adaptive bindings give the same expressive range with a clean grammar.
+    </div>
+  </section>
+
+  <section id="tiles-notifications">
+    <h3>Notification Pipelines</h3>
+    <table>
+      <thead><tr><th>Pipeline</th><th>API</th><th>Use case</th></tr></thead>
+      <tbody>
+        <tr><td>Local</td><td><code>TileUpdateManager.CreateTileUpdaterForApplication().Update(...)</code></td><td>App-driven updates while running.</td></tr>
+        <tr><td>Scheduled</td><td><code>ScheduledTileNotification</code></td><td>Pre-bake updates with future delivery times — calendar reminders, hourly weather forecasts.</td></tr>
+        <tr><td>Periodic</td><td><code>StartPeriodicUpdate(uri, interval)</code></td><td>Windows polls a URL on a 30-min / 1-hr / 6-hr / 12-hr / daily cadence and renders the response payload.</td></tr>
+        <tr><td>Push (WNS)</td><td><code>WindowsPushNotificationServices</code></td><td>Server-pushed updates via the Windows Notification Service, gated by per-channel URIs.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="tiles-secondary">
+    <h3>Secondary Tiles</h3>
+    <p>
+      A secondary tile pins a deep-linked area of the app — a chat conversation, a stock symbol,
+      a folder — to the Start screen as its own tile. Created at runtime, each tile has an
+      independent updater stream and its own badge.
+    </p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">C#</span><span class="file-hint">Pin a secondary tile</span></div>
+      <pre><code><span class="k">var</span> tile <span class="p">=</span> <span class="k">new</span> <span class="t">SecondaryTile</span><span class="p">(</span>
+    tileId<span class="p">:</span>          <span class="s">"chat-2147"</span><span class="p">,</span>
+    displayName<span class="p">:</span>     <span class="s">"Conversation with Nadia"</span><span class="p">,</span>
+    arguments<span class="p">:</span>       <span class="s">"chat?id=2147"</span><span class="p">,</span>
+    square150x150Logo<span class="p">:</span> <span class="k">new</span> <span class="t">Uri</span><span class="p">(</span><span class="s">"ms-appx:///Assets/chat.png"</span><span class="p">),</span>
+    desiredSize<span class="p">:</span>     <span class="t">TileSize</span><span class="p">.</span>Default<span class="p">);</span>
+
+<span class="k">await</span> tile<span class="p">.</span><span class="me">RequestCreateAsync</span><span class="p">();</span></code></pre>
+    </div>
+  </section>
+
+  <section id="tiles-deprecation">
+    <h3>Windows 11 Deprecation</h3>
+    <div class="callout warn">
+      <strong>WARNING:</strong> On Windows 11, pinned apps on Start render as static icons. Tile
+      payloads sent via <code>TileUpdater.Update</code> are accepted by the API but never displayed.
+      The Notification Platform still runs because <em>toast</em> notifications continue to use it.
+    </div>
+    <p>
+      Microsoft's stated migration path is the <strong>Widgets Board</strong> (Chapter 1) for
+      glanceable surfaces and <strong>toast notifications</strong> for transient alerts.
+    </p>
+  </section>
+
+  <section id="tiles-vs-widgets">
+    <h3>Tiles vs Widgets — quick contrast</h3>
+    <table>
+      <thead><tr><th>Aspect</th><th>Live Tile</th><th>Widget</th></tr></thead>
+      <tbody>
+        <tr><td>Surface</td><td>Start screen</td><td>Widgets Board (Win+W)</td></tr>
+        <tr><td>Hosted by</td><td>Start / shell</td><td>dashost.exe (out-of-proc)</td></tr>
+        <tr><td>Content</td><td>Tile XML</td><td>Adaptive Card JSON</td></tr>
+        <tr><td>Activation</td><td>App identity (manifest)</td><td>COM CLSID (MSIX)</td></tr>
+        <tr><td>Interactivity</td><td>None — tap launches the app</td><td>Buttons, inputs, in-place actions</td></tr>
+        <tr><td>Update model</td><td>Local, scheduled, periodic, WNS push</td><td>Provider polled / pushes via <code>WidgetUpdateRequestOptions</code></td></tr>
+        <tr><td>Status</td><td><span class="pill dep">Win11: not rendered</span></td><td><span class="pill ok">Active investment</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- CHAPTER 3: CLIPPY / MICROSOFT AGENT                            -->
+  <!-- ============================================================ -->
+  <div class="chapter-banner clippy">
+    <div class="chap-num">Chapter 3</div>
+    <h2>Clippy &amp; Microsoft Agent — the assistant lineage</h2>
+    <p>From Microsoft Bob and the Office Assistant through the Microsoft Agent COM SDK to today's Copilot. Clippy is not a single product — it is a chain of attempts at conversational, character-driven UI.</p>
+  </div>
+
+  <section id="clippy-overview">
+    <h2>Overview</h2>
+    <p>
+      The animated assistant pattern Microsoft pioneered in the mid-1990s threads through every
+      conversational UI the company has shipped since. Understanding the Clippy lineage matters
+      because the same tradeoffs — discoverability versus annoyance, scripted versus generative,
+      in-process versus out-of-process — recur in every modern agent surface, including
+      <em>this</em> repository's MCP server.
+    </p>
+  </section>
+
+  <section id="clippy-history">
+    <h3>Lineage 1996 – today</h3>
+    <table>
+      <thead><tr><th>Year</th><th>Product</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>1995</td><td>Microsoft Bob</td><td>"Social interface" research project. Established characters as a navigation metaphor. Commercial flop, but the technology was carried forward.</td></tr>
+        <tr><td>1997</td><td>Office Assistant (Office 97)</td><td>Clippit ("Clippy"), Rocky, Power Pup, F1, Genius, Hoverbot, Mother Nature. Driven by an Office-internal Bayesian guesser hooked into application events.</td></tr>
+        <tr><td>1998</td><td>Microsoft Agent 1.5</td><td>Standalone COM-based animated agent SDK: Merlin, Genie, Robby, Peedy. Speech recognition (SAPI 4) and TTS bundled.</td></tr>
+        <tr><td>1999</td><td>Microsoft Agent 2.0</td><td>Shipped with Office 2000 / Windows ME. Web-embeddable through ActiveX. SDK exposed <code>IAgentEx</code>, <code>IAgentCharacter</code>, <code>IAgentCommands</code>.</td></tr>
+        <tr><td>2001</td><td>Office XP</td><td>Office Assistant disabled by default. The "Should I turn this off?" dialog became iconic.</td></tr>
+        <tr><td>2007</td><td>Office 2007</td><td>Office Assistant fully removed. Microsoft Agent 2.0 still installable on XP.</td></tr>
+        <tr><td>2009</td><td>Windows 7</td><td>Microsoft Agent runtime shipped its final build. Windows Vista already required the optional download.</td></tr>
+        <tr><td>2014</td><td>Cortana</td><td>Voice assistant in Windows Phone 8.1, then Windows 10. Server-backed; first true Microsoft "AI assistant" brand.</td></tr>
+        <tr><td>2018</td><td>Cortana retreats</td><td>Cortana removed from Windows 10 search bar; pivoted to Microsoft 365 productivity assistant.</td></tr>
+        <tr><td>2021</td><td>Microsoft 365 Clippy emoji</td><td>Microsoft replaces the paperclip emoji glyph in Microsoft 365 with Clippy's face after a Twitter poll. Pure brand revival.</td></tr>
+        <tr><td>2022</td><td>FluentUI Emoji set</td><td>Open-source Clippy emoji shipped on GitHub. Independent <code>clippy.js</code> projects gain renewed traction.</td></tr>
+        <tr><td>2023</td><td>Windows Copilot</td><td>Side-panel AI assistant in Windows 11 22H2 Moments 4 update. Claude- and OpenAI-backed. Conceptual heir to Cortana.</td></tr>
+        <tr><td>2024</td><td>Copilot+ PCs</td><td>Local NPU models (Phi Silica), Recall, Click to Do — assistants moving back on-device.</td></tr>
+        <tr><td>2025</td><td>Copilot Runtime</td><td>Microsoft formalises the on-device model API surface. Agents become first-class OS extensibility.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="clippy-msagent">
+    <h3>Microsoft Agent COM</h3>
+    <p>The Microsoft Agent 2.0 SDK exposed a small COM tree that any language with COM bindings (C++, VB6, JScript, Delphi) could drive:</p>
+    <table>
+      <thead><tr><th>Interface</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>IAgentEx</code></td><td>Server root. Loads characters, gives access to the audio output and command queue.</td></tr>
+        <tr><td><code>IAgentCharacterEx</code></td><td>One animated character. Methods include <code>Show</code>, <code>Hide</code>, <code>Play</code>, <code>Speak</code>, <code>MoveTo</code>, <code>GestureAt</code>.</td></tr>
+        <tr><td><code>IAgentCommandsEx</code></td><td>Voice/menu commands attached to the character — feeds the speech recognizer and the right-click menu.</td></tr>
+        <tr><td><code>IAgentBalloonEx</code></td><td>Speech balloon configuration: size, font, word-wrap.</td></tr>
+        <tr><td><code>_IAgentNotifySink</code></td><td>Outgoing event interface — fires <code>Click</code>, <code>DragStart</code>, <code>Command</code>, <code>BalloonHide</code>, etc.</td></tr>
+      </tbody>
+    </table>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">VBScript</span><span class="file-hint">Classic Microsoft Agent driving Merlin</span></div>
+      <pre><code><span class="k">Dim</span> Agent
+<span class="k">Set</span> Agent <span class="p">=</span> <span class="me">CreateObject</span><span class="p">(</span><span class="s">"Agent.Control.2"</span><span class="p">)</span>
+Agent<span class="p">.</span>Connected <span class="p">=</span> <span class="k">True</span>
+Agent<span class="p">.</span>Characters<span class="p">.</span><span class="me">Load</span> <span class="s">"Merlin"</span><span class="p">,</span> <span class="s">"Merlin.acs"</span>
+
+<span class="k">Dim</span> Merlin
+<span class="k">Set</span> Merlin <span class="p">=</span> Agent<span class="p">.</span>Characters<span class="p">(</span><span class="s">"Merlin"</span><span class="p">)</span>
+Merlin<span class="p">.</span><span class="me">Show</span>
+Merlin<span class="p">.</span><span class="me">Speak</span> <span class="s">"It looks like you are writing a letter. Would you like help?"</span>
+Merlin<span class="p">.</span><span class="me">Play</span> <span class="s">"GestureRight"</span></code></pre>
+    </div>
+    <div class="callout warn">
+      <strong>WARNING:</strong> The Microsoft Agent runtime was removed from Windows 7 onward
+      and the SDK is no longer redistributable. Modern character UIs should rebuild on top of
+      WinUI 3 / WPF, not <code>Agent.Control.2</code>.
+    </div>
+  </section>
+
+  <section id="clippy-acs">
+    <h3>ACS / ACD Files</h3>
+    <p>Characters were packaged as <code>.acs</code> files (single-file character with all animations) or <code>.acd</code> + per-animation files for incremental download. The format embedded:</p>
+    <ul class="bullets">
+      <li>Character header (name, GUID, default colors, balloon font).</li>
+      <li>An animation table — each animation a sequence of frames with inter-frame deltas, mouth-shape codes for lip-sync, and branch logic.</li>
+      <li>An optional voice profile (TTS engine ID and parameters).</li>
+      <li>State definitions (<code>Idle</code>, <code>Speaking</code>, <code>Listening</code>, <code>Hide</code>) that the runtime mapped onto user-visible behavior.</li>
+    </ul>
+    <p>The <code>acdgen.exe</code> compiler shipped in the Microsoft Agent Character Editor took a folder of BMP frames and a script and emitted a runnable <code>.acs</code>.</p>
+  </section>
+
+  <section id="clippy-deprecation">
+    <h3>Removal &amp; Independent Revivals</h3>
+    <p>
+      Office 2007 removed the Office Assistant entirely. Microsoft Agent stopped shipping with
+      Windows 7. The community filled the vacuum with several independent projects:
+    </p>
+    <ul class="bullets">
+      <li><strong>Smore Inc. <code>clippy.js</code></strong> — JavaScript port of the Office Assistant animations and balloon, runnable in any web page.</li>
+      <li><strong><code>FelisCatus/Clippy</code></strong> — open-source desktop wrapper bringing Clippy back as a top-most window on modern Windows.</li>
+      <li><strong>FluentUI Emoji</strong> — Microsoft-published, MIT-licensed Clippy artwork suitable for app integration.</li>
+      <li><strong>Microsoft 365 emoji set (2021)</strong> — Microsoft replaces the standard paperclip emoji with Clippy in M365 apps.</li>
+    </ul>
+  </section>
+
+  <section id="clippy-copilot">
+    <h3>The Copilot Lineage</h3>
+    <p>
+      The conceptual descendant of Clippy is not <em>any</em> single Microsoft product but the
+      Copilot family as a whole. Where Clippy guessed user intent from heuristic event streams,
+      Copilot infers it from the same context using a foundation model. The architectural leap is
+      the disposability of the heuristics — instead of a fragile rule set, the assistant runs an
+      LLM with tool access.
+    </p>
+    <ul class="bullets">
+      <li><strong>Microsoft 365 Copilot</strong> — Office surface, Graph-grounded, Adaptive-Card replies.</li>
+      <li><strong>GitHub Copilot</strong> — IDE and CLI surface (this agent).</li>
+      <li><strong>Windows Copilot / Copilot Runtime</strong> — OS shell surface, with on-device Phi-Silica and tool calls into Win32.</li>
+      <li><strong>Copilot Studio</strong> — author-time tool for building tenanted Copilots, plugged into Dataverse, Teams, Power Platform.</li>
+    </ul>
+  </section>
+
+  <section id="clippy-modern">
+    <h3>Modern Equivalents</h3>
+    <table>
+      <thead><tr><th>Surface</th><th>Modern equivalent</th><th>Replaces</th></tr></thead>
+      <tbody>
+        <tr><td>Inline contextual help</td><td>Microsoft 365 Copilot side pane</td><td>Office Assistant</td></tr>
+        <tr><td>Animated character</td><td>Mesh / Teams 3D avatars</td><td>Microsoft Agent characters</td></tr>
+        <tr><td>Voice assistant</td><td>Copilot Voice / Voice Live</td><td>Cortana, MS Agent SAPI</td></tr>
+        <tr><td>Desktop autopilot</td><td>Power Automate Desktop, Windows Clippy MCP</td><td>Office Assistant macros</td></tr>
+        <tr><td>OS-level agent</td><td>Windows Copilot Runtime</td><td>Cortana shell hooks</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- CHAPTER 4: WINDOWS TERMINAL                                   -->
+  <!-- ============================================================ -->
+  <div class="chapter-banner term">
+    <div class="chap-num">Chapter 4</div>
+    <h2>Windows Terminal — the modern console host</h2>
+    <p>The MIT-licensed multiplexed console host. Where conhost and cmd.exe used to be the only game in town, Terminal hosts arbitrary shells through ConPTY and is the natural runtime surface for command-line agents like GitHub Copilot CLI.</p>
+  </div>
+
+  <section id="term-overview">
+    <h2>Overview</h2>
+    <p>
+      <strong>Windows Terminal</strong> (executable <code>WindowsTerminal.exe</code>, package
+      <code>Microsoft.WindowsTerminal</code>) is a tabbed, GPU-accelerated terminal emulator
+      first released in 2019 as an open-source replacement for the legacy console host.
+      It does not implement a shell itself; it hosts shells (PowerShell, cmd, WSL, ssh, Azure
+      Cloud Shell, etc.) as child processes attached via the <strong>ConPTY</strong> API.
+    </p>
+    <div>
+      <span class="pill ok">Status: actively developed</span>
+      <span class="pill">Repo: microsoft/terminal (MIT)</span>
+      <span class="pill">Default on Win11 22H2+</span>
+      <span class="pill">Settings: JSON</span>
+    </div>
+  </section>
+
+  <section id="term-history">
+    <h3>conhost &#8594; Windows Terminal</h3>
+    <table>
+      <thead><tr><th>Year</th><th>Milestone</th></tr></thead>
+      <tbody>
+        <tr><td>1989+</td><td>Windows NT ships with <code>conhost.exe</code> (originally part of csrss). Tied to a single console buffer per process group.</td></tr>
+        <tr><td>2018</td><td>Windows 10 1809 introduces the <strong>ConPTY</strong> API (<code>CreatePseudoConsole</code>) — the OS now exposes a real pseudo-TTY interface, decoupling shells from <code>conhost</code>'s renderer.</td></tr>
+        <tr><td>2019</td><td>Windows Terminal 1.0 ships from <code>microsoft/terminal</code>. DirectWrite-rendered, JSON-configured, tabbed.</td></tr>
+        <tr><td>2022</td><td>Windows 11 22H2 makes Terminal the default for new console launches.</td></tr>
+        <tr><td>2024</td><td>Terminal Chat and Terminal AI integrations preview, layering LLM responses directly into the prompt.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="term-conpty">
+    <h3>ConPTY</h3>
+    <p>
+      <code>CreatePseudoConsole</code> creates a pair of pipes that look like a terminal to the
+      child process — VT input flows in, VT-encoded output flows back. The renderer (Windows
+      Terminal, an SSH server, a remote Visual Studio host) consumes the VT stream however it
+      pleases. This is the same architectural shape Unix has always had with <code>openpty</code>;
+      Windows shipped the equivalent decades later.
+    </p>
+    <div class="diagram">  +-------------+    in pipe (VT)     +-------------+
+  |  Renderer   | ------------------> |  Child shell|
+  | (Terminal,  |                     |  (pwsh,     |
+  |  ssh, etc.) | <------------------ |  bash, ssh) |
+  +-------------+    out pipe (VT)    +-------------+
+         |                                  |
+         |  CreatePseudoConsole(hpc, ...)   |
+         +----------------------------------+
+                          |
+                          v
+                 ntoskrnl ALPC + I/O
+    </div>
+    <div class="callout note">
+      <strong>NOTE:</strong> The Windows Clippy MCP server (Chapter 6) launches and observes
+      processes through Windows native APIs and PowerShell, not ConPTY. Agents that need a real
+      interactive shell session — including the Copilot CLI itself — typically open a ConPTY
+      under the user's session.
+    </div>
+  </section>
+
+  <section id="term-settings">
+    <h3>settings.json</h3>
+    <p>
+      Terminal is entirely JSON-driven. The user file lives at
+      <code>%LocalAppData%\Packages\Microsoft.WindowsTerminal_*\LocalState\settings.json</code>.
+    </p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">JSON</span><span class="file-hint">settings.json — minimal profile</span></div>
+      <pre><code><span class="p">{</span>
+  <span class="s">"$schema"</span><span class="p">:</span> <span class="s">"https://aka.ms/terminal-profiles-schema"</span><span class="p">,</span>
+  <span class="s">"defaultProfile"</span><span class="p">:</span> <span class="s">"{61c54bbd-c2c6-5271-96e7-009a87ff44bf}"</span><span class="p">,</span>
+  <span class="s">"profiles"</span><span class="p">:</span> <span class="p">{</span>
+    <span class="s">"defaults"</span><span class="p">:</span> <span class="p">{</span>
+      <span class="s">"font"</span><span class="p">:</span> <span class="p">{</span> <span class="s">"face"</span><span class="p">:</span> <span class="s">"Cascadia Mono"</span><span class="p">,</span> <span class="s">"size"</span><span class="p">:</span> <span class="m">11</span> <span class="p">},</span>
+      <span class="s">"colorScheme"</span><span class="p">:</span> <span class="s">"Campbell Powershell"</span>
+    <span class="p">},</span>
+    <span class="s">"list"</span><span class="p">:</span> <span class="p">[</span>
+      <span class="p">{</span>
+        <span class="s">"guid"</span><span class="p">:</span> <span class="s">"{61c54bbd-c2c6-5271-96e7-009a87ff44bf}"</span><span class="p">,</span>
+        <span class="s">"name"</span><span class="p">:</span> <span class="s">"PowerShell 7"</span><span class="p">,</span>
+        <span class="s">"commandline"</span><span class="p">:</span> <span class="s">"pwsh.exe -nologo"</span><span class="p">,</span>
+        <span class="s">"icon"</span><span class="p">:</span> <span class="s">"ms-appx:///ProfileIcons/{...}.png"</span>
+      <span class="p">}</span>
+    <span class="p">]</span>
+  <span class="p">},</span>
+  <span class="s">"actions"</span><span class="p">:</span> <span class="p">[</span>
+    <span class="p">{</span> <span class="s">"command"</span><span class="p">:</span> <span class="s">"copy"</span><span class="p">,</span>  <span class="s">"keys"</span><span class="p">:</span> <span class="s">"ctrl+shift+c"</span> <span class="p">},</span>
+    <span class="p">{</span> <span class="s">"command"</span><span class="p">:</span> <span class="s">"paste"</span><span class="p">,</span> <span class="s">"keys"</span><span class="p">:</span> <span class="s">"ctrl+shift+v"</span> <span class="p">}</span>
+  <span class="p">]</span>
+<span class="p">}</span></code></pre>
+    </div>
+  </section>
+
+  <section id="term-fragments">
+    <h3>Fragment Extensions</h3>
+    <p>
+      Apps can ship a <strong>fragment</strong> — a small JSON file Terminal merges into the user's
+      settings at startup. This is how PowerShell, WSL distributions, and Visual Studio's
+      Developer PowerShell add their profiles without touching <code>settings.json</code>.
+    </p>
+    <p>Fragment search paths:</p>
+    <ul class="bullets">
+      <li><code>%ProgramData%\Microsoft\Windows Terminal\Fragments\&lt;app&gt;\&lt;file&gt;.json</code> — machine-wide.</li>
+      <li><code>%LocalAppData%\Microsoft\Windows Terminal\Fragments\&lt;app&gt;\&lt;file&gt;.json</code> — per-user.</li>
+      <li>MSIX-packaged extensions can declare a <code>uap3:Extension</code> with category
+        <code>windows.terminalProfile</code>.</li>
+    </ul>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">JSON</span><span class="file-hint">Fragment shipping a "Copilot CLI" profile</span></div>
+      <pre><code><span class="p">{</span>
+  <span class="s">"$schema"</span><span class="p">:</span> <span class="s">"https://aka.ms/terminal-profiles-schema"</span><span class="p">,</span>
+  <span class="s">"profiles"</span><span class="p">:</span> <span class="p">[</span>
+    <span class="p">{</span>
+      <span class="s">"updates"</span><span class="p">:</span>      <span class="s">"{a-stable-guid-here}"</span><span class="p">,</span>
+      <span class="s">"name"</span><span class="p">:</span>         <span class="s">"Copilot CLI"</span><span class="p">,</span>
+      <span class="s">"commandline"</span><span class="p">:</span>  <span class="s">"copilot"</span><span class="p">,</span>
+      <span class="s">"colorScheme"</span><span class="p">:</span>  <span class="s">"One Half Dark"</span><span class="p">,</span>
+      <span class="s">"icon"</span><span class="p">:</span>         <span class="s">"%ProgramFiles%/GitHub/Copilot/icon.png"</span>
+    <span class="p">}</span>
+  <span class="p">]</span>
+<span class="p">}</span></code></pre>
+    </div>
+  </section>
+
+  <section id="term-actions">
+    <h3>Actions &amp; Keybindings</h3>
+    <p>
+      Every interactive command in Terminal — split panes, switch tab, send input, run a command
+      with elevation — is an <em>action</em> declared in <code>actions[]</code>. Actions can be
+      bound to keys, surfaced in the command palette (<code>Ctrl+Shift+P</code>), or invoked from
+      the command line via <code>wt.exe</code>.
+    </p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">PowerShell</span><span class="file-hint">Spawning a layout from outside Terminal</span></div>
+      <pre><code>wt.exe new-tab --profile <span class="s">"PowerShell 7"</span> <span class="p">`</span>
+      <span class="p">;</span> split-pane --horizontal --profile <span class="s">"Copilot CLI"</span> <span class="p">`</span>
+      <span class="p">;</span> split-pane --vertical   --profile <span class="s">"Ubuntu"</span></code></pre>
+    </div>
+  </section>
+
+  <section id="term-agents">
+    <h3>Hosting AI Agents</h3>
+    <p>
+      Modern AI CLIs run inside Terminal as ordinary processes that read VT input and emit VT
+      output, with two extra wrinkles:
+    </p>
+    <ul class="bullets">
+      <li><strong>OSC 9;9 / OSC 1337</strong> escape sequences for cwd and shell-integration markers, used by Terminal to draw clickable folder breadcrumbs and to provide command timing.</li>
+      <li><strong>Sixel / iTerm2 inline images</strong> — Terminal supports Sixel rendering since 1.22; agents can return images directly to the prompt.</li>
+      <li><strong>Tool side-channels</strong> — MCP servers (this repo) and Copilot CLI use stdio JSON-RPC, completely orthogonal to the VT stream.</li>
+    </ul>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- CHAPTER 5: NT KERNEL & COM                                    -->
+  <!-- ============================================================ -->
+  <div class="chapter-banner kernel">
+    <div class="chap-num">Chapter 5</div>
+    <h2>NT Kernel &amp; COM Activation</h2>
+    <p>The OS-level mechanics every surface above depends on. Widgets, tiles, agents, and the MCP server all reduce eventually to processes activated via COM, scheduled by the NT kernel, and mediated by the object manager and ALPC.</p>
+  </div>
+
+  <section id="kernel-overview">
+    <h2>Overview</h2>
+    <p>
+      Windows is built on the <strong>NT kernel</strong> (<code>ntoskrnl.exe</code>), a hybrid
+      microkernel/monolithic design originally written by Dave Cutler's team starting in 1989.
+      Every user-mode process — including dashost.exe (the widget host), Windows Terminal, and
+      Python running this MCP server — sits on top of the same primitives: the object manager,
+      the ALPC IPC system, the registry, the security reference monitor, the I/O manager, and the
+      Win32 subsystem.
+    </p>
+  </section>
+
+  <section id="kernel-arch">
+    <h3>Architecture</h3>
+    <div class="diagram">  User mode
+  +----------------------------------------------------------------+
+  |  Win32 apps   UWP / WinAppSDK   .NET / CoreCLR   Python   ...  |
+  +-------+----------+----------------+----------------+-----------+
+          |          |                |                |
+          v          v                v                v
+  +-------+----------+----------------+----------------+-----------+
+  |   kernel32 / user32 / advapi32     |   ntdll.dll               |
+  |   combase / ole32 / rpcrt4         |  (syscall stubs)          |
+  +-------+--------------------+-------+----------+----------------+
+          |   csrss            |   wininit          |  lsass
+          |   (Win32 subsys)   |   (boot)           |  (security)
+          v                    v                    v
+  Kernel mode (ring 0)
+  +----------------------------------------------------------------+
+  |   ntoskrnl.exe                                                 |
+  |   +-- Executive (Object Manager, IO, Mem, Cache, Config)       |
+  |   +-- Kernel    (scheduler, syscalls, ALPC)                    |
+  |   +-- win32k.sys (window manager, GDI)                         |
+  |   +-- HAL                                                      |
+  +----------------------------------------------------------------+
+    </div>
+  </section>
+
+  <section id="kernel-objects">
+    <h3>Object Manager</h3>
+    <p>
+      Every kernel-managed resource — files, registry keys, threads, processes, mutexes, sections,
+      ALPC ports, devices — is an <em>object</em> in a single global namespace under
+      <code>\</code>. User-mode code receives <strong>handles</strong> to those objects; the
+      object manager enforces access checks via the security descriptor on each object.
+    </p>
+    <p>
+      You can browse the live namespace with Sysinternals <code>WinObj</code>. Of particular
+      interest for surfaces in this wiki:
+    </p>
+    <ul class="bullets">
+      <li><code>\RPC Control\</code> — ALPC ports used by COM and RPC services.</li>
+      <li><code>\BaseNamedObjects\</code> — named mutexes / events used by user-mode apps.</li>
+      <li><code>\Sessions\&lt;n&gt;\</code> — per-session subtrees for terminal-services-style isolation.</li>
+      <li><code>\Device\</code> — device objects exposed by drivers.</li>
+    </ul>
+  </section>
+
+  <section id="kernel-syscall">
+    <h3>User / Kernel Boundary</h3>
+    <p>
+      User-mode code never calls kernel functions directly. <code>ntdll.dll</code> contains a
+      stub for every system service (e.g. <code>NtCreateFile</code>) that loads the service
+      number into <code>eax</code> and issues <code>syscall</code> (x64) or <code>sysenter</code>
+      (x86). The CPU traps to ring 0, the kernel dispatches by service number through
+      <code>KiSystemServiceTable</code>, and returns with a status code.
+    </p>
+    <p>
+      Public Win32 APIs (<code>kernel32!CreateFile</code>) are thin wrappers over these
+      <code>Nt*</code> entry points. Modern Windows also exposes the <strong>WoW64</strong>
+      transition for 32-bit processes on 64-bit kernels, and <strong>Pico processes</strong>
+      (the WSL1 mechanism) which let a separate provider drive system calls.
+    </p>
+  </section>
+
+  <section id="kernel-com">
+    <h3>COM Activation</h3>
+    <p>
+      The Component Object Model is how Windows surfaces — including Widgets — bind a stable
+      identifier (a <strong>CLSID</strong>) to a piece of executable code. There are four
+      activation flavors:
+    </p>
+    <table>
+      <thead><tr><th>Flavor</th><th>Server type</th><th>Loaded into</th></tr></thead>
+      <tbody>
+        <tr><td>In-process</td><td>DLL</td><td>The caller's process.</td></tr>
+        <tr><td>Local out-of-process</td><td>EXE</td><td>A separate server EXE on the same machine. Used by <code>IWidgetProvider</code>.</td></tr>
+        <tr><td>Surrogate</td><td>DLL hosted by <code>dllhost.exe</code></td><td>A generic surrogate that loads the DLL out-of-proc for isolation.</td></tr>
+        <tr><td>Remote (DCOM)</td><td>EXE on another machine</td><td>Largely deprecated in modern apps.</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Registration historically lived under <code>HKCR\CLSID\{guid}</code>, with subkeys
+      <code>InProcServer32</code> / <code>LocalServer32</code> pointing at the binary. Packaged
+      apps register declaratively — the manifest's
+      <code>com:Extension</code> element creates the same registry entries scoped to the
+      MSIX package's identity, removing them when the package is uninstalled.
+    </p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">XML</span><span class="file-hint">Package.appxmanifest — out-of-proc COM server (Widget provider)</span></div>
+      <pre><code><span class="at">&lt;com:Extension</span> <span class="an">Category=</span><span class="av">"windows.comServer"</span><span class="at">&gt;</span>
+  <span class="at">&lt;com:ComServer&gt;</span>
+    <span class="at">&lt;com:ExeServer</span>
+        <span class="an">Executable=</span><span class="av">"WidgetProviderApp\WidgetProviderApp.exe"</span>
+        <span class="an">DisplayName=</span><span class="av">"Widget Provider Sample"</span>
+        <span class="an">Arguments=</span><span class="av">"-RegisterProcessAsComServer"</span><span class="at">&gt;</span>
+      <span class="at">&lt;com:Class</span> <span class="an">Id=</span><span class="av">"&lt;your-CLSID-here&gt;"</span> <span class="an">DisplayName=</span><span class="av">"WidgetProvider"</span> <span class="at">/&gt;</span>
+    <span class="at">&lt;/com:ExeServer&gt;</span>
+  <span class="at">&lt;/com:ComServer&gt;</span>
+<span class="at">&lt;/com:Extension&gt;</span></code></pre>
+    </div>
+  </section>
+
+  <section id="kernel-msix">
+    <h3>MSIX &amp; AppContainer</h3>
+    <p>
+      MSIX is the modern Windows packaging format. A <code>.msix</code> is a signed ZIP of the
+      app payload plus an <code>AppxManifest.xml</code>. At install time the package is mounted
+      into a per-app virtual file system root and a per-app virtual registry hive, both
+      torn down on uninstall.
+    </p>
+    <p>
+      Packaged processes can run inside an <strong>AppContainer</strong> — a sandbox that limits
+      access to the file system, registry, and named objects according to declared
+      <em>capabilities</em>. Widgets typically run in <code>runFullTrust</code> mode for compatibility
+      with the existing C# console-app pattern in Chapter 1, but can also run inside a
+      partial-trust container if all dependencies cooperate.
+    </p>
+  </section>
+
+  <section id="kernel-appext">
+    <h3>AppExtension Contract</h3>
+    <p>
+      <code>windows.appExtension</code> is a manifest-declared contract that lets one packaged
+      app advertise an extension and another packaged app discover it at runtime through
+      <code>AppExtensionCatalog.Open</code>. This is the activation grammar that the Widget host
+      uses to find your provider and that Windows Terminal's fragment search fits into.
+    </p>
+    <ul class="bullets">
+      <li>The <strong>provider</strong> declares <code>uap3:Extension Category="windows.appExtension"</code> with a <code>Name</code> matching the host's contract ID.</li>
+      <li>The <strong>host</strong> opens the catalogue for that contract ID, enumerates packages, and reads each provider's <code>Properties</code> XML to bootstrap activation.</li>
+      <li>Discovery is real-time — install a new provider package and the host fires <code>PackageInstalled</code>.</li>
+    </ul>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- CHAPTER 6: WINDOWS CLIPPY MCP                                  -->
+  <!-- ============================================================ -->
+  <div class="chapter-banner mcp">
+    <div class="chap-num">Chapter 6</div>
+    <h2>Windows Clippy MCP — this repository</h2>
+    <p>The Python MCP server that exposes the Windows desktop to AI agents. 49+ tools covering UI automation, browser control, M365, Power Platform, and the Microsoft Graph. Install with <code>uv sync</code>; run with <code>uv run main.py</code>.</p>
+  </div>
+
+  <section id="mcp-overview">
+    <h2>Overview</h2>
+    <p>
+      <strong>Windows Clippy MCP</strong> (<code>dayour/Windows-Clippy-MCP</code>) is a Python 3.13
+      Model Context Protocol server. An MCP-aware client — VS Code agent mode, Claude Desktop,
+      GitHub Copilot CLI, etc. — connects to it over stdio and gains access to a catalogue of
+      tools that drive the local Windows session: launch apps, click, type, take screenshots,
+      manage the clipboard, query the registry, run PowerShell, call Microsoft Graph, drive the
+      Power Platform CLI, and so on.
+    </p>
+    <div>
+      <span class="pill ok">Active project</span>
+      <span class="pill">Windows 11 only</span>
+      <span class="pill">Python 3.13 + UV</span>
+      <span class="pill">FastMCP</span>
+      <span class="pill">49+ tools</span>
+    </div>
+  </section>
+
+  <section id="mcp-what">
+    <h3>What is MCP?</h3>
+    <p>
+      The <a href="https://modelcontextprotocol.io">Model Context Protocol</a> is an open
+      JSON-RPC 2.0 spec for letting LLM clients discover and call <em>tools</em>, read
+      <em>resources</em>, and execute <em>prompts</em> exposed by a separate server process.
+      An MCP server is just a process that speaks JSON-RPC over stdio (or SSE / WebSocket)
+      and advertises a manifest of capabilities.
+    </p>
+    <table>
+      <thead><tr><th>Primitive</th><th>Purpose</th><th>This repo</th></tr></thead>
+      <tbody>
+        <tr><td>Tool</td><td>Function the model can call with structured arguments.</td><td>49+ tools — Click-Tool, State-Tool, Powershell-Tool, ...</td></tr>
+        <tr><td>Resource</td><td>Read-only data the model can fetch by URI.</td><td>Not currently exposed.</td></tr>
+        <tr><td>Prompt</td><td>Server-defined prompt template the client can offer.</td><td>Not currently exposed.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="mcp-arch">
+    <h3>Server Architecture</h3>
+    <div class="diagram">  +----------------+   stdio JSON-RPC    +-------------------------+
+  |  MCP client    | <-----------------> |   main.py  (FastMCP)    |
+  |  (VS Code,     |                     |   - tool registry       |
+  |  Claude, CLI)  |                     |   - request dispatcher  |
+  +----------------+                     +-----------+-------------+
+                                                     |
+                                  +------------------+-------------------+
+                                  |                                      |
+                          +-------v--------+                  +----------v-----+
+                          | src/desktop/   |                  | M365/Power     |
+                          |   views.py     |                  | Platform tools |
+                          | uiautomation,  |                  | mggraph,       |
+                          | pyautogui,     |                  | pac CLI,       |
+                          | pyperclip,     |                  | Graph API      |
+                          | psutil         |                  |                |
+                          +----------------+                  +----------------+
+    </div>
+    <p>Key files:</p>
+    <ul class="bullets">
+      <li><code>main.py</code> — every <code>@mcp.tool</code> decorator lives here. Adding a tool means adding one decorated function and updating the count in <code>README.md</code>.</li>
+      <li><code>src/desktop/views.py</code> — Desktop classes that wrap UI Automation traversal, screenshotting, and the live cursor watcher.</li>
+      <li><code>pyproject.toml</code> — UV-managed Python 3.13 project; pins <code>fastmcp</code>, <code>uiautomation</code>, <code>pyautogui</code>, <code>pyperclip</code>, <code>psutil</code>, <code>requests</code>, <code>markdownify</code>.</li>
+      <li><code>manifest.json</code> — MCP server metadata for clients.</li>
+      <li><code>AddToolProcess.md</code> — canonical authoring guide for new tools.</li>
+    </ul>
+  </section>
+
+  <section id="mcp-tools">
+    <h3>Tool Catalogue</h3>
+    <p>
+      The 49 tools are grouped into nine families. The full list lives in <code>README.md</code>
+      and is enumerated by the project's contributor docs — this section is a navigational map.
+    </p>
+    <table>
+      <thead><tr><th>Family</th><th>Count</th><th>Examples</th></tr></thead>
+      <tbody>
+        <tr><td>Core interaction</td><td>13</td><td>Launch-Tool, Powershell-Tool, State-Tool, Click-Tool, Type-Tool, Shortcut-Tool, Wait-Tool</td></tr>
+        <tr><td>Web &amp; browser</td><td>2</td><td>Browser-Tool, Scrape-Tool</td></tr>
+        <tr><td>Window management</td><td>3</td><td>Window-Tool, TaskView-Tool, Taskbar-Tool</td></tr>
+        <tr><td>Screenshot &amp; visual</td><td>4</td><td>Screenshot-Tool, Snip-Tool, Screen-Info-Tool, Cursor-Position-Tool</td></tr>
+        <tr><td>System control</td><td>6</td><td>Volume-Tool, Lock-Tool, ActionCenter-Tool, Run-Dialog-Tool</td></tr>
+        <tr><td>Settings / config</td><td>4</td><td>Settings-Tool, Registry-Tool, Wifi-Tool, Bluetooth-Tool</td></tr>
+        <tr><td>File &amp; process</td><td>5</td><td>File-Tool, FileExplorer-Tool, Process-Tool, SystemInfo-Tool, Search-Tool</td></tr>
+        <tr><td>Text editing</td><td>4</td><td>Text-Select-Tool, Find-Replace-Tool, Undo-Redo-Tool, Zoom-Tool</td></tr>
+        <tr><td>Notification</td><td>1</td><td>Notification-Tool</td></tr>
+        <tr><td>M365 &amp; Power Platform</td><td>7</td><td>PAC-CLI-Tool, Connect-MGGraph-Tool, Graph-API-Tool, Copilot-Studio-Tool, Power-Automate-Tool, M365-Copilot-Tool, Agent-Studio-Tool</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="mcp-install">
+    <h3>Install &amp; Run</h3>
+    <div class="callout warn">
+      <strong>WARNING:</strong> Windows-only. UI Automation, the Windows App SDK calls, and many
+      of the registry/process tools require a native Windows host. Linux and macOS will fail at
+      import time on the .NET-bridged dependencies.
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">PowerShell</span><span class="file-hint">First-time setup</span></div>
+      <pre><code><span class="c"># Prerequisite: UV package manager</span>
+pip install uv
+
+<span class="c"># Clone</span>
+git clone https://github.com/dayour/windows-clippy-mcp.git
+cd windows-clippy-mcp
+
+<span class="c"># 3-5 minutes the first time, &lt;1s thereafter</span>
+uv sync
+
+<span class="c"># Start the server (stdio)</span>
+uv run main.py</code></pre>
+    </div>
+  </section>
+
+  <section id="mcp-vscode">
+    <h3>VS Code Integration</h3>
+    <p>Drop these two files into your workspace and restart VS Code:</p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">JSON</span><span class="file-hint">.vscode/mcp.json</span></div>
+      <pre><code><span class="p">{</span>
+  <span class="s">"servers"</span><span class="p">:</span> <span class="p">{</span>
+    <span class="s">"windows-clippy-mcp"</span><span class="p">:</span> <span class="p">{</span>
+      <span class="s">"type"</span><span class="p">:</span>    <span class="s">"stdio"</span><span class="p">,</span>
+      <span class="s">"command"</span><span class="p">:</span> <span class="s">"uv"</span><span class="p">,</span>
+      <span class="s">"args"</span><span class="p">:</span>    <span class="p">[</span> <span class="s">"--directory"</span><span class="p">,</span> <span class="s">"${workspaceFolder}/windows-clippy-mcp"</span><span class="p">,</span> <span class="s">"run"</span><span class="p">,</span> <span class="s">"main.py"</span> <span class="p">]</span>
+    <span class="p">}</span>
+  <span class="p">},</span>
+  <span class="s">"inputs"</span><span class="p">:</span> <span class="p">[]</span>
+<span class="p">}</span></code></pre>
+    </div>
+  </section>
+
+  <section id="mcp-extending">
+    <h3>Adding Tools</h3>
+    <p>The tool authoring shape is one decorator over one function:</p>
+    <div class="code-block">
+      <div class="code-header"><span class="lang">Python</span><span class="file-hint">main.py — adding a new tool</span></div>
+      <pre><code><span class="at">@mcp.tool</span><span class="p">(</span>name<span class="p">=</span><span class="s">'NewTool-Name'</span><span class="p">,</span> description<span class="p">=</span><span class="s">'Clear description of functionality'</span><span class="p">)</span>
+<span class="k">def</span> <span class="me">new_tool</span><span class="p">(</span>param1<span class="p">:</span> <span class="t">str</span><span class="p">,</span> param2<span class="p">:</span> <span class="t">int</span> <span class="p">=</span> <span class="m">0</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="t">str</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c"># Use the desktop wrapper or pyautogui directly</span>
+        result <span class="p">=</span> <span class="me">do_work</span><span class="p">(</span>param1<span class="p">,</span> param2<span class="p">)</span>
+        <span class="k">return</span> <span class="s">f'Success: {result}'</span>
+    <span class="k">except</span> <span class="t">Exception</span> <span class="k">as</span> e<span class="p">:</span>
+        <span class="k">return</span> <span class="s">f'Error: {e}'</span></code></pre>
+    </div>
+    <p>Conventions enforced by the contributor guide:</p>
+    <ul class="bullets">
+      <li>Tool name is <code>&lt;Function&gt;-Tool</code>.</li>
+      <li>Always wrap the body in <code>try/except</code> and return a string. Never raise — the LLM client surfaces strings cleanly and re-raised exceptions break the JSON-RPC frame.</li>
+      <li>Update the tool count in <code>README.md</code> and add an entry to the family table.</li>
+      <li>Validate syntax (<code>uv run python -m py_compile main.py</code>) and exercise the tool on a real Windows host before committing.</li>
+    </ul>
+  </section>
+
+  <section id="mcp-security">
+    <h3>Security Notes</h3>
+    <div class="callout bug">
+      <strong>KNOWN BUG:</strong> Treat the MCP process as you would any agent that has full
+      keyboard, mouse, registry, and PowerShell access to the user's session. There is no
+      sandbox. Run only locally, against models you trust, and never expose the stdio transport
+      to a network listener without an authentication wrapper.
+    </div>
+    <ul class="bullets">
+      <li><code>Powershell-Tool</code> runs arbitrary commands as the current user. The same caveat applies to <code>Registry-Tool</code> writes (currently read-only) and <code>Process-Tool kill</code>.</li>
+      <li><code>Connect-MGGraph-Tool</code> uses interactive browser auth; tokens live in the user's profile cache. Treat them as scoped credentials.</li>
+      <li>UI Automation can read passwords typed into other windows. Be deliberate about <code>State-Tool</code> on screens with sensitive content.</li>
+    </ul>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- CHAPTER 7: COMPARISON                                          -->
+  <!-- ============================================================ -->
+  <div class="chapter-banner cmp">
+    <div class="chap-num">Chapter 7</div>
+    <h2>Comparison Matrix</h2>
+    <p>One table reading the entire wiki sideways: when to reach for which surface.</p>
+  </div>
+
+  <section id="cmp-matrix">
+    <h2>Side-by-side</h2>
+    <table>
+      <thead><tr>
+        <th>Aspect</th>
+        <th>Widget</th>
+        <th>Live Tile</th>
+        <th>MS Agent</th>
+        <th>Terminal</th>
+        <th>Clippy MCP</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td>Surface</td>
+          <td>Widgets Board</td>
+          <td>Start tile</td>
+          <td>Floating sprite</td>
+          <td>Tabbed window</td>
+          <td>Whole desktop</td>
+        </tr>
+        <tr>
+          <td>Host process</td>
+          <td>dashost.exe</td>
+          <td>Start / shell</td>
+          <td>AgentSvr.exe</td>
+          <td>WindowsTerminal.exe</td>
+          <td>python.exe (this server)</td>
+        </tr>
+        <tr>
+          <td>Activation</td>
+          <td>COM CLSID + AppExt</td>
+          <td>App identity (manifest)</td>
+          <td>COM <code>Agent.Control.2</code></td>
+          <td>ConPTY child proc</td>
+          <td>stdio JSON-RPC</td>
+        </tr>
+        <tr>
+          <td>Content format</td>
+          <td>Adaptive Cards JSON</td>
+          <td>Tile XML</td>
+          <td>ACS animations + speech</td>
+          <td>VT escape sequences</td>
+          <td>Tool name + args (JSON)</td>
+        </tr>
+        <tr>
+          <td>Lifecycle</td>
+          <td>Pinned by user</td>
+          <td>Pinned, push-updated</td>
+          <td>Show/Hide on demand</td>
+          <td>Per-shell tabs</td>
+          <td>Per-MCP-session</td>
+        </tr>
+        <tr>
+          <td>Interaction</td>
+          <td>Buttons, inputs</td>
+          <td>Tap = launch</td>
+          <td>Speech + click</td>
+          <td>Keyboard / VT</td>
+          <td>Tool calls from LLM</td>
+        </tr>
+        <tr>
+          <td>Status</td>
+          <td><span class="pill ok">Active</span></td>
+          <td><span class="pill dep">Win11: not rendered</span></td>
+          <td><span class="pill dep">Removed Win7+</span></td>
+          <td><span class="pill ok">Active</span></td>
+          <td><span class="pill ok">Active</span></td>
+        </tr>
+        <tr>
+          <td>Best for</td>
+          <td>Glanceable, interactive content</td>
+          <td>Legacy ambient updates</td>
+          <td>Historical reference</td>
+          <td>Hosting CLIs / agents</td>
+          <td>LLM driving the desktop</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="references">
+    <h2>References</h2>
+    <ul class="bullets">
+      <li>Microsoft Learn &mdash; <em>Implement a widget provider in a C# Windows App</em>: <code>learn.microsoft.com/windows/apps/develop/widgets/widget-provider-cs</code></li>
+      <li>Microsoft Learn &mdash; <em>Adaptive Cards documentation</em>: <code>adaptivecards.io/explorer</code></li>
+      <li>Microsoft Learn &mdash; <em>Tile XML schema</em>: <code>learn.microsoft.com/windows/apps/design/shell/tiles-and-notifications/tile-schema</code></li>
+      <li>Microsoft Learn &mdash; <em>Windows 11 Live Tiles deprecation</em>: <code>learn.microsoft.com/windows/apps/design/shell/tiles-and-notifications/notifications-overview</code></li>
+      <li><em>Microsoft Agent SDK 2.0</em> documentation (archived): <code>web.archive.org/web/2010*/msdn.microsoft.com/en-us/library/ms695784.aspx</code></li>
+      <li><code>microsoft/terminal</code> on GitHub &mdash; source, schemas, fragment docs.</li>
+      <li>Microsoft Learn &mdash; <em>ConPTY API</em>: <code>learn.microsoft.com/windows/console/creating-a-pseudoconsole-session</code></li>
+      <li><em>Windows Internals, Part 1 &amp; 2</em> &mdash; Russinovich, Solomon, Allievi, Ionescu. Authoritative reference for the kernel chapter.</li>
+      <li><code>modelcontextprotocol.io</code> &mdash; MCP specification.</li>
+      <li><code>github.com/dayour/Windows-Clippy-MCP</code> &mdash; this repository.</li>
+      <li>Microsoft Learn &mdash; <em>MSIX packaging</em>: <code>learn.microsoft.com/windows/msix</code></li>
+      <li>Microsoft Learn &mdash; <em>App extensions (windows.appExtension)</em>: <code>learn.microsoft.com/windows/uwp/launch-resume/how-to-create-an-extension</code></li>
+    </ul>
+  </section>
+
+</main>
+
+<script>
+  // Active TOC link tracking via IntersectionObserver
+  (function () {
+    const sections = document.querySelectorAll('[id]');
+    const links    = document.querySelectorAll('nav#toc a');
+    const map      = {};
+    links.forEach(a => { map[a.getAttribute('href').slice(1)] = a; });
+
+    let activeId = null;
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          if (activeId) { const prev = map[activeId]; if (prev) prev.classList.remove('active'); }
+          activeId = e.target.id;
+          const cur = map[activeId];
+          if (cur) { cur.classList.add('active'); cur.scrollIntoView({ block: 'nearest' }); }
+        }
+      });
+    }, { rootMargin: '-10% 0px -80% 0px' });
+
+    sections.forEach(s => observer.observe(s));
+  })();
+</script>
+</body>
+</html>

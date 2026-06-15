@@ -214,7 +214,7 @@ ALL PASS
 
 > cd widget\WidgetHost
 > dotnet build -c Debug /nologo
-WidgetHost -> E:\Windows-Clippy-MCP\widget\WidgetHost\bin\Debug\net8.0-windows\WidgetHost.dll
+WidgetHost -> E:\Windows-Clippy-MCP\widget\WidgetHost\bin\Debug\net10.0-windows\WidgetHost.dll
 Build succeeded.
     1 Warning(s)    (pre-existing CS0067 in ConPtyConnection.cs)
     0 Error(s)
