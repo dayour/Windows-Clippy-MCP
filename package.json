@@ -133,7 +133,7 @@
   ],
   "preferGlobal": false,
   "dependencies": {
-    "@modelcontextprotocol/ext-apps": "^1.7.2",
+    "@modelcontextprotocol/ext-apps": "^2.0.0",
     "node-pty": "^1.1.0"
   }
 }
