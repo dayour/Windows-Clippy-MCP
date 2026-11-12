@@ -38,7 +38,6 @@ yarn-debug.log*
 yarn-error.log*
 .npm/
 .yarn/
-package-lock.json
 yarn.lock
 
 # IDE
