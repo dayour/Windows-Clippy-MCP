@@ -34,7 +34,7 @@ function logInfo(message) {
 
 async function validatePackageStructure() {
   log(`${colors.bold}Windows Clippy MCP - Package Validation${colors.reset}`);
-  log(`${colors.blue} Validating package structure including WC25.png logo${colors.reset}`);
+  log(`${colors.blue} Validating package structure including Agent-Clippy-256.png logo${colors.reset}`);
   log('');
 
     const requiredFiles = [
@@ -85,7 +85,7 @@ async function validatePackageStructure() {
       'widget/adaptive-cards/clippy-native-livetile.template.json',
       'widget/adaptive-cards/clippy-native-livetile.data.schema.json',
       'widget/adaptive-cards/clippy-native-livetile.data.json',
-      'assets/WC25.png',
+      'assets/Agent-Clippy-256.png',
       'README.md',
       'LICENSE'
   ];
@@ -139,14 +139,13 @@ async function validatePackageStructure() {
     }
 
     const requiredPackagedPaths = [
-      'assets/WC25.png',
+      'assets/Agent-Clippy-256.png',
       'assets/agentcard_32.png',
       'assets/agentcard_192.png',
       'assets/agentcard_focused_32.png',
-      'assets/clippy25_32.png',
-      'assets/clippy25_96.png',
-      'assets/clippy25_128.png',
-      'assets/clippy25_256.png',
+      'assets/Agent-Clippy-32.png',
+      'assets/Agent-Clippy-96.png',
+      'assets/Agent-Clippy-128.png',
       'scripts/**',
       'widget/clippy-widget.ps1',
       'widget/clippy-cursor.ps1',

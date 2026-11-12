@@ -2,7 +2,7 @@
 
 <div align="center">
 
-  <img src="assets/WC25.png" alt="Windows Clippy MCP Logo" width="200" height="200">
+  <img src="assets/Agent-Clippy-256.png" alt="Windows Clippy MCP Logo" width="200" height="200">
 
   <h1>Windows Clippy MCP</h1>
 

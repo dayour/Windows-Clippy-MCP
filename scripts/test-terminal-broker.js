@@ -92,6 +92,7 @@ const {
   createTerminalAdaptiveCard,
   createTerminalCardSnapshot,
   createLaunchConfig,
+  withResumeExisting,
   resolveSpawnPlan,
   buildPromptSpawnArgs,
   resolvePromptSpawnPlan,
@@ -158,7 +159,8 @@ assert(config3.mode === null, 'createLaunchConfig() ignores invalid mode');
 const plan = resolveSpawnPlan(config2);
 assert(typeof plan.executable === 'string', 'resolveSpawnPlan() returns executable');
 assert(Array.isArray(plan.argv), 'resolveSpawnPlan() returns argv array');
-assert(plan.argv.some((a) => a.startsWith('--resume=')), 'argv includes --resume flag');
+assert(plan.argv.some((a) => a.startsWith('--session-id=')), 'argv includes --session-id flag for a new session');
+assert(!plan.argv.some((a) => a.startsWith('--resume=')), 'new sessions do not use --resume');
 assert(plan.argv.includes('--agent'), 'argv includes --agent flag');
 assert(plan.argv.includes('dayour-swe'), 'argv includes agent name');
 assert(plan.argv.includes('--model'), 'argv includes --model flag');
@@ -183,6 +185,13 @@ assert(promptPlan.argv[0] === '-p', 'resolvePromptSpawnPlan() returns prompt-mod
 assert(promptPlan.prompt === 'Say hello', 'resolvePromptSpawnPlan() preserves prompt text');
 assert(promptPlan.cwd === config2.workingDirectory, 'resolvePromptSpawnPlan() includes cwd');
 assert(Object.isFrozen(promptPlan), 'resolvePromptSpawnPlan() result is frozen');
+
+const resumeConfig = withResumeExisting(config2, true);
+assert(resumeConfig.resumeExisting === true, 'withResumeExisting() marks the session as established');
+assert(resumeConfig.sessionId === config2.sessionId, 'withResumeExisting() keeps the same session id');
+const resumePlan = resolveSpawnPlan(resumeConfig);
+assert(resumePlan.argv.some((a) => a.startsWith('--resume=')), 'established sessions use --resume');
+assert(!resumePlan.argv.some((a) => a.startsWith('--session-id=')), 'established sessions do not recreate with --session-id');
 
 assertThrows(() => createLaunchConfig({ sessionId: 'not-a-uuid' }), 'createLaunchConfig() throws on invalid sessionId');
 assertThrows(() => createLaunchConfig({ tools: ['not-a-tool-flag'] }), 'createLaunchConfig() throws on unsupported tool flag');

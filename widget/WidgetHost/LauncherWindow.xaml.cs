@@ -454,7 +454,7 @@ public partial class LauncherWindow : Window
 
     private void LoadLauncherIcon()
     {
-        var iconPath = Path.Combine(ResolveRepoRoot(), "assets", "clippy25_96.png");
+        var iconPath = Path.Combine(ResolveRepoRoot(), "assets", "Agent-Clippy-96.png");
         if (!File.Exists(iconPath))
         {
             WidgetHostLogger.Log($"Launcher icon was not found at {iconPath}.");

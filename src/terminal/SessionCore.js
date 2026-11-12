@@ -13,8 +13,9 @@
  * Responsibilities:
  *   - Accept a SessionLaunchConfig and build the argv + environment block
  *     that a ChildHost will pass to child_process.spawn.
- *   - Provide helpers for assembling --resume, --config-dir, --agent, --model,
- *     tool/extension flags, and session metadata environment variables.
+ *   - Provide helpers for assembling --session-id (new) or --resume (existing),
+ *     --config-dir / COPILOT_HOME, --agent, --model, tool/extension flags, and
+ *     session metadata environment variables.
  *   - Validate the config before it reaches the spawner so ChildHost gets a
  *     clean invocation or a clear early error.
  *
@@ -114,8 +115,9 @@ function normalizeToolFlag(toolName) {
  * Creates a validated, normalised SessionLaunchConfig.
  *
  * Fields:
- *   sessionId  {string}   UUID that maps to --resume on the CLI.
- *   configDir  {string}   Path passed as --config-dir.
+ *   sessionId  {string}   UUID for --session-id on first turn, --resume after.
+ *   resumeExisting {boolean} When true, emit --resume instead of --session-id.
+ *   configDir  {string}   Path passed as --config-dir and COPILOT_HOME.
  *   agent      {string|null} Agent name (e.g. "dayour-swe").
  *   model      {string|null} Model hint (e.g. "gpt-5.4").
  *   mode       {string|null} Session mode metadata (not currently emitted as a CLI flag).
@@ -169,6 +171,7 @@ function createLaunchConfig(options = {}) {
 
   return Object.freeze({
     sessionId,
+    resumeExisting: options.resumeExisting === true,
     configDir,
     agent,
     model,
@@ -179,6 +182,31 @@ function createLaunchConfig(options = {}) {
     executable,
     extraFlags
   });
+}
+
+function withResumeExisting(config, resumeExisting = true) {
+  return createLaunchConfig({
+    sessionId: config.sessionId,
+    resumeExisting,
+    configDir: config.configDir,
+    agent: config.agent || undefined,
+    model: config.model || undefined,
+    mode: config.mode || undefined,
+    tools: config.tools,
+    extensions: config.extensions,
+    workingDirectory: config.workingDirectory,
+    executable: config.executable,
+    extraFlags: config.extraFlags
+  });
+}
+
+function buildSessionIdentityArg(config) {
+  const id = config.sessionId;
+  return config.resumeExisting ? `--resume=${id}` : `--session-id=${id}`;
+}
+
+function isMissingSessionError(text) {
+  return /no session, task, or name matched/i.test(String(text || ''));
 }
 
 // ---------------------------------------------------------------------------
@@ -196,10 +224,11 @@ function createLaunchConfig(options = {}) {
 function buildSpawnArgs(config) {
   const argv = [];
 
-  // Session resume ID -- always present so the session is addressable.
-  argv.push(`--resume=${config.sessionId}`);
+  // New sessions must use --session-id. --resume only works after Copilot
+  // has already created that session, otherwise -p exits with no reply.
+  argv.push(buildSessionIdentityArg(config));
 
-  // Config dir -- mirrors clippy-session.js convention.
+  // Config dir -- keep the flag and also set COPILOT_HOME (flag is deprecated).
   argv.push('--config-dir', config.configDir);
 
   // Force structured, transcript-friendly output for hidden widget sessions.
@@ -251,7 +280,7 @@ function buildSpawnArgs(config) {
 function buildTerminalSpawnArgs(config) {
   const argv = [];
 
-  argv.push(`--resume=${config.sessionId}`);
+  argv.push(buildSessionIdentityArg(config));
   argv.push('--config-dir', config.configDir);
 
   if (config.agent) {
@@ -309,7 +338,8 @@ function buildSessionEnvironment(config) {
   return Object.assign({}, process.env, {
     CLIPPY_SESSION_ID: config.sessionId,
     CLIPPY_SESSION_MODE: config.mode || '',
-    CLIPPY_WORKING_DIRECTORY: config.workingDirectory
+    CLIPPY_WORKING_DIRECTORY: config.workingDirectory,
+    COPILOT_HOME: config.configDir
   });
 }
 
@@ -371,6 +401,9 @@ module.exports = {
   TOOL_FLAG_ALIASES,
   VALID_MODES,
   createLaunchConfig,
+  withResumeExisting,
+  buildSessionIdentityArg,
+  isMissingSessionError,
   buildSpawnArgs,
   buildTerminalSpawnArgs,
   buildPromptSpawnArgs,

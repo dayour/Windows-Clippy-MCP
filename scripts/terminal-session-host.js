@@ -8,6 +8,8 @@ const { spawn } = require('child_process');
 const { randomUUID } = require('crypto');
 const {
   createLaunchConfig,
+  withResumeExisting,
+  isMissingSessionError,
   buildTerminalSpawnArgs,
   buildPromptSpawnArgs,
   resolveSpawnPlan,
@@ -749,10 +751,16 @@ async function runPrompt(context, promptText) {
       context.activePrompt = null;
 
       const stderrText = normalizeOutputLine(buffers.stderr);
+      if (typeof code === 'number' && code === 0) {
+        context.launchConfig = withResumeExisting(context.launchConfig, true);
+      }
       if (typeof code === 'number' && code !== 0 && stderrText) {
         context.sink.emitSessionError(stderrText);
         recordTerminalCardSessionError(context.cardRuntime, stderrText);
         emitTerminalCard(context);
+        if (isMissingSessionError(stderrText) && context.launchConfig.resumeExisting) {
+          context.launchConfig = withResumeExisting(context.launchConfig, false);
+        }
       }
 
       recordTerminalCardSessionExit(context.cardRuntime, typeof code === 'number' ? code : null, signal);

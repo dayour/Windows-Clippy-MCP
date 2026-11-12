@@ -2,7 +2,7 @@
 
 [![Terminal Build Status](https://dev.azure.com/shine-oss/terminal/_apis/build/status%2FTerminal%20CI?branchName=main)](https://dev.azure.com/shine-oss/terminal/_build/latest?definitionId=1&branchName=main)
 
-# Welcome to the Windows Terminal, Console and Command-Line repo
+# Welcome to the Windows Clippy Terminal- a complete agentic Console and Command-Line repo
 
 <details>
   <summary><strong>Table of Contents</strong></summary>

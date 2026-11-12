@@ -390,7 +390,7 @@ internal sealed class TerminalTabSession : IDisposable
     {
         var arguments = new List<string>
         {
-            $"--resume={SessionId}",
+            $"--session-id={SessionId}",
             "--config-dir",
             _copilotConfigDir,
             "--no-color",
@@ -491,7 +491,7 @@ internal sealed class TerminalTabSession : IDisposable
                 WaitingForResponse = false
             };
         MetadataChanged?.Invoke(this, EventArgs.Empty);
-        WidgetHostLogger.Log($"Native terminal exited. Session={SessionId}; ExitCode={exitCode?.ToString() ?? "(unknown)"}");
+        WidgetHostLogger.Log($"Native terminal exited. Session={SessionId}; ExitCode={exitCode?.ToString() ?? "(unknown)"}; Prompt={_sessionCard?.LatestPrompt}; Assistant={_sessionCard?.LatestAssistantText}; Plain={_sessionCard?.LatestPlainText}; Error={_sessionCard?.LastError}");
         Exited?.Invoke(this, EventArgs.Empty);
     }
 

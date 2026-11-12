@@ -741,32 +741,40 @@ public partial class MainWindow : Window
             return;
         }
 
-        await EnsureCommanderInitializedAsync();
-        SetCommanderNotice(null);
-        var dispatchResult = _commanderSession.TrySubmitPrompt(text);
-        if (dispatchResult != CommanderDispatchResult.Delivered)
+        await EnsureBenchInitializedAsync();
+        session = ResolveSelectedSession();
+        if (session is null)
         {
-            var message = dispatchResult switch
+            SetCommanderNotice("ERROR: No terminal tab is available for that prompt.");
+            UpdateStatus("No terminal tab to receive the prompt.");
+            return;
+        }
+
+        if (!session.IsReady)
+        {
+            for (var attempt = 0; attempt < 10 && !session.IsReady; attempt++)
             {
-                CommanderDispatchResult.Busy => "WARNING: Commander is still working on the previous turn.",
-                CommanderDispatchResult.NotReady => "WARNING: Commander is still starting. Try again in a moment.",
-                CommanderDispatchResult.Disposed => "ERROR: Commander session is unavailable.",
-                _ => "WARNING: Commander could not accept that prompt."
-            };
-            SetCommanderNotice(message);
-            UpdateStatus("Commander prompt was not accepted.");
+                await Task.Delay(250);
+            }
+        }
+
+        if (!session.IsReady)
+        {
+            SetCommanderNotice("WARNING: The active tab is still starting. Try again in a moment.");
+            UpdateStatus($"Waiting for {session.DisplayName} to start.");
             UpdateSessionMeta(session);
             return;
         }
 
+        SetCommanderNotice(null);
+        WidgetHostLogger.Log($"Passing commander prompt to tab {session.DisplayName} ({session.SessionId}); waiting={session.IsWaitingForResponse}: {(text.Length > 80 ? text[..80] + "..." : text)}");
+        session.SendInput(text);
         InputBox.Clear();
         SlashPopup.IsOpen = false;
         InputBox.Focus();
         UpdateSessionMeta(session);
-        UpdateStatus("Commander prompt submitted.");
-        WidgetHostLogger.Log($"Commander prompt submitted to dedicated session: {(text.Length > 80 ? text[..80] + "..." : text)}");
+        UpdateStatus($"Prompt sent to {session.DisplayName}.");
     }
-
     private async Task<(bool Handled, bool RefocusInput)> TryHandleCommanderCommandAsync(string inputText, TerminalTabSession? session)
     {
         var text = inputText.Trim();
@@ -1949,8 +1957,13 @@ public partial class MainWindow : Window
 
         if (Tabs.Items.Count == 0)
         {
-            UpdateStatus("All tabs closed.");
-            HideBench();
+            UpdateStatus(sessionExited
+                ? $"{session.DisplayName} exited. Bench stayed open so the reply stays visible."
+                : "All tabs closed.");
+            if (!sessionExited)
+            {
+                HideBench();
+            }
             return;
         }
 

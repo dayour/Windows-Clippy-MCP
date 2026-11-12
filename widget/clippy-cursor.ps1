@@ -1644,7 +1644,7 @@ function script:Build-ClippyCursorContextMenu {
         $capturedId = $actionId
         $item.Add_Click({
             $pos = [System.Windows.Forms.Cursor]::Position
-            script:Invoke-ClippyAnalysis -ScreenX $pos.X -ScreenY $pos.Y -ActionId $capturedId
+            Invoke-ClippyAnalysis -ScreenX $pos.X -ScreenY $pos.Y -ActionId $capturedId
         }.GetNewClosure())
         $menu.Items.Add($item) | Out-Null
     }
@@ -1667,7 +1667,7 @@ function script:Build-ClippyCursorContextMenu {
         $capturedId = $actionId
         $item.Add_Click({
             $pos = [System.Windows.Forms.Cursor]::Position
-            script:Invoke-ClippyAnalysis -ScreenX $pos.X -ScreenY $pos.Y -ActionId $capturedId
+            Invoke-ClippyAnalysis -ScreenX $pos.X -ScreenY $pos.Y -ActionId $capturedId
         }.GetNewClosure())
         $menu.Items.Add($item) | Out-Null
     }
@@ -1808,7 +1808,7 @@ function script:Install-ClippyCursorHooks {
         $script:MouseHookInstance.RequireControlModifier = [bool]$script:ClippyCursorRequireCtrlForMenu
         $script:MouseHookInstance.Add_RightClick({
             param($sender, $e)
-            script:Show-ClippyCursorContextMenu -ScreenX $e.X -ScreenY $e.Y
+            Show-ClippyCursorContextMenu -ScreenX $e.X -ScreenY $e.Y
         }.GetNewClosure())
         $hookOk = $script:MouseHookInstance.Install()
         if ($hookOk -ne [IntPtr]::Zero) {
@@ -1840,7 +1840,7 @@ function script:Install-ClippyCursorHooks {
             }
             if ($actionId) {
                 [System.Windows.Application]::Current.Dispatcher.BeginInvoke([Action]{
-                    script:Invoke-ClippyAnalysis -ScreenX $pos.X -ScreenY $pos.Y -ActionId $actionId
+                    Invoke-ClippyAnalysis -ScreenX $pos.X -ScreenY $pos.Y -ActionId $actionId
                 })
             }
         }.GetNewClosure())

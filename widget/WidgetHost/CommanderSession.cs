@@ -313,6 +313,15 @@ internal sealed class CommanderSession : IDisposable
             {
                 WidgetHostLogger.Log(
                     $"Commander terminal-card turn ended without assistant text. errorChars={snapshot.LastError.Length}; toolChars={snapshot.LatestToolSummary.Length}");
+                var errorText = snapshot.LastError;
+                if (!string.IsNullOrWhiteSpace(errorText))
+                {
+                    AddHistoryEntry("Error", errorText, DateTimeOffset.UtcNow);
+                }
+                else
+                {
+                    AddHistoryEntry("Error", "Copilot returned no text for that prompt.", DateTimeOffset.UtcNow);
+                }
             }
             else
             {

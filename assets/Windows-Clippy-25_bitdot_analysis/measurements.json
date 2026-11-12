@@ -1,0 +1,57 @@
+{
+  "source_svg": "/mnt/data/db7c7621-ad04-4ae5-b2d3-6fc8dc5716de.svg",
+  "source_image_size": [
+    1015,
+    1549
+  ],
+  "alpha_nontransparent_bbox": [
+    116,
+    44,
+    910,
+    1471
+  ],
+  "logo_nonwhite_bbox": [
+    117,
+    45,
+    910,
+    1468
+  ],
+  "token_crop_roi": [
+    480,
+    1000,
+    940,
+    1510
+  ],
+  "token_saturated_bbox": [
+    526,
+    1066,
+    910,
+    1468
+  ],
+  "token_outer_circle_fit": {
+    "cx": 718.0,
+    "cy": 1273.0,
+    "r": 193.0
+  },
+  "token_outer_circle_hough": {
+    "cx": 717.5,
+    "cy": 1273.5,
+    "r": 192.5
+  },
+  "token_inner_white_ring_fit": {
+    "cx": 717.5,
+    "cy": 1274.5,
+    "r": 167.9
+  },
+  "token_center_lock": {
+    "cx": 718,
+    "cy": 1274
+  },
+  "token_max_visible_bbox_including_bolt_and_aa": [
+    526,
+    1066,
+    910,
+    1468
+  ],
+  "notes": "Attached SVG is an SVG wrapper embedding a 1015x1549 transparent PNG; the measurement grid must treat that raster pixel grid as the source of truth."
+}

@@ -637,7 +637,7 @@ async function showCompletionMessage() {
   log(`${colors.bold}${colors.green}Windows Clippy MCP Setup Complete!${colors.reset}`);
   log('');
   log(`${colors.bold}Your friendly AI assistant is ready to help!${colors.reset}`);
-  log(`${colors.blue} Look for the WC25.png logo in the assets folder${colors.reset}`);
+  log(`${colors.blue} Look for the Agent-Clippy-256.png logo in the assets folder${colors.reset}`);
   log('');
   log(`${colors.bold}Installed Tools & Features:${colors.reset}`);
   log(` • ${colors.green}49 total tools (42 Desktop Automation + 7 M365/Power Platform)${colors.reset}`);

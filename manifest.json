@@ -2,6 +2,6 @@
   "name": "Windows Clippy MCP",
   "description": "Your friendly AI assistant for Windows desktop automation and Microsoft 365 integration",
   "version": "0.2.1",
-  "icon": "assets/WC25.png",
-  "logo": "assets/WC25.png"
+  "icon": "assets/Agent-Clippy-256.png",
+  "logo": "assets/Agent-Clippy-256.png"
 }

@@ -1,4 +1,4 @@
-﻿#requires -Version 7.0
+#requires -Version 7.0
 <#
 .SYNOPSIS
     Windows Clippy - Floating desktop widget with an adaptive Clippy bench UI.
@@ -959,8 +959,8 @@ function script:Load-Icon ([string]$Path) {
     return $bmp
 }
 
-$iconLarge = Join-Path $AssetsDir "clippy25_128.png"
-$iconSmall = Join-Path $AssetsDir "clippy25_32.png"
+$iconLarge = Join-Path $AssetsDir "Agent-Clippy-128.png"
+$iconSmall = Join-Path $AssetsDir "Agent-Clippy-32.png"
 $script:WidgetIconLarge = $null
 $script:WidgetIconSmall = $null
 if (Test-Path $iconLarge) {
@@ -7981,7 +7981,7 @@ function script:Show-AboutDialog {
 
     $heroImagePath = Join-Path $AssetsDir 'WC25.png'
     if (-not (Test-Path $heroImagePath -PathType Leaf)) {
-        $heroImagePath = Join-Path $AssetsDir 'clippy25_256.png'
+        $heroImagePath = Join-Path $AssetsDir 'Agent-Clippy-256.png'
     }
     if (Test-Path $heroImagePath -PathType Leaf) {
         try {

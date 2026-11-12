@@ -55,6 +55,9 @@ const {
 const {
   SessionCore,
   createLaunchConfig,
+  withResumeExisting,
+  buildSessionIdentityArg,
+  isMissingSessionError,
   resolveSpawnPlan,
   buildSpawnArgs,
   buildTerminalSpawnArgs,
@@ -105,6 +108,9 @@ module.exports = {
 
   // SessionCore
   createLaunchConfig,
+  withResumeExisting,
+  buildSessionIdentityArg,
+  isMissingSessionError,
   resolveSpawnPlan,
   buildSpawnArgs,
   buildTerminalSpawnArgs,

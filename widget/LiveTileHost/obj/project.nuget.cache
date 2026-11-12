@@ -1,8 +1,13 @@
 {
   "version": 2,
-  "dgSpecHash": "kFfUZm1ZZb0=",
+  "dgSpecHash": "eXBXrSmfLgE=",
   "success": true,
   "projectFilePath": "E:\\Windows-Clippy-MCP\\widget\\LiveTileHost\\LiveTileHost.csproj",
-  "expectedPackageFiles": [],
+  "expectedPackageFiles": [
+    "C:\\Users\\dayour\\.nuget\\packages\\microsoft.netcore.app.ref\\10.0.14\\microsoft.netcore.app.ref.10.0.14.nupkg.sha512",
+    "C:\\Users\\dayour\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\10.0.14\\microsoft.windowsdesktop.app.ref.10.0.14.nupkg.sha512",
+    "C:\\Users\\dayour\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\10.0.14\\microsoft.aspnetcore.app.ref.10.0.14.nupkg.sha512",
+    "C:\\Users\\dayour\\.nuget\\packages\\microsoft.netcore.app.host.win-x64\\10.0.14\\microsoft.netcore.app.host.win-x64.10.0.14.nupkg.sha512"
+  ],
   "logs": []
 }

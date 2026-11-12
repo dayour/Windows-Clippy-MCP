@@ -5,7 +5,7 @@
 Write-Host ""
 Write-Host "Windows Clippy MCP - Admin PowerShell Setup" -ForegroundColor Green
 Write-Host "   Your friendly AI assistant for Windows desktop automation" -ForegroundColor Blue
-Write-Host "   Logo: assets/WC25.png" -ForegroundColor Cyan
+Write-Host "   Logo: assets/Agent-Clippy-256.png" -ForegroundColor Cyan
 Write-Host ""
 
 # Set location to Windows Clippy MCP directory
