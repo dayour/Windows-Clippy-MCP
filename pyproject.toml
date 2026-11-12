@@ -11,11 +11,11 @@ urls = { homepage = "https://github.com/dayour/windows-clippy-mcp" }
 keywords = ["windows", "mcp", "ai", "desktop", "ai agent", "clippy", "microsoft", "m365", "copilot"]
 requires-python = ">=3.13"
 dependencies = [
-    "fastmcp>=2.8.1",
+    "fastmcp>=3.2.0",
     "fuzzywuzzy>=0.18.0",
     "humancursor>=1.1.5",
     "markdownify>=1.1.0",
-    "pillow>=11.2.1",
+    "pillow>=12.2.0",
     "psutil>=7.0.0",
     "pyautogui>=0.9.54",
     "python-levenshtein>=0.27.1",
